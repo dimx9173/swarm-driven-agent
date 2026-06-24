@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" font-family="ui-monospace, 'SF Mono', Menlo, monospace">
+  <defs>
+    <!-- Background gradient -->
+    <radialGradient id="bg" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#0a0a1f"/>
+      <stop offset="60%" stop-color="#05050f"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+
+    <!-- SOUL core gradient -->
+    <radialGradient id="soulCore" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="20%" stop-color="#a0e9ff"/>
+      <stop offset="55%" stop-color="#5b8cff"/>
+      <stop offset="100%" stop-color="#5b8cff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Subagent gradients -->
+    <radialGradient id="alpha" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#a6ffe1"/>
+      <stop offset="60%" stop-color="#00d9a3" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#00d9a3" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="beta" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffb3b3"/>
+      <stop offset="60%" stop-color="#ff3b5c" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ff3b5c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gamma" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff0a6"/>
+      <stop offset="60%" stop-color="#ffb800" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ffb800" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="builder" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#b3d4ff"/>
+      <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="destroyer" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff8a3b"/>
+      <stop offset="60%" stop-color="#ff3b3b" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ff3b3b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="bigGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Hex grid pattern -->
+    <pattern id="hexGrid" x="0" y="0" width="60" height="52" patternUnits="userSpaceOnUse">
+      <path d="M30,0 L60,17 L60,35 L30,52 L0,35 L0,17 Z" fill="none" stroke="#1a1a3a" stroke-width="0.5" opacity="0.4"/>
+    </pattern>
+
+    <!-- Animated connection line -->
+    <linearGradient id="dataFlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5b8cff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#5b8cff" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#5b8cff" stop-opacity="0"/>
+      <animate attributeName="x1" from="-100%" to="100%" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="x2" from="0%" to="200%" dur="3s" repeatCount="indefinite"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <rect width="1200" height="800" fill="url(#hexGrid)"/>
+
+  <!-- Stars -->
+  <g fill="#ffffff" opacity="0.6">
+    <circle cx="120" cy="80" r="0.8"><animate attributeName="opacity" values="0.2;1;0.2" dur="3s" repeatCount="indefinite"/></circle>
+    <circle cx="200" cy="150" r="0.6"><animate attributeName="opacity" values="0.4;1;0.4" dur="2.5s" repeatCount="indefinite"/></circle>
+    <circle cx="1050" cy="100" r="0.7"><animate attributeName="opacity" values="0.3;1;0.3" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cx="1100" cy="200" r="0.5"><animate attributeName="opacity" values="0.2;0.9;0.2" dur="3.5s" repeatCount="indefinite"/></circle>
+    <circle cx="80" cy="700" r="0.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="3.2s" repeatCount="indefinite"/></circle>
+    <circle cx="1150" cy="650" r="0.7"><animate attributeName="opacity" values="0.2;1;0.2" dur="2.8s" repeatCount="indefinite"/></circle>
+    <circle cx="950" cy="730" r="0.5"><animate attributeName="opacity" values="0.4;1;0.4" dur="3.8s" repeatCount="indefinite"/></circle>
+    <circle cx="50" cy="400" r="0.6"><animate attributeName="opacity" values="0.2;0.8;0.2" dur="3.4s" repeatCount="indefinite"/></circle>
+  </g>
+
+  <!-- Title -->
+  <g filter="url(#glow)">
+    <text x="600" y="60" text-anchor="middle" fill="#a0e9ff" font-size="28" font-weight="700" letter-spacing="6">SWARM-DRIVEN AGENT</text>
+    <text x="600" y="88" text-anchor="middle" fill="#5b8cff" font-size="13" letter-spacing="8" opacity="0.85">DUAL-CORE ARCHITECTURE // SOUL × SKILL</text>
+  </g>
+
+  <!-- Concentric rings around SOUL core -->
+  <g transform="translate(600 430)" fill="none" stroke="#5b8cff" opacity="0.35">
+    <circle r="80" stroke-width="1"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="40s" repeatCount="indefinite"/></circle>
+    <circle r="140" stroke-width="0.8" stroke-dasharray="3 6"><animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="60s" repeatCount="indefinite"/></circle>
+    <circle r="210" stroke-width="0.6" stroke-dasharray="1 4"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="80s" repeatCount="indefinite"/></circle>
+    <circle r="290" stroke-width="0.4" stroke-dasharray="2 8"><animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="100s" repeatCount="indefinite"/></circle>
+  </g>
+
+  <!-- Tick marks on outer ring -->
+  <g transform="translate(600 430)" stroke="#5b8cff" opacity="0.5">
+    <g><line x1="0" y1="-300" x2="0" y2="-285" stroke-width="1.5"/></g>
+    <g transform="rotate(30)"><line x1="0" y1="-300" x2="0" y2="-290" stroke-width="1"/></g>
+    <g transform="rotate(60)"><line x1="0" y1="-300" x2="0" y2="-290" stroke-width="1"/></g>
+    <g transform="rotate(90)"><line x1="0" y1="-300" x2="0" y2="-285" stroke-width="1.5"/></g>
+    <g transform="rotate(120)"><line x1="0" y1="-300" x2="0" y2="-290" stroke-width="1"/></g>
+    <g transform="rotate(150)"><line x1="0" y1="-300" x2="0" y2="-290" stroke-width="1"/></g>
+    <g transform="rotate(180)"><line x1="0" y1="-300" x2="0" y2="-285" stroke-width="1.5"/></g>
+    <g transform="rotate(210)"><line x1="0" y1="-300" x2="0" y2="-290" stroke-width="1"/></g>
+    <g transform="rotate(240)"><line x1="0" y1="-300" x2="0" y2="-290" stroke-width="1"/></g>
+    <g transform="rotate(270)"><line x1="0" y1="-300" x2="0" y2="-285" stroke-width="1.5"/></g>
+    <g transform="rotate(300)"><line x1="0" y1="-300" x2="0" y2="-290" stroke-width="1"/></g>
+    <g transform="rotate(330)"><line x1="0" y1="-300" x2="0" y2="-290" stroke-width="1"/></g>
+  </g>
+
+  <!-- Connection lines from SOUL to subagents -->
+  <g filter="url(#glow)" stroke-linecap="round" fill="none">
+    <!-- to Alpha (top-left) -->
+    <path d="M600,430 Q450,330 280,200" stroke="#00d9a3" stroke-width="1.5" opacity="0.7" stroke-dasharray="6 4">
+      <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <!-- to Beta (top-right) -->
+    <path d="M600,430 Q750,330 920,200" stroke="#ff3b5c" stroke-width="1.5" opacity="0.7" stroke-dasharray="6 4">
+      <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <!-- to Gamma (bottom-left) -->
+    <path d="M600,430 Q450,530 280,660" stroke="#ffb800" stroke-width="1.5" opacity="0.7" stroke-dasharray="6 4">
+      <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <!-- to Builder (bottom-right) -->
+    <path d="M600,430 Q750,530 920,660" stroke="#3b82f6" stroke-width="1.5" opacity="0.7" stroke-dasharray="6 4">
+      <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <!-- to Destroyer (mid-right) -->
+    <path d="M600,430 Q780,430 980,430" stroke="#ff3b3b" stroke-width="1.5" opacity="0.7" stroke-dasharray="6 4">
+      <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+    <!-- to Mempalace (mid-left) -->
+    <path d="M600,430 Q420,430 220,430" stroke="#c084fc" stroke-width="1.5" opacity="0.7" stroke-dasharray="6 4">
+      <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.5s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Pulses on lines -->
+  <g fill="#ffffff" filter="url(#bigGlow)">
+    <circle r="2.5"><animateMotion dur="2.5s" repeatCount="indefinite" path="M600,430 Q450,330 280,200"/></circle>
+    <circle r="2.5"><animateMotion dur="2.8s" repeatCount="indefinite" path="M600,430 Q750,330 920,200"/></circle>
+    <circle r="2.5"><animateMotion dur="3.1s" repeatCount="indefinite" path="M600,430 Q450,530 280,660"/></circle>
+    <circle r="2.5"><animateMotion dur="2.6s" repeatCount="indefinite" path="M600,430 Q750,530 920,660"/></circle>
+    <circle r="2.5"><animateMotion dur="2.4s" repeatCount="indefinite" path="M600,430 Q780,430 980,430"/></circle>
+    <circle r="2.5"><animateMotion dur="2.9s" repeatCount="indefinite" path="M600,430 Q420,430 220,430"/></circle>
+  </g>
+
+  <!-- SOUL CORE -->
+  <g transform="translate(600 430)">
+    <circle r="90" fill="url(#soulCore)" filter="url(#bigGlow)">
+      <animate attributeName="r" values="85;95;85" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="55" fill="none" stroke="#a0e9ff" stroke-width="1.2" opacity="0.7"/>
+    <circle r="38" fill="none" stroke="#a0e9ff" stroke-width="0.8" opacity="0.5"/>
+    <!-- Brain / neural icon -->
+    <g filter="url(#glow)" stroke="#a0e9ff" stroke-width="1.5" fill="none">
+      <circle r="22" fill="#0a0a1f"/>
+      <path d="M-12,-4 Q-6,-14 0,-8 Q6,-14 12,-4 M-14,4 Q-7,12 0,6 Q7,12 14,4"/>
+      <circle cx="0" cy="-2" r="2" fill="#a0e9ff"/>
+    </g>
+    <text y="80" text-anchor="middle" fill="#ffffff" font-size="18" font-weight="700" filter="url(#glow)">SOUL</text>
+    <text y="100" text-anchor="middle" fill="#a0e9ff" font-size="10" opacity="0.7" letter-spacing="2">FSM · MEMORY · FIREWALL</text>
+  </g>
+
+  <!-- ALPHA node -->
+  <g transform="translate(280 200)" filter="url(#glow)">
+    <circle r="55" fill="url(#alpha)"/>
+    <circle r="36" fill="#0a0a1f" stroke="#00d9a3" stroke-width="1.5"/>
+    <text y="-2" text-anchor="middle" fill="#a6ffe1" font-size="22" font-weight="700">α</text>
+    <text y="14" text-anchor="middle" fill="#00d9a3" font-size="9" letter-spacing="1.5">ALPHA</text>
+    <text y="78" text-anchor="middle" fill="#a6ffe1" font-size="11" font-weight="600">Best Practices</text>
+    <text y="94" text-anchor="middle" fill="#7fc4ad" font-size="9" opacity="0.8">Canonical · Standard</text>
+  </g>
+
+  <!-- BETA node -->
+  <g transform="translate(920 200)" filter="url(#glow)">
+    <circle r="55" fill="url(#beta)"/>
+    <circle r="36" fill="#0a0a1f" stroke="#ff3b5c" stroke-width="1.5"/>
+    <text y="-2" text-anchor="middle" fill="#ffb3b3" font-size="22" font-weight="700">β</text>
+    <text y="14" text-anchor="middle" fill="#ff3b5c" font-size="9" letter-spacing="1.5">BETA</text>
+    <text y="78" text-anchor="middle" fill="#ffb3b3" font-size="11" font-weight="600">Adversary</text>
+    <text y="94" text-anchor="middle" fill="#d97a8a" font-size="9" opacity="0.8">Edge · Risk · Tech Debt</text>
+  </g>
+
+  <!-- GAMMA node -->
+  <g transform="translate(280 660)" filter="url(#glow)">
+    <circle r="55" fill="url(#gamma)"/>
+    <circle r="36" fill="#0a0a1f" stroke="#ffb800" stroke-width="1.5"/>
+    <text y="-2" text-anchor="middle" fill="#fff0a6" font-size="22" font-weight="700">γ</text>
+    <text y="14" text-anchor="middle" fill="#ffb800" font-size="9" letter-spacing="1.5">GAMMA</text>
+    <text y="78" text-anchor="middle" fill="#fff0a6" font-size="11" font-weight="600">Innovator</text>
+    <text y="94" text-anchor="middle" fill="#d4ad55" font-size="9" opacity="0.8">Cross-Domain · Lateral</text>
+  </g>
+
+  <!-- BUILDER node -->
+  <g transform="translate(920 660)" filter="url(#glow)">
+    <circle r="55" fill="url(#builder)"/>
+    <circle r="36" fill="#0a0a1f" stroke="#3b82f6" stroke-width="1.5"/>
+    <path d="M-12,0 L-3,8 L12,-8" fill="none" stroke="#b3d4ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text y="20" text-anchor="middle" fill="#3b82f6" font-size="9" letter-spacing="1.5">BUILDER</text>
+    <text y="78" text-anchor="middle" fill="#b3d4ff" font-size="11" font-weight="600">Spec Architect</text>
+    <text y="94" text-anchor="middle" fill="#7a9ed4" font-size="9" opacity="0.8">ADR · TDD Design</text>
+  </g>
+
+  <!-- DESTROYER node -->
+  <g transform="translate(1030 430)" filter="url(#glow)">
+    <circle r="48" fill="url(#destroyer)"/>
+    <circle r="32" fill="#0a0a1f" stroke="#ff3b3b" stroke-width="1.5"/>
+    <path d="M-9,-9 L9,9 M-9,9 L9,-9" stroke="#ff8a3b" stroke-width="2.5" stroke-linecap="round"/>
+    <text y="20" text-anchor="middle" fill="#ff3b3b" font-size="9" letter-spacing="1.5">DESTROYER</text>
+    <text y="68" text-anchor="middle" fill="#ff8a3b" font-size="11" font-weight="600">Crucible</text>
+    <text y="84" text-anchor="middle" fill="#d97a55" font-size="9" opacity="0.8">Vulnerability Hunter</text>
+  </g>
+
+  <!-- MEMPALACE node -->
+  <g transform="translate(170 430)" filter="url(#glow)">
+    <circle r="48" fill="url(#destroyer)" stop-color=""/>
+    <defs>
+      <radialGradient id="memGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#e9d5ff"/>
+        <stop offset="60%" stop-color="#c084fc" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="#c084fc" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle r="48" fill="url(#memGrad)"/>
+    <circle r="32" fill="#0a0a1f" stroke="#c084fc" stroke-width="1.5"/>
+    <!-- Palace icon -->
+    <g fill="none" stroke="#e9d5ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-14,8 L-14,-2 L0,-12 L14,-2 L14,8 Z"/>
+      <line x1="-7" y1="8" x2="-7" y2="0"/>
+      <line x1="7" y1="8" x2="7" y2="0"/>
+      <line x1="0" y1="8" x2="0" y2="-3"/>
+    </g>
+    <text y="22" text-anchor="middle" fill="#c084fc" font-size="8" letter-spacing="1.5">MEMPALACE</text>
+    <text y="68" text-anchor="middle" fill="#e9d5ff" font-size="11" font-weight="600">Knowledge Palace</text>
+    <text y="84" text-anchor="middle" fill="#a87fd4" font-size="9" opacity="0.8">AAAK · KG · Drawers</text>
+  </g>
+
+  <!-- Firewall arc bottom -->
+  <g transform="translate(600 760)" fill="none" stroke="#ff3b3b" opacity="0.7">
+    <path d="M-300,0 Q-150,-40 0,-40 Q150,-40 300,0" stroke-width="1.5" stroke-dasharray="8 4"/>
+    <text y="-50" text-anchor="middle" fill="#ff3b3b" font-size="11" letter-spacing="4" font-weight="600">ARK AI FIREWALL · TC-01..07</text>
+  </g>
+
+  <!-- Bottom legend -->
+  <g transform="translate(600 730)" fill="#5b8cff" font-size="9" opacity="0.6" text-anchor="middle">
+    <text>FSM: INTENT_GATE → DESTRUCT → GATHER → HYPERPLAN → SYNTHESIS → DYNAMIC_COMPILE</text>
+  </g>
+</svg>

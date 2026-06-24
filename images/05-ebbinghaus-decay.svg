@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" font-family="ui-monospace, 'SF Mono', Menlo, monospace">
+  <defs>
+    <radialGradient id="bg5" cx="50%" cy="50%" r="80%">
+      <stop offset="0%" stop-color="#001020"/>
+      <stop offset="50%" stop-color="#000510"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+
+    <linearGradient id="memLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00d9a3" stop-opacity="1"/>
+      <stop offset="30%" stop-color="#3b82f6" stop-opacity="0.8"/>
+      <stop offset="60%" stop-color="#a78bfa" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#dc2626" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00d9a3" stop-opacity="0.5"/>
+      <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="glow5" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bigGlow5" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <pattern id="grid" x="0" y="0" width="60" height="40" patternUnits="userSpaceOnUse">
+      <path d="M60,0 L0,0 L0,40" fill="none" stroke="#0a2030" stroke-width="0.5" opacity="0.6"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#bg5)"/>
+  <rect width="1200" height="800" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <g filter="url(#glow5)">
+    <text x="600" y="60" text-anchor="middle" fill="#67e8f9" font-size="30" font-weight="700" letter-spacing="8">EBBINGHAUS MEMORY DECAY</text>
+    <text x="600" y="88" text-anchor="middle" fill="#00d9a3" font-size="12" letter-spacing="5" opacity="0.9">R(t) = P · Fᶜ · e^(−λ·t)  ·  λ = 0.069  ·  R(t) &lt; 0.15 → GC</text>
+  </g>
+
+  <!-- Chart area -->
+  <g transform="translate(120 140)">
+    <!-- Axes -->
+    <line x1="0" y1="500" x2="1000" y2="500" stroke="#67e8f9" stroke-width="1.5" opacity="0.6"/>
+    <line x1="0" y1="0" x2="0" y2="500" stroke="#67e8f9" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Y axis labels -->
+    <g fill="#67e8f9" font-size="10" text-anchor="end" opacity="0.7">
+      <text x="-10" y="5">1.0</text>
+      <text x="-10" y="105">0.8</text>
+      <text x="-10" y="205">0.6</text>
+      <text x="-10" y="305">0.4</text>
+      <text x="-10" y="405">0.2</text>
+      <text x="-10" y="505">0.0</text>
+    </g>
+
+    <!-- Y axis title -->
+    <text transform="translate(-50 250) rotate(-90)" text-anchor="middle" fill="#67e8f9" font-size="11" letter-spacing="2" opacity="0.7">RETENTION  R(t)</text>
+
+    <!-- X axis labels -->
+    <g fill="#67e8f9" font-size="10" text-anchor="middle" opacity="0.7">
+      <text x="0" y="520">t=0</text>
+      <text x="100" y="520">10</text>
+      <text x="200" y="520">20</text>
+      <text x="300" y="520">30</text>
+      <text x="400" y="520">40</text>
+      <text x="500" y="520">50</text>
+      <text x="600" y="520">60</text>
+      <text x="700" y="520">70</text>
+      <text x="800" y="520">80</text>
+      <text x="900" y="520">90</text>
+      <text x="1000" y="520">100</text>
+    </g>
+
+    <!-- X axis title -->
+    <text x="500" y="555" text-anchor="middle" fill="#67e8f9" font-size="11" letter-spacing="2" opacity="0.7">TIME STEPS  t</text>
+
+    <!-- Grid horizontal lines -->
+    <g stroke="#0a3040" stroke-width="0.5" stroke-dasharray="2 4" opacity="0.5">
+      <line x1="0" y1="100" x2="1000" y2="100"/>
+      <line x1="0" y1="200" x2="1000" y2="200"/>
+      <line x1="0" y1="300" x2="1000" y2="300"/>
+      <line x1="0" y1="400" x2="1000" y2="400"/>
+    </g>
+
+    <!-- GC threshold line at R=0.15 -->
+    <line x1="0" y1="425" x2="1000" y2="425" stroke="#dc2626" stroke-width="1" stroke-dasharray="6 3" opacity="0.8" filter="url(#glow5)"/>
+    <text x="1010" y="429" fill="#fca5a5" font-size="10" font-weight="700">R=0.15  GC threshold</text>
+
+    <!-- Area under curve -->
+    <path d="M0,0 L1000,500 L1000,500 L0,500 Z" fill="url(#areaGrad)" opacity="0.3"/>
+
+    <!-- The decay curve: y = 500 - 500 * exp(-0.069 * x/10), scaled -->
+    <!-- Let me compute: at x=0, y=0; at x=1000, exp(-6.9) ~ 0.001, so y~499.5 -->
+    <path d="M0,0
+             L20,67
+             L40,127
+             L60,180
+             L80,228
+             L100,270
+             L120,308
+             L140,341
+             L160,370
+             L180,395
+             L200,417
+             L220,436
+             L240,452
+             L260,466
+             L280,478
+             L300,488
+             L320,495
+             L340,500
+             L1000,500"
+          fill="url(#areaGrad)" opacity="0.5"/>
+
+    <!-- The curve line -->
+    <path d="M0,0
+             L20,67
+             L40,127
+             L60,180
+             L80,228
+             L100,270
+             L120,308
+             L140,341
+             L160,370
+             L180,395
+             L200,417
+             L220,436
+             L240,452
+             L260,466
+             L280,478
+             L300,488
+             L320,495
+             L340,500
+             L1000,500"
+          fill="none" stroke="url(#memLine)" stroke-width="3" filter="url(#glow5)" stroke-linecap="round"/>
+
+    <!-- Glow point at start -->
+    <circle cx="0" cy="0" r="8" fill="#00d9a3" filter="url(#bigGlow5)">
+      <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <text x="10" y="-10" fill="#00d9a3" font-size="11" font-weight="700">P · Fᶜ = 1.0</text>
+    <text x="10" y="5" fill="#a6ffe1" font-size="9" opacity="0.7">fresh memory</text>
+
+    <!-- Memory nodes on curve -->
+    <g filter="url(#glow5)">
+      <circle cx="100" cy="270" r="5" fill="#00d9a3"/>
+      <circle cx="200" cy="417" r="5" fill="#3b82f6"/>
+      <circle cx="300" cy="488" r="5" fill="#a78bfa"/>
+      <circle cx="400" cy="497" r="5" fill="#dc2626" opacity="0.5"/>
+    </g>
+
+    <!-- GC zone shading -->
+    <rect x="270" y="425" width="730" height="75" fill="#dc2626" opacity="0.08"/>
+    <text x="650" y="460" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="600" letter-spacing="2" opacity="0.7">⟶ GARBAGE COLLECTION ZONE ⟶</text>
+
+    <!-- Annotations -->
+    <g font-size="9" fill="#a0e9ff" opacity="0.85">
+      <text x="100" y="255" text-anchor="middle">R≈0.46</text>
+      <text x="200" y="405" text-anchor="middle">R≈0.17</text>
+      <text x="300" y="475" text-anchor="middle">R≈0.02</text>
+    </g>
+
+    <!-- Time annotations -->
+    <g font-size="8" fill="#67e8f9" opacity="0.6" text-anchor="middle">
+      <text x="100" y="540">1d</text>
+      <text x="200" y="540">2d</text>
+      <text x="300" y="540">3d</text>
+    </g>
+  </g>
+
+  <!-- Formula card top-left -->
+  <g transform="translate(60 160)">
+    <rect x="0" y="0" width="240" height="120" rx="8" fill="#001020" stroke="#00d9a3" stroke-width="1" opacity="0.9" filter="url(#glow5)"/>
+    <text x="120" y="22" text-anchor="middle" fill="#00d9a3" font-size="11" font-weight="700" letter-spacing="2">FORMULA</text>
+    <line x1="20" y1="30" x2="220" y2="30" stroke="#00d9a3" stroke-width="0.5" opacity="0.5"/>
+    <text x="120" y="55" text-anchor="middle" fill="#67e8f9" font-size="18" font-weight="700" font-style="italic">R(t) = P · F^c · e^(−λ·t)</text>
+    <text x="20" y="80" fill="#a6ffe1" font-size="9" opacity="0.8">P = priority · F = frequency</text>
+    <text x="20" y="95" fill="#a6ffe1" font-size="9" opacity="0.8">c = access exponent · λ = 0.069</text>
+    <text x="20" y="110" fill="#fbbf24" font-size="9" font-weight="600">evict when R(t) &lt; 0.15</text>
+  </g>
+
+  <!-- Three pillars card top-right -->
+  <g transform="translate(900 160)">
+    <rect x="0" y="0" width="240" height="120" rx="8" fill="#001020" stroke="#a78bfa" stroke-width="1" opacity="0.9" filter="url(#glow5)"/>
+    <text x="120" y="22" text-anchor="middle" fill="#a78bfa" font-size="11" font-weight="700" letter-spacing="2">3 PILLARS</text>
+    <line x1="20" y1="30" x2="220" y2="30" stroke="#a78bfa" stroke-width="0.5" opacity="0.5"/>
+    <g font-size="10" fill="#c4b5fd">
+      <text x="20" y="50">◆ P  Priority (catalog tier)</text>
+      <text x="20" y="68">◆ F  Access frequency</text>
+      <text x="20" y="86">◆ t  Elapsed steps</text>
+    </g>
+    <text x="20" y="110" fill="#fbbf24" font-size="9" font-weight="600">→ ledger/YYYY/MM/DD/ append-only</text>
+  </g>
+
+  <!-- Bottom: time markers -->
+  <g transform="translate(600 720)">
+    <text text-anchor="middle" fill="#5b8cff" font-size="11" letter-spacing="3" opacity="0.8">Frequent access → spikes the curve up · Anti-patterns (Crucible rejects) auto-bumped to Mimir global KG</text>
+    <text y="25" text-anchor="middle" fill="#a78bfa" font-size="10" opacity="0.6">lessons.learned · long.term · wisdom.accumulation</text>
+  </g>
+
+  <!-- Corner frame -->
+  <g stroke="#67e8f9" stroke-width="1" fill="none" opacity="0.4">
+    <path d="M30,30 L30,80 M30,30 L80,30"/>
+    <path d="M1170,30 L1170,80 M1170,30 L1120,30"/>
+    <path d="M30,770 L30,720 M30,770 L80,770"/>
+    <path d="M1170,770 L1170,720 M1170,770 L1120,770"/>
+  </g>
+</svg>
