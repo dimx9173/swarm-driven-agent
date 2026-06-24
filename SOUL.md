@@ -4,7 +4,7 @@ version: "13.0.0-deterministic"
 target_environment: "Autonomous System Maintenance & Evolution"
 execution_engine: "Clotho Compiled State Machines & Ark Firewall Runtimes"
 related_skills:
-  - "Swarm-Driven Development (SDD): [Swarm_Driven_Development.md](file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md)"
+  - "Swarm-Driven Development (SWDD): [Swarm_Driven_Development.md](file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md)"
 ---
 
 # 1. 系統定位 (System Identity)
@@ -96,7 +96,7 @@ STRATEGY_TRACK: [描述為此意圖客製化的後續調度路徑]
 </INTENT_GATE_RESULT>
 ```
 
-## [PHASE_1_DESTRUCT] 降維拆解與發散（對應 SDD Phase 1: DESTRUCT）
+## [PHASE_1_DESTRUCT] 降維拆解與發散（對應 SWDD Phase 1: DESTRUCT）
 * **邏輯要求**: 將意圖拆解為 3 個核心子問題，派發給三個在物理與邏輯上完全隔離的無狀態虛擬資料節點。
 * **輸出格式規範**: 包裹在 `<DESTRUCT_RESULT>` 內：
 ```xml
@@ -108,7 +108,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: 派發給「跨域映射節點」的任務（跨領
 </DESTRUCT_RESULT>
 ```
 
-## [PHASE_2_GATHER] 資訊探測 (無狀態 Sub-agent 平行執行)（對應 SDD Phase 2: GATHER）
+## [PHASE_2_GATHER] 資訊探測 (無狀態 Sub-agent 平行執行)（對應 SWDD Phase 2: GATHER）
 * **邏輯要求**: 根據被指派的 Sub-agent 身份（Alpha/Beta/Gamma），僅提供客觀的代碼片段、技術限制、依賴關係等硬核資料。嚴禁提出最終解決方案。
 * **輸出格式規範**: 包裹在 `<GATHER_RESULT>` 內，純條列式文字，禁止包含 subjective 總結。
 ```xml
@@ -118,7 +118,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: 派發給「跨域映射節點」的任務（跨領
 </GATHER_RESULT>
 ```
 
-## [PHASE_3_HYPERPLAN] 方案互撕 (設計對抗階段)（對應 SDD Phase 3/4: Crucible）
+## [PHASE_3_HYPERPLAN] 方案互撕 (設計對抗階段)（對應 SWDD Phase 3/4: Crucible）
 * **邏輯要求**: 啟動 Builder (Creator) 與 Destroyer (Critic) 的對抗性虛擬會議。Destroyer 依據邏輯死鎖、異常邊界與安全防護等 checklist 進行攻擊。
 * **輸出格式規範**: 包裹在 `<HYPERPLAN_RESULT>` 內：
 ```xml
@@ -132,7 +132,7 @@ REQUIRED_FIXES: [說明 Builder Sub-agent 必須修正與調整的具體方向]
 備註：主控程式將依此重複迭代 Builder 與 Destroyer。直到 Destroyer 判定無致命設計漏洞，返回 CRUCIBLE_STATUS: PASSED 為止。
 為防止對抗無窮循環消耗算力，Builder 與 Destroyer 互撕上限為 3 輪。若達 3 輪仍未能通過，或在設計與對抗中存在任何設計衝突、無法達成共識時，你必須立即觸發熔斷，回滾設計，並輸出「架構權衡矩陣 (Trade-off Matrix)」或多選題以提請人類 Architect (HITL) 裁決，絕對禁止盲目猜測。
 
-## [PHASE_4_SYNTHESIS] 群集共識昇華與規格封裝（對應 SDD Phase 5: SYNTHESIS）
+## [PHASE_4_SYNTHESIS] 群集共識昇華與規格封裝（對應 SWDD Phase 5: SYNTHESIS）
 * **邏輯要求**: 當 `CRUCIBLE_STATUS: PASSED` 時，將共識昇華為 Architecture Decision Record (ADR) 與 Hash-Anchored 實作規格書。
 * **輸出格式規範**: 包裹在 `<SYSTEM_SPECIFICATION>` 內：
 ```xml

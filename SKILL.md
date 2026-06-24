@@ -1,5 +1,5 @@
 ---
-title: Swarm-Driven Development (SDD) - Universal Framework
+title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
 version: 2.0.0 (Deterministic-Actionable)
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
@@ -8,14 +8,14 @@ related:
   - "AI_Agent_Orchestration_SOP.md"
 ---
 
-# Swarm-Driven Development (SDD): The Universal Framework
+# Swarm-Driven Development (SWDD): The Universal Framework
 
 ## 1. Overview
 
-**Swarm-Driven Development (SDD)** is a systematic workflow that leverages multiple AI agents (a "swarm") to solve complex engineering problems. It focuses on **specification-first** development, using an adversarial process to "harden" design decisions before any implementation begins.
+**Swarm-Driven Development (SWDD)** is a systematic workflow that leverages multiple AI agents (a "swarm") to solve complex engineering problems. It focuses on **specification-first** development, using an adversarial process to "harden" design decisions before any implementation begins.
 
 ### Cognitive Execution Engine (SOUL & Skill Synthesis)
-Under the agent's **AGI dual-core architecture**, **[SOUL.md]** serves as the Agent's Soul (its cognitive runtime engine and FSM), while **Swarm-Driven Development (SDD)** is the supreme **meta-skill (做事方法)**. SDD coordinates, schedules, and executes all other physical skills and subagents under the logical guidance of SOUL, driving the agent through phases using strict XML boundaries to ensure structured parsing, tool calling, and verification.
+Under the agent's **AGI dual-core architecture**, **[SOUL.md]** serves as the Agent's Soul (its cognitive runtime engine and FSM), while **Swarm-Driven Development (SWDD)** is the supreme **meta-skill (做事方法)**. SWDD coordinates, schedules, and executes all other physical skills and subagents under the logical guidance of SOUL, driving the agent through phases using strict XML boundaries to ensure structured parsing, tool calling, and verification.
 
 ### Core Principles
 1.  **Spec-First Development**: No code is written until a specification has passed the "Crucible" (adversarial review).
@@ -25,18 +25,18 @@ Under the agent's **AGI dual-core architecture**, **[SOUL.md]** serves as the Ag
 5.  **Heterogeneous Model Strategy**: For adversarial review and validation gates, the swarm MUST utilize distinct model families (e.g. Creator: Claude 3.5 Sonnet, Critic: DeepSeek R1). Pitting different providers' architectures against each other uncovers correlated blind spots that same-family evaluations often miss.
 
 ### 1.1 Orchestration Mechanics & Strategy
-To maximize execution reliability, SDD enforces a strict structure on LLM communication and state control:
+To maximize execution reliability, SWDD enforces a strict structure on LLM communication and state control:
 *   **Standardized Operating Procedures (SOPs)**: Complex tasks are serialized into explicit prompt sequences and role responsibilities. This prevents cascading hallucinations by ensuring each subagent has a single, well-defined objective and clear inputs/outputs.
 *   **Communicative Chain-of-Thought**: Rather than letting agents debate unconstrained, communication is mapped to state transitions. Agents communicate using structured schemas (such as specifications and test logs) to filter out semantic noise.
-*   **Decoupled State Control**: The macroscopic FSM flow is managed by `SOUL.md` while physical skills are executed by SDD, preventing progress dissolution within long context windows.
+*   **Decoupled State Control**: The macroscopic FSM flow is managed by `SOUL.md` while physical skills are executed by SWDD, preventing progress dissolution within long context windows.
 
 ---
 
-## 2. The SDD Lifecycle (6 Phases)
+## 2. The SWDD Lifecycle (6 Phases)
 
-To ensure seamless coordination with the cognitive engine, the 6 conceptual SDD phases strictly map to the SOUL Finite State Machine (FSM) hooks:
+To ensure seamless coordination with the cognitive engine, the 6 conceptual SWDD phases strictly map to the SOUL Finite State Machine (FSM) hooks:
 
-| SDD Conceptual Phase | SOUL FSM Hook | Core Responsibility | Operational Rationale |
+| SWDD Conceptual Phase | SOUL FSM Hook | Core Responsibility | Operational Rationale |
 | :--- | :--- | :--- | :--- |
 | **Phase 1: DESTRUCT** | `[PHASE_1_DESTRUCT]` | Parallel, multi-node research | SOP Role Specialization (Alpha/Beta/Gamma) |
 | **Phase 2: GATHER** | `[PHASE_2_GATHER]` | Intelligence consolidation | Information Filtering & Deduplication |
@@ -146,13 +146,13 @@ To prevent the "lost-in-the-middle" retrieval problem and conserve tokens, code 
 
 ---
 
-## 5. When to Use SDD
+## 5. When to Use SWDD
 
-Under the SOUL cognitive runtime, Swarm-Driven Development (SDD) is the **compulsory and default path** for any coding, implementation, or configuration task. Single-agent execution is reserved strictly for non-functional document updates.
+Under the SOUL cognitive runtime, Swarm-Driven Development (SWDD) is the **compulsory and default path** for any coding, implementation, or configuration task. Single-agent execution is reserved strictly for non-functional document updates.
 
 *Implementation Note: When a task is parsed by SOUL's **`[INTENT_GATE]`** hook, the flag **`USE_SWARM_WORKFLOW: True`** must be explicitly set for all engineering and codebase tasks.*
 
-| Project Type | Use SDD? | Rationale |
+| Project Type | Use SWDD? | Rationale |
 | :--- | :---: | :--- |
 | **Pure Documentation Edits** | No (Optional) | Typos in Markdown or comment formatting that do not change code logic. |
 | **Simple Bug Fix (even 1-line)** | **Yes (Required)** | Prevents regression, verifies side-effects, and ensures code contract validation. |
@@ -173,7 +173,7 @@ For high-complexity tasks, use `clawteam` to manage persistent agents:
 
 ### Agentic CI/CD Background Integration
 *   The Refute-or-Promote adversarial framework should be deployed as a background listener (e.g., integrated into Git Hooks or GitHub Actions). 
-*   When a developer issues a Pull Request, the "Red Team Agent" automatically awakens to perform security scans and logical cross-examination, transforming SDD from a "development method" into a "Continuous Agentic Immune System".
+*   When a developer issues a Pull Request, the "Red Team Agent" automatically awakens to perform security scans and logical cross-examination, transforming SWDD from a "development method" into a "Continuous Agentic Immune System".
 
 ### SPEC-Driven Workflow (Standard Templates)
 Always maintain a `docs/specs/` folder. A spec is only "Complete" if it includes:
