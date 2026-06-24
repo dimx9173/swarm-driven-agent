@@ -110,6 +110,22 @@ Install or upgrade specific agents directly via CLI arguments:
 ./installer.py -y all
 ```
 
+### 5. Uninstall SDA Workflow
+Cleanly remove the SDA/SWDD files from specified agents and revert `SOUL.md` back to its original System Identity:
+```bash
+# Uninstall from specific agents
+./installer.py --uninstall xuandao finance
+
+# Quietly uninstall from all detected agents
+./installer.py --uninstall -y all
+```
+
+### 6. Run Automated Tests
+Execute the comprehensive test suite to verify installer and workflow logic:
+```bash
+python3 -m unittest test_installer.py
+```
+
 ---
 
 ## 📄 License

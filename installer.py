@@ -258,6 +258,44 @@ def merge_soul_content(target_content, template_content):
     
     return '\n'.join(new_content) + '\n'
 
+def uninstall_soul_content(soul_content):
+    """Strips FSM rules and metadata links from SOUL.md content, keeping only the frontmatter and System Identity."""
+    lines = soul_content.splitlines()
+    cleaned_lines = []
+    
+    has_frontmatter = len(lines) > 0 and lines[0].strip() == '---'
+    idx = 0
+    in_related_block = False
+    if has_frontmatter:
+        cleaned_lines.append(lines[0])
+        idx = 1
+        while idx < len(lines) and lines[idx].strip() != '---':
+            line = lines[idx]
+            stripped_line = line.strip()
+            if stripped_line.startswith("related:") or stripped_line.startswith("related_skills:"):
+                in_related_block = True
+            elif in_related_block and stripped_line.startswith("-"):
+                # Skip list items under related block
+                pass
+            else:
+                in_related_block = False
+                cleaned_lines.append(line)
+            idx += 1
+        if idx < len(lines):
+            cleaned_lines.append(lines[idx])
+            idx += 1
+            
+    for i in range(idx, len(lines)):
+        line = lines[i]
+        if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
+            break
+        cleaned_lines.append(line)
+        
+    while cleaned_lines and (cleaned_lines[-1].strip() == '' or cleaned_lines[-1].strip() == '---'):
+        cleaned_lines.pop()
+        
+    return '\n'.join(cleaned_lines).strip() + '\n'
+
 def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     """Creates a new agent profile/workspace directory and installs the SDA workflow files."""
     if not re.match(r"^[a-zA-Z0-9_\-]+$", name):
@@ -350,6 +388,7 @@ def main():
     parser.add_argument("agents", nargs="*", help="Names of agents to install (e.g. xuandao finance). Runs in interactive mode if omitted.")
     parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     parser.add_argument("-c", "--check", action="store_true", help="Check and print agent status without installing.")
+    parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SDA workflow from selected agents.")
     parser.add_argument("--create", help="Create a new agent with the specified name and install the SDA workflow.")
     parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
     parser.add_argument("--identity", help="The system identity description of the new agent.")
@@ -438,7 +477,8 @@ def main():
                     sys.exit(1)
     else:
         # Interactive mode
-        print("Select agents to install/update SDA workflow:")
+        action_verb = "uninstall" if args.uninstall else "install/update"
+        print(f"Select agents to {action_verb} SDA workflow:")
         print("  Enter comma-separated numbers (e.g. 1,3,4)")
         print("  Enter 'all' to select all agents")
         print("  Enter 'q' to quit")
@@ -467,7 +507,8 @@ def main():
         print("No valid agents selected.")
         sys.exit(0)
         
-    print(f"\nYou selected {len(selected_indices)} agent(s) for installation/upgrade:")
+    action_noun = "uninstallation" if args.uninstall else "installation/upgrade"
+    print(f"\nYou selected {len(selected_indices)} agent(s) for {action_noun}:")
     for idx in selected_indices:
         agent = agents[idx]
         status_info = agent_statuses[idx]
@@ -476,7 +517,7 @@ def main():
     if args.yes:
         confirm = 'y'
     else:
-        confirm = input("\nProceed with installation/upgrade? (y/n): ").strip().lower()
+        confirm = input(f"\nProceed with {action_noun}? (y/n): ").strip().lower()
         
     if confirm != 'y':
         print("Cancelled.")
@@ -487,93 +528,166 @@ def main():
     for idx in selected_indices:
         agent = agents[idx]
         status_info = agent_statuses[idx]
-        print(f"\nInstalling/Upgrading SDA for: {agent['name']} ({agent['type']})")
         
-        # 1. Back up target SOUL.md
-        print(" -> Backing up SOUL.md...")
-        soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
-        try:
-            shutil.copy2(agent['soul_path'], soul_bak_path)
-        except Exception as e:
-            print(f"    Failed to backup SOUL.md: {e}")
-            continue
+        if args.uninstall:
+            print(f"\nUninstalling SDA from: {agent['name']} ({agent['type']})")
             
-        # 2. Back up target RULE.md if it exists
-        rule_dest_path = os.path.join(agent['dir_path'], "RULE.md")
-        if os.path.exists(rule_dest_path):
-            print(" -> Backing up RULE.md...")
-            rule_bak_path = f"{rule_dest_path}.{timestamp}.bak"
+            # 1. Back up target SOUL.md
+            print(" -> Backing up SOUL.md...")
+            soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
             try:
-                shutil.copy2(rule_dest_path, rule_bak_path)
+                shutil.copy2(agent['soul_path'], soul_bak_path)
             except Exception as e:
-                print(f"    Failed to backup RULE.md: {e}")
+                print(f"    Failed to backup SOUL.md: {e}")
+                continue
+                
+            # 2. Back up target RULE.md if it exists
+            rule_dest_path = os.path.join(agent['dir_path'], "RULE.md")
+            if os.path.exists(rule_dest_path):
+                print(" -> Backing up RULE.md...")
+                rule_bak_path = f"{rule_dest_path}.{timestamp}.bak"
+                try:
+                    shutil.copy2(rule_dest_path, rule_bak_path)
+                except Exception as e:
+                    print(f"    Failed to backup RULE.md: {e}")
             
-        # 3. Merge SOUL.md
-        print(" -> Preparing SOUL.md...")
-        try:
-            with open(agent['soul_path'], 'r', encoding='utf-8') as f:
-                target_content = f.read()
-        except Exception as e:
-            print(f"    Failed to read target SOUL.md: {e}, skipping.")
-            continue
+            # 3. Revert SOUL.md content
+            print(" -> Reverting SOUL.md...")
+            try:
+                with open(agent['soul_path'], 'r', encoding='utf-8') as f:
+                    content = f.read()
+                reverted_content = uninstall_soul_content(content)
+                with open(agent['soul_path'], 'w', encoding='utf-8') as f:
+                    f.write(reverted_content)
+                print("    SOUL.md rules stripped.")
+            except Exception as e:
+                print(f"    Failed to revert SOUL.md: {e}")
+                
+            # 4. Remove RULE.md
+            if os.path.exists(rule_dest_path):
+                print(" -> Removing RULE.md...")
+                try:
+                    os.remove(rule_dest_path)
+                    print("    RULE.md removed.")
+                except Exception as e:
+                    print(f"    Failed to remove RULE.md: {e}")
+                    
+            # 5. Remove SKILL.md
+            skill_dir_path = os.path.join(agent['dir_path'], "skills", "swarm")
+            skill_dest_path = os.path.join(skill_dir_path, "SKILL.md")
+            if os.path.exists(skill_dest_path):
+                print(" -> Removing SKILL.md...")
+                try:
+                    os.remove(skill_dest_path)
+                    print("    SKILL.md removed.")
+                except Exception as e:
+                    print(f"    Failed to remove SKILL.md: {e}")
+                    
+            # 6. Clean up directories if empty
+            if os.path.exists(skill_dir_path) and not os.listdir(skill_dir_path):
+                try:
+                    os.rmdir(skill_dir_path)
+                    print("    Removed empty skills/swarm directory.")
+                except Exception:
+                    pass
+            skills_parent_dir = os.path.join(agent['dir_path'], "skills")
+            if os.path.exists(skills_parent_dir) and not os.listdir(skills_parent_dir):
+                try:
+                    os.rmdir(skills_parent_dir)
+                    print("    Removed empty skills directory.")
+                except Exception:
+                    pass
+                    
+            print(f" Successfully uninstalled SDA from: {agent['name']}")
             
-        try:
-            with open(SOUL_TEMPLATE, 'r', encoding='utf-8') as f:
-                template_content = f.read()
-        except Exception as e:
-            print(f"    Failed to read SOUL.md template: {e}, skipping.")
-            continue
+        else:
+            print(f"\nInstalling/Upgrading SDA for: {agent['name']} ({agent['type']})")
             
-        merged_content = merge_soul_content(target_content, template_content)
-        
-        # Write merged SOUL.md
-        print(" -> Writing new SOUL.md...")
-        try:
-            with open(agent['soul_path'], 'w', encoding='utf-8') as f:
-                f.write(merged_content)
-            # Log version upgrade
-            old_ver = status_info['soul_ver'] or "missing"
-            new_ver = template_versions['SOUL.md']
-            print(f"    SOUL.md: {old_ver} -> {new_ver}")
-        except Exception as e:
-            print(f"    Failed to write SOUL.md: {e}")
-            continue
-        
-        # 4. Copy RULE.md
-        print(" -> Copying RULE.md...")
-        try:
-            with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
-                rule_content = f.read()
-            rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
-            with open(rule_dest_path, 'w', encoding='utf-8') as f:
-                f.write(rule_content)
-            # Log version upgrade
-            old_ver = status_info['rule_ver'] or "missing"
-            new_ver = template_versions['RULE.md']
-            print(f"    RULE.md: {old_ver} -> {new_ver}")
-        except Exception as e:
-            print(f"    Failed to write RULE.md: {e}")
-            continue
-        
-        # 5. Copy Swarm Meta-skill (SKILL.md)
-        print(" -> Creating skills/swarm directory...")
-        skill_dir_path = os.path.join(agent['dir_path'], "skills", "swarm")
-        os.makedirs(skill_dir_path, exist_ok=True)
-        
-        print(" -> Copying SKILL.md...")
-        skill_dest_path = os.path.join(skill_dir_path, "SKILL.md")
-        try:
-            shutil.copy2(SKILL_SOURCE, skill_dest_path)
-            # Log version upgrade
-            old_ver = status_info['skill_ver'] or "missing"
-            new_ver = template_versions['SKILL.md']
-            print(f"    SKILL.md: {old_ver} -> {new_ver}")
-        except Exception as e:
-            print(f"    Failed to copy SKILL.md: {e}")
-            continue
+            # 1. Back up target SOUL.md
+            print(" -> Backing up SOUL.md...")
+            soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
+            try:
+                shutil.copy2(agent['soul_path'], soul_bak_path)
+            except Exception as e:
+                print(f"    Failed to backup SOUL.md: {e}")
+                continue
+                
+            # 2. Back up target RULE.md if it exists
+            rule_dest_path = os.path.join(agent['dir_path'], "RULE.md")
+            if os.path.exists(rule_dest_path):
+                print(" -> Backing up RULE.md...")
+                rule_bak_path = f"{rule_dest_path}.{timestamp}.bak"
+                try:
+                    shutil.copy2(rule_dest_path, rule_bak_path)
+                except Exception as e:
+                    print(f"    Failed to backup RULE.md: {e}")
+                
+            # 3. Merge SOUL.md
+            print(" -> Preparing SOUL.md...")
+            try:
+                with open(agent['soul_path'], 'r', encoding='utf-8') as f:
+                    target_content = f.read()
+            except Exception as e:
+                print(f"    Failed to read target SOUL.md: {e}, skipping.")
+                continue
+                
+            try:
+                with open(SOUL_TEMPLATE, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
+            except Exception as e:
+                print(f"    Failed to read SOUL.md template: {e}, skipping.")
+                continue
+                
+            merged_content = merge_soul_content(target_content, template_content)
             
-        print(f" Successfully installed/upgraded SDA for: {agent['name']}")
-        
+            # Write merged SOUL.md
+            print(" -> Writing new SOUL.md...")
+            try:
+                with open(agent['soul_path'], 'w', encoding='utf-8') as f:
+                    f.write(merged_content)
+                # Log version upgrade
+                old_ver = status_info['soul_ver'] or "missing"
+                new_ver = template_versions['SOUL.md']
+                print(f"    SOUL.md: {old_ver} -> {new_ver}")
+            except Exception as e:
+                print(f"    Failed to write SOUL.md: {e}")
+                continue
+            
+            # 4. Copy RULE.md
+            print(" -> Copying RULE.md...")
+            try:
+                with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
+                    rule_content = f.read()
+                rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
+                with open(rule_dest_path, 'w', encoding='utf-8') as f:
+                    f.write(rule_content)
+                # Log version upgrade
+                old_ver = status_info['rule_ver'] or "missing"
+                new_ver = template_versions['RULE.md']
+                print(f"    RULE.md: {old_ver} -> {new_ver}")
+            except Exception as e:
+                print(f"    Failed to write RULE.md: {e}")
+                continue
+            
+            # 5. Copy Swarm Meta-skill (SKILL.md)
+            print(" -> Creating skills/swarm directory...")
+            skill_dir_path = os.path.join(agent['dir_path'], "skills", "swarm")
+            os.makedirs(skill_dir_path, exist_ok=True)
+            
+            print(" -> Copying SKILL.md...")
+            skill_dest_path = os.path.join(skill_dir_path, "SKILL.md")
+            try:
+                shutil.copy2(SKILL_SOURCE, skill_dest_path)
+                # Log version upgrade
+                old_ver = status_info['skill_ver'] or "missing"
+                new_ver = template_versions['SKILL.md']
+                print(f"    SKILL.md: {old_ver} -> {new_ver}")
+            except Exception as e:
+                print(f"    Failed to copy SKILL.md: {e}")
+                continue
+                
+            print(f" Successfully installed/upgraded SDA for: {agent['name']}")
+            
     print("\nAll done!")
 
 if __name__ == '__main__':
