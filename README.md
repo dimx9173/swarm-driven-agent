@@ -10,15 +10,16 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 
 | Term | Context | File | Purpose |
 | :--- | :--- | :--- | :--- |
-| **SDA** | Swarm-Driven Agent | [SOUL.md](SOUL.md) / [RULE.md](RULE.md) | Defines FSM states, system instruction contracts, cognitive bounds, and AI safety firewalls. |
-| **SWDD** | Swarm-Driven Development | [SKILL.md](SKILL.md) | The supreme development meta-skill (做事方法) describing parallel planning, Builder/Destroyer adversarial reviews, and sandbox execution. |
+| **SDA** | Swarm-Driven Agent | [SOUL.md](SOUL.md) | Streamlined entry point focusing strictly on **System Identity** (定位) and dual-core references. |
+| **SDA Contract** | System Contract | [RULE.md](RULE.md) | Defines FSM transition hooks, attention anchors, memory decay, safety firewalls, and self-diagnosis. |
+| **SWDD** | Swarm-Driven Development | [SKILL.md](SKILL.md) | The supreme development meta-skill (做事方法) describing parallel planning, Builder/Destroyer reviews, and sandbox execution. |
 
 ---
 
 ## 🚀 Key Features
 
 * 🔒 **Strictly Local & Offline**: Operates 100% locally on your file system using `os.walk` to find agent profiles under `~/.hermes` and `~/.openclaw`.
-* 🔄 **Smart FSM Merging**: Upgrades agent configurations while preserving customized system positioning (`# 1. 系統定位` such as specific Quant profiles), merging only the updated FSM rules underneath.
+* 🔄 **Smart FSM Merging**: Upgrades agent configurations while preserving customized system positioning (`# 1. 系統定位` such as specific Quant profiles), merging only the updated FSM rules and contracts.
 * 📊 **Version Tracking & Status check**: Uses semantic version parsing to compare installed files against templates, reporting `Not Installed`, `Update Available`, or `Up-to-date` statuses.
 * ➕ **Agent Creation**: Spin up brand new Hermes or OpenClaw agents from scratch with auto-configured workflows using a single command.
 * 🛡️ **Auto-Backup System**: Creates timestamped backups (e.g. `SOUL.md.20260624_150000.bak`) automatically before editing any file.
@@ -30,7 +31,7 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 ```
 swarm-driven-agent/
 ├── installer.py     # CLI installer, version manager & creator
-├── SOUL.md          # SDA Base FSM & metadata template
+├── SOUL.md          # SDA System Identity template (streamlined)
 ├── RULE.md          # SDA System Instruction Contract
 ├── SKILL.md         # SWDD Swarm meta-skill workflow
 └── .gitignore       # Standard git ignore definitions
