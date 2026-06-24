@@ -10,3 +10,11 @@ __pycache__/
 # OS generated
 .DS_Store
 Thumbs.db
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json
+
+CLAUDE.md
+hooks.json
+kilo.json
