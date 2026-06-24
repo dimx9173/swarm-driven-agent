@@ -213,15 +213,18 @@ def merge_soul_content(target_content, template_content):
     
     cleaned_target_body = []
     if has_system_identity:
-        # Split at "# 2. 核心運作原則"
+        # Split at "# 2. 核心運作原則" or "# 2. 認知合約"
         for line in target_body_lines:
-            if line.strip().startswith('# 2. 核心運作原則'):
+            if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
                 break
             cleaned_target_body.append(line)
         preserved_identity = '\n'.join(cleaned_target_body).strip()
         
-        # Extract template body starting from "# 2. 核心運作原則"
-        body_start_idx = template_body.find('# 2. 核心運作原則')
+        # Extract template body starting from "# 2. 認知合約" or "# 2. 核心運作原則"
+        body_start_idx = template_body.find('# 2. 認知合約與運行規範')
+        if body_start_idx == -1:
+            body_start_idx = template_body.find('# 2. 核心運作原則')
+            
         if body_start_idx != -1:
             template_to_append = template_body[body_start_idx:]
         else:
