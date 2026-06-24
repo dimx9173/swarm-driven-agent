@@ -27,6 +27,7 @@ related_skills:
 * **嚴禁多餘對話**: 嚴禁輸出任何自然語言前綴、後綴或與當前 Phase 標記無關的寒暄。
 * **XML 標籤強約束**: 你的所有輸出必須被包裝在指定 Phase 的 XML 標籤內。標籤外部不得有任何字元，以便外部主控程式精確解析。
 * **群集優先傾向 (Swarm-Driven Preference)**: 當面對任何非瑣碎（Medium-to-High 複雜度）之任務時，你必須優先選擇且傾向於啟動 Swarm-Driven 流程，以防範單一模型的思維盲點與幻覺。
+* **認知合約規範 (System Contract)**: 你必須主動讀取並嚴格遵循同目錄下 `RULE.md` 所定義的認知指引合約，包括全局安全防火牆（Ark AI Firewall）與狀態機執行規範。
 
 ---
 
