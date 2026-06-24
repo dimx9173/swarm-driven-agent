@@ -1,113 +1,94 @@
 #!/usr/bin/env python3
 import sys
-import subprocess
 import os
 import re
-import tempfile
+import shutil
 import datetime
 
-REMOTE_USER_HOST = "brian@46.224.196.164"
+# Determine local script paths
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Local paths
-SOUL_TEMPLATE = "/Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/SOUL.md"
-RULE_SOURCE = "/Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/RULE.md"
-SKILL_SOURCE = "/Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md"
-XUANDAO_SOUL = "/Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/hermes/46.224.196.164_xuandao_SOUL.md"
-SPECULARI_SOUL = "/Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/hermes/46.224.196.164_speculari_SOUL.md"
-
-def run_ssh_command(cmd, quiet=False):
-    """Executes a command on the remote server via SSH."""
-    full_cmd = ["ssh", REMOTE_USER_HOST, cmd]
-    res = subprocess.run(full_cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if res.returncode != 0 and not quiet:
-        print(f"Error executing remote command: {cmd}\nStderr: {res.stderr.strip()}", file=sys.stderr)
-    return res.returncode, res.stdout, res.stderr
-
-def scp_to_remote(local_path, remote_path):
-    """Copies a local file to the remote server using SCP."""
-    full_cmd = ["scp", local_path, f"{REMOTE_USER_HOST}:{remote_path}"]
-    res = subprocess.run(full_cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if res.returncode != 0:
-        print(f"Error copying {local_path} to remote {remote_path}\nStderr: {res.stderr.strip()}", file=sys.stderr)
-    return res.returncode
-
-def scp_from_remote(remote_path, local_path):
-    """Copies a remote file to the local machine using SCP."""
-    full_cmd = ["scp", f"{REMOTE_USER_HOST}:{remote_path}", local_path]
-    res = subprocess.run(full_cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if res.returncode != 0:
-        print(f"Error copying remote {remote_path} to local {local_path}\nStderr: {res.stderr.strip()}", file=sys.stderr)
-    return res.returncode
+SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "SOUL.md")
+RULE_SOURCE = os.path.join(SCRIPT_DIR, "RULE.md")
+SKILL_SOURCE = os.path.join(SCRIPT_DIR, "SKILL.md")
 
 def scan_agents():
-    """Scans the remote server for openclaw and hermes agents by searching for SOUL.md."""
-    print("Scanning remote server for agents (finding SOUL.md files)...")
-    # Search under ~/.hermes and ~/.openclaw
-    ret, stdout, stderr = run_ssh_command("find ~/.hermes ~/.openclaw -name SOUL.md 2>/dev/null")
-    if ret != 0:
-        print("Failed to scan remote directories.", file=sys.stderr)
-        return []
+    """Scans the local system for openclaw and hermes agents by searching for SOUL.md."""
+    home_dir = os.path.expanduser("~")
+    print("Scanning local system for agents...")
     
-    lines = [line.strip() for line in stdout.splitlines() if line.strip()]
-    
-    # We want to match:
-    # 1. ~/.hermes/SOUL.md
-    # 2. ~/.hermes/profiles/<profile_name>/SOUL.md
-    # 3. ~/.openclaw/workspace/SOUL.md
-    # 4. ~/.openclaw/workspace-front-end/SOUL.md
-    # 5. ~/.openclaw/workspaces/<workspace_name>/SOUL.md
-    
-    # We will match both '/home/brian/.xxx' and '~/.xxx'
-    # Remote home directory is /home/brian
-    patterns = [
-        r"^/home/brian/\.hermes/SOUL\.md$",
-        r"^/home/brian/\.hermes/profiles/([^/]+)/SOUL\.md$",
-        r"^/home/brian/\.openclaw/workspace/SOUL\.md$",
-        r"^/home/brian/\.openclaw/workspace-front-end/SOUL\.md$",
-        r"^/home/brian/\.openclaw/workspaces/([^/]+)/SOUL\.md$"
-    ]
+    hermes_path = os.path.join(home_dir, ".hermes")
+    openclaw_path = os.path.join(home_dir, ".openclaw")
     
     detected = []
-    for line in lines:
+    
+    # Helper to scan a directory
+    def scan_dir(root_path):
+        if not os.path.isdir(root_path):
+            return []
+        found_paths = []
+        for root, dirs, files in os.walk(root_path):
+            # Skip nested directories under workspaces/xxxx/home/ or profiles/xxxx/home/
+            # to avoid picking up temp workspaces of agents
+            norm_root = root.replace("\\", "/")
+            if "/home/" in norm_root:
+                continue
+            if "SOUL.md" in files:
+                full_path = os.path.join(root, "SOUL.md")
+                norm_path = os.path.abspath(full_path).replace("\\", "/")
+                found_paths.append(norm_path)
+        return found_paths
+
+    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path)
+    
+    escaped_home = re.escape(home_dir.replace("\\", "/"))
+    patterns = [
+        rf"^{escaped_home}/\.hermes/SOUL\.md$",
+        rf"^{escaped_home}/\.hermes/profiles/([^/]+)/SOUL\.md$",
+        rf"^{escaped_home}/\.openclaw/workspace/SOUL\.md$",
+        rf"^{escaped_home}/\.openclaw/workspace\-front\-end/SOUL\.md$",
+        rf"^{escaped_home}/\.openclaw/workspaces/([^/]+)/SOUL\.md$"
+    ]
+    
+    for path in all_paths:
         matched = False
         agent_type = ""
         agent_name = ""
         
         # Check against patterns
-        if re.match(patterns[0], line):
+        if re.match(patterns[0], path):
             matched = True
             agent_type = "Hermes"
             agent_name = "default (speculari)"
-        elif m := re.match(patterns[1], line):
+        elif m := re.match(patterns[1], path):
             matched = True
             agent_type = "Hermes"
             agent_name = m.group(1)
-        elif re.match(patterns[2], line):
+        elif re.match(patterns[2], path):
             matched = True
             agent_type = "OpenClaw"
             agent_name = "workspace"
-        elif re.match(patterns[3], line):
+        elif re.match(patterns[3], path):
             matched = True
             agent_type = "OpenClaw"
             agent_name = "workspace-front-end"
-        elif m := re.match(patterns[4], line):
+        elif m := re.match(patterns[4], path):
             matched = True
             agent_type = "OpenClaw"
             agent_name = m.group(1)
             
         if matched:
-            agent_dir = os.path.dirname(line)
+            agent_dir = os.path.dirname(path)
             detected.append({
                 "type": agent_type,
                 "name": agent_name,
-                "soul_path": line,
+                "soul_path": path,
                 "dir_path": agent_dir
             })
             
     return detected
 
-def merge_soul_content(remote_content, template_content):
-    # Parse template_content
+def merge_soul_content(target_content, template_content):
     template_lines = template_content.splitlines()
     frontmatter_lines = []
     template_body_lines = []
@@ -125,38 +106,60 @@ def merge_soul_content(remote_content, template_content):
         template_body_lines = template_lines
         
     template_body = '\n'.join(template_body_lines)
-    body_start_idx = template_body.find('# 1. 系統定位')
-    if body_start_idx != -1:
-        template_body_content = template_body[body_start_idx:]
-    else:
-        template_body_content = template_body
-        
+    
     # Replace the local path in template frontmatter with relative path
     frontmatter_str = '\n'.join(frontmatter_lines)
     frontmatter_str = frontmatter_str.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
     
-    # Parse remote_content and strip existing frontmatter & SDA sections
-    remote_lines = remote_content.splitlines()
-    remote_body_lines = []
-    if len(remote_lines) > 0 and remote_lines[0] == '---':
+    # Parse target_content and strip existing frontmatter & FSM rules
+    target_lines = target_content.splitlines()
+    target_body_lines = []
+    if len(target_lines) > 0 and target_lines[0] == '---':
         idx = 1
-        while idx < len(remote_lines) and remote_lines[idx] != '---':
+        while idx < len(target_lines) and target_lines[idx] != '---':
             idx += 1
-        if idx < len(remote_lines):
-            remote_body_lines = remote_lines[idx+1:]
+        if idx < len(target_lines):
+            target_body_lines = target_lines[idx+1:]
         else:
-            remote_body_lines = remote_lines
+            target_body_lines = target_lines
     else:
-        remote_body_lines = remote_lines
+        target_body_lines = target_lines
         
-    cleaned_remote_body = []
-    for line in remote_body_lines:
-        if line.strip().startswith('# 核心認知架構') or line.strip().startswith('# 1. 系統定位') or line.strip().startswith('# 核心認知架構 (The SOUL Framework)'):
-            break
-        cleaned_remote_body.append(line)
-        
-    preserved_identity = '\n'.join(cleaned_remote_body).strip()
+    target_body = '\n'.join(target_body_lines)
+    has_system_identity = "# 1. 系統定位" in target_body
     
+    cleaned_target_body = []
+    if has_system_identity:
+        # Split at "# 2. 核心運作原則"
+        for line in target_body_lines:
+            if line.strip().startswith('# 2. 核心運作原則'):
+                break
+            cleaned_target_body.append(line)
+        preserved_identity = '\n'.join(cleaned_target_body).strip()
+        
+        # Extract template body starting from "# 2. 核心運作原則"
+        body_start_idx = template_body.find('# 2. 核心運作原則')
+        if body_start_idx != -1:
+            template_to_append = template_body[body_start_idx:]
+        else:
+            template_to_append = template_body
+    else:
+        # Split at "# 核心認知架構" or "# 1. 系統定位" or "# 核心認知架構 (The SOUL Framework)"
+        for line in target_body_lines:
+            if (line.strip().startswith('# 核心認知架構') or 
+                line.strip().startswith('# 1. 系統定位') or 
+                line.strip().startswith('# 核心認知架構 (The SOUL Framework)')):
+                break
+            cleaned_target_body.append(line)
+        preserved_identity = '\n'.join(cleaned_target_body).strip()
+        
+        # Extract entire template body starting from "# 1. 系統定位"
+        body_start_idx = template_body.find('# 1. 系統定位')
+        if body_start_idx != -1:
+            template_to_append = template_body[body_start_idx:]
+        else:
+            template_to_append = template_body
+            
     # Combine
     new_content = []
     if frontmatter_str:
@@ -165,7 +168,7 @@ def merge_soul_content(remote_content, template_content):
         new_content.append(preserved_identity)
     
     new_content.append("\n---\n")
-    new_content.append(template_body_content.strip())
+    new_content.append(template_to_append.strip())
     
     return '\n'.join(new_content) + '\n'
 
@@ -174,15 +177,15 @@ def main():
     print("       Swarm-Driven Agent (SDA) Workflow Installer")
     print("="*60)
     
-    # Check local sources
+    # Verify local sources exist in the root directory
     for path in [SOUL_TEMPLATE, RULE_SOURCE, SKILL_SOURCE]:
         if not os.path.exists(path):
-            print(f"Error: Local file {path} not found. Make sure Brian_Notes repository is mounted/present.", file=sys.stderr)
+            print(f"Error: Required source file {path} not found in the root directory.", file=sys.stderr)
             sys.exit(1)
             
     agents = scan_agents()
     if not agents:
-        print("No openclaw or hermes agents found on the remote server.")
+        print("No openclaw or hermes agents found on the local machine.")
         sys.exit(0)
         
     print(f"\nDetected {len(agents)} agents:")
@@ -231,98 +234,76 @@ def main():
         agent = agents[idx]
         print(f"\nInstalling SDA to: {agent['name']} ({agent['type']})")
         
-        # 1. Back up remote SOUL.md
-        print(" -> Backing up remote SOUL.md...")
+        # 1. Back up target SOUL.md
+        print(" -> Backing up SOUL.md...")
         soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
-        ret, _, stderr = run_ssh_command(f"cp {agent['soul_path']} {soul_bak_path}")
-        if ret != 0:
-            print(f"    Failed to backup SOUL.md: {stderr.strip()}")
+        try:
+            shutil.copy2(agent['soul_path'], soul_bak_path)
+        except Exception as e:
+            print(f"    Failed to backup SOUL.md: {e}")
             continue
             
-        # 2. Back up remote RULE.md if it exists
-        rule_remote_path = f"{agent['dir_path']}/RULE.md"
-        # Check if RULE.md exists
-        ret_check, _, _ = run_ssh_command(f"test -f {rule_remote_path}", quiet=True)
-        if ret_check == 0:
-            print(" -> Backing up remote RULE.md...")
-            rule_bak_path = f"{rule_remote_path}.{timestamp}.bak"
-            run_ssh_command(f"cp {rule_remote_path} {rule_bak_path}")
+        # 2. Back up target RULE.md if it exists
+        rule_dest_path = os.path.join(agent['dir_path'], "RULE.md")
+        if os.path.exists(rule_dest_path):
+            print(" -> Backing up RULE.md...")
+            rule_bak_path = f"{rule_dest_path}.{timestamp}.bak"
+            try:
+                shutil.copy2(rule_dest_path, rule_bak_path)
+            except Exception as e:
+                print(f"    Failed to backup RULE.md: {e}")
             
-        # 3. Determine SOUL.md update strategy
+        # 3. Merge SOUL.md
         print(" -> Preparing SOUL.md...")
-        local_soul_source = None
-        if agent['type'] == 'Hermes' and agent['name'] == 'xuandao':
-            local_soul_source = XUANDAO_SOUL
-        elif agent['type'] == 'Hermes' and agent['name'] == 'default (speculari)':
-            local_soul_source = SPECULARI_SOUL
+        try:
+            with open(agent['soul_path'], 'r', encoding='utf-8') as f:
+                target_content = f.read()
+        except Exception as e:
+            print(f"    Failed to read target SOUL.md: {e}, skipping.")
+            continue
             
-        if local_soul_source:
-            # Fully custom profile SOUL.md
-            print(f"    Using custom {agent['name']} SOUL.md profile...")
-            with open(local_soul_source, 'r', encoding='utf-8') as f:
-                content = f.read()
-            content = content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
-            
-            with tempfile.NamedTemporaryFile('w', delete=False, encoding='utf-8') as tf:
-                tf.write(content)
-                temp_soul_path = tf.name
-        else:
-            # General agent SOUL merging
-            print("    Downloading remote SOUL.md to perform FSM merge...")
-            with tempfile.NamedTemporaryFile('w+', delete=False, encoding='utf-8') as tf_remote:
-                temp_remote_soul = tf_remote.name
-            
-            if scp_from_remote(agent['soul_path'], temp_remote_soul) != 0:
-                print("    Failed to download remote SOUL.md, skipping this agent.")
-                os.unlink(temp_remote_soul)
-                continue
-                
-            with open(temp_remote_soul, 'r', encoding='utf-8') as f:
-                remote_content = f.read()
-            os.unlink(temp_remote_soul)
-            
+        try:
             with open(SOUL_TEMPLATE, 'r', encoding='utf-8') as f:
                 template_content = f.read()
-                
-            merged_content = merge_soul_content(remote_content, template_content)
-            
-            with tempfile.NamedTemporaryFile('w', delete=False, encoding='utf-8') as tf:
-                tf.write(merged_content)
-                temp_soul_path = tf.name
-                
-        # Copy prepared SOUL.md to remote
-        print(" -> Uploading new SOUL.md...")
-        if scp_to_remote(temp_soul_path, agent['soul_path']) != 0:
-            print("    Failed to upload SOUL.md")
-            os.unlink(temp_soul_path)
+        except Exception as e:
+            print(f"    Failed to read SOUL.md template: {e}, skipping.")
             continue
-        os.unlink(temp_soul_path)
+            
+        merged_content = merge_soul_content(target_content, template_content)
+        
+        # Write merged SOUL.md
+        print(" -> Writing new SOUL.md...")
+        try:
+            with open(agent['soul_path'], 'w', encoding='utf-8') as f:
+                f.write(merged_content)
+        except Exception as e:
+            print(f"    Failed to write SOUL.md: {e}")
+            continue
         
         # 4. Copy RULE.md
         print(" -> Copying RULE.md...")
-        with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
-            rule_content = f.read()
-        rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
-        
-        with tempfile.NamedTemporaryFile('w', delete=False, encoding='utf-8') as tf_rule:
-            tf_rule.write(rule_content)
-            temp_rule_path = tf_rule.name
-            
-        if scp_to_remote(temp_rule_path, rule_remote_path) != 0:
-            print("    Failed to upload RULE.md")
-            os.unlink(temp_rule_path)
+        try:
+            with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
+                rule_content = f.read()
+            # Replace local path with relative skill path
+            rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
+            with open(rule_dest_path, 'w', encoding='utf-8') as f:
+                f.write(rule_content)
+        except Exception as e:
+            print(f"    Failed to write RULE.md: {e}")
             continue
-        os.unlink(temp_rule_path)
         
         # 5. Copy Swarm Meta-skill (SKILL.md)
         print(" -> Creating skills/swarm directory...")
-        skill_dir_path = f"{agent['dir_path']}/skills/swarm"
-        run_ssh_command(f"mkdir -p {skill_dir_path}")
+        skill_dir_path = os.path.join(agent['dir_path'], "skills", "swarm")
+        os.makedirs(skill_dir_path, exist_ok=True)
         
         print(" -> Copying SKILL.md...")
-        skill_remote_path = f"{skill_dir_path}/SKILL.md"
-        if scp_to_remote(SKILL_SOURCE, skill_remote_path) != 0:
-            print("    Failed to upload SKILL.md")
+        skill_dest_path = os.path.join(skill_dir_path, "SKILL.md")
+        try:
+            shutil.copy2(SKILL_SOURCE, skill_dest_path)
+        except Exception as e:
+            print(f"    Failed to copy SKILL.md: {e}")
             continue
             
         print(f" Successfully installed SDA to: {agent['name']}")
