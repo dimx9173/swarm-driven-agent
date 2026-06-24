@@ -1,3 +1,4 @@
+---
 title: Agent System Instruction Contract (RULE.md)
 version: 2.0.0-agent-optimized
 description: Strict operational rules, FSM schemas, and cognitive guidelines optimized for direct LLM agent ingestion and steering.

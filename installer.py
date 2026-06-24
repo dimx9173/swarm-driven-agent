@@ -30,15 +30,13 @@ def extract_version(file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read(4096)
         lines = content.splitlines()
-        if len(lines) > 0 and lines[0].strip() == '---':
-            idx = 1
-            while idx < len(lines) and lines[idx].strip() != '---':
-                line = lines[idx].strip()
-                if line.startswith('version:'):
-                    val = line.split(':', 1)[1].strip()
-                    val = val.strip('"').strip("'")
-                    return val
-                idx += 1
+        # Scan the first 20 lines (frontmatter or top headers) for the version: key
+        for i in range(min(20, len(lines))):
+            line = lines[i].strip()
+            if line.startswith('version:'):
+                val = line.split(':', 1)[1].strip()
+                val = val.strip('"').strip("'")
+                return val
     except Exception:
         pass
     return None
