@@ -255,12 +255,101 @@ def merge_soul_content(target_content, template_content):
     
     return '\n'.join(new_content) + '\n'
 
+def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
+    """Creates a new agent profile/workspace directory and installs the SDA workflow files."""
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", name):
+        print(f"Error: Invalid agent name '{name}'. Only alphanumeric characters, underscores, and hyphens are allowed.", file=sys.stderr)
+        sys.exit(1)
+        
+    home_dir = os.path.expanduser("~")
+    
+    if agent_type.lower() == "hermes":
+        dest_dir = os.path.join(home_dir, ".hermes", "profiles", name)
+    else:
+        dest_dir = os.path.join(home_dir, ".openclaw", "workspaces", name)
+        
+    soul_dest_path = os.path.join(dest_dir, "SOUL.md")
+    rule_dest_path = os.path.join(dest_dir, "RULE.md")
+    skill_dir_path = os.path.join(dest_dir, "skills", "swarm")
+    skill_dest_path = os.path.join(skill_dir_path, "SKILL.md")
+    
+    if os.path.exists(soul_dest_path):
+        print(f"Error: Agent workspace '{name}' already exists at: {dest_dir} (found SOUL.md)", file=sys.stderr)
+        sys.exit(1)
+        
+    print(f"\nCreating new {agent_type} agent:")
+    print(f"  Name: {name}")
+    print(f"  Path: {dest_dir}")
+    
+    if not identity:
+        if yes_bypass:
+            identity = "你是一個全能的智慧 Agent，旨在協同執行軟體工程任務與狀態運作。"
+        else:
+            print("\nEnter System Identity / 定位 for the new agent (press Enter for default):")
+            input_identity = input("> ").strip()
+            identity = input_identity if input_identity else "你是一個全能的智慧 Agent，旨在協同執行軟體工程任務與狀態運作。"
+            
+    print(f"  System Identity: {identity}")
+    
+    if not yes_bypass:
+        confirm = input("\nProceed with creation? (y/n): ").strip().lower()
+        if confirm != 'y':
+            print("Cancelled.")
+            sys.exit(0)
+            
+    print(f"\n -> Initializing directory: {dest_dir}...")
+    os.makedirs(skill_dir_path, exist_ok=True)
+    
+    print(" -> Creating SOUL.md...")
+    try:
+        with open(SOUL_TEMPLATE, 'r', encoding='utf-8') as f:
+            template_content = f.read()
+    except Exception as e:
+        print(f"Error: Failed to read SOUL.md template: {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    initial_soul = f"# 1. 系統定位 (System Identity)\n{identity}\n"
+    merged_soul = merge_soul_content(initial_soul, template_content)
+    
+    try:
+        with open(soul_dest_path, 'w', encoding='utf-8') as f:
+            f.write(merged_soul)
+        print(f"    Created SOUL.md (v{template_versions['SOUL.md']})")
+    except Exception as e:
+        print(f"Error: Failed to write SOUL.md: {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    print(" -> Creating RULE.md...")
+    try:
+        with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
+            rule_content = f.read()
+        rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
+        with open(rule_dest_path, 'w', encoding='utf-8') as f:
+            f.write(rule_content)
+        print(f"    Created RULE.md (v{template_versions['RULE.md']})")
+    except Exception as e:
+        print(f"Error: Failed to write RULE.md: {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    print(" -> Creating SKILL.md...")
+    try:
+        shutil.copy2(SKILL_SOURCE, skill_dest_path)
+        print(f"    Created SKILL.md (v{template_versions['SKILL.md']})")
+    except Exception as e:
+        print(f"Error: Failed to copy SKILL.md: {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    print(f"\nSuccessfully created and installed SDA workflow for new agent: {name}!")
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Universal Swarm-Driven Agent (SDA) Workflow Installer")
     parser.add_argument("agents", nargs="*", help="Names of agents to install (e.g. xuandao finance). Runs in interactive mode if omitted.")
     parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     parser.add_argument("-c", "--check", action="store_true", help="Check and print agent status without installing.")
+    parser.add_argument("--create", help="Create a new agent with the specified name and install the SDA workflow.")
+    parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
+    parser.add_argument("--identity", help="The system identity description of the new agent.")
     args = parser.parse_args()
 
     print("="*60)
@@ -280,6 +369,10 @@ def main():
         "SKILL.md": extract_version(SKILL_SOURCE)
     }
     
+    if args.create:
+        create_new_agent(args.create, args.type, args.identity, template_versions, args.yes)
+        sys.exit(0)
+        
     agents = scan_agents()
     if not agents:
         print("No openclaw or hermes agents found on the local machine.")
