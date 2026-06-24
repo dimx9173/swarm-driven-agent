@@ -173,6 +173,12 @@ def merge_soul_content(target_content, template_content):
     return '\n'.join(new_content) + '\n'
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Universal Swarm-Driven Agent (SDA) Workflow Installer")
+    parser.add_argument("agents", nargs="*", help="Names of agents to install (e.g. xuandao finance). Runs in interactive mode if omitted.")
+    parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
+    args = parser.parse_args()
+
     print("="*60)
     print("       Swarm-Driven Agent (SDA) Workflow Installer")
     print("="*60)
@@ -188,42 +194,79 @@ def main():
         print("No openclaw or hermes agents found on the local machine.")
         sys.exit(0)
         
-    print(f"\nDetected {len(agents)} agents:")
-    for idx, agent in enumerate(agents, start=1):
-        print(f" [{idx}] Type: {agent['type']:<8} | Name: {agent['name']:<20} | Path: {agent['dir_path']}")
-        
-    print("\nSelect agents to install SDA workflow:")
-    print("  Enter comma-separated numbers (e.g. 1,3,4)")
-    print("  Enter 'all' to select all agents")
-    print("  Enter 'q' to quit")
-    
-    selection = input("\nYour choice: ").strip()
-    if selection.lower() == 'q' or not selection:
-        print("Cancelled.")
-        sys.exit(0)
-        
     selected_indices = []
-    if selection.lower() == 'all':
-        selected_indices = list(range(len(agents)))
-    else:
-        try:
-            parts = selection.split(",")
-            for part in parts:
-                idx = int(part.strip()) - 1
-                if 0 <= idx < len(agents):
-                    selected_indices.append(idx)
-                else:
-                    print(f"Warning: Invalid index {part.strip()} ignored.")
-        except ValueError:
-            print("Invalid input format.")
-            sys.exit(1)
+    
+    if args.agents:
+        # Match agents specified in command line arguments
+        for term in args.agents:
+            term_lower = term.lower()
+            found = False
+            # 1. Try exact name match or exact type:name match
+            for i, agent in enumerate(agents):
+                name_lower = agent['name'].lower()
+                full_id = f"{agent['type'].lower()}:{name_lower}"
+                if term_lower == name_lower or term_lower == full_id:
+                    if i not in selected_indices:
+                        selected_indices.append(i)
+                    found = True
             
+            if not found:
+                # 2. Try substring match on name
+                for i, agent in enumerate(agents):
+                    name_lower = agent['name'].lower()
+                    if term_lower in name_lower:
+                        if i not in selected_indices:
+                            selected_indices.append(i)
+                        found = True
+                        
+            if not found:
+                print(f"Error: No agent found matching '{term}'.", file=sys.stderr)
+                sys.exit(1)
+    else:
+        # Interactive mode
+        print(f"\nDetected {len(agents)} agents:")
+        for idx, agent in enumerate(agents, start=1):
+            print(f" [{idx}] Type: {agent['type']:<8} | Name: {agent['name']:<20} | Path: {agent['dir_path']}")
+            
+        print("\nSelect agents to install SDA workflow:")
+        print("  Enter comma-separated numbers (e.g. 1,3,4)")
+        print("  Enter 'all' to select all agents")
+        print("  Enter 'q' to quit")
+        
+        selection = input("\nYour choice: ").strip()
+        if selection.lower() == 'q' or not selection:
+            print("Cancelled.")
+            sys.exit(0)
+            
+        if selection.lower() == 'all':
+            selected_indices = list(range(len(agents)))
+        else:
+            try:
+                parts = selection.split(",")
+                for part in parts:
+                    idx = int(part.strip()) - 1
+                    if 0 <= idx < len(agents):
+                        selected_indices.append(idx)
+                    else:
+                        print(f"Warning: Invalid index {part.strip()} ignored.")
+            except ValueError:
+                print("Invalid input format.")
+                sys.exit(1)
+                
     if not selected_indices:
         print("No valid agents selected.")
         sys.exit(0)
         
-    print(f"\nYou selected {len(selected_indices)} agent(s) for installation.")
-    confirm = input("Proceed with installation? (y/n): ").strip().lower()
+    print(f"\nYou selected {len(selected_indices)} agent(s) for installation:")
+    for idx in selected_indices:
+        agent = agents[idx]
+        print(f"  - {agent['name']} ({agent['type']})")
+        
+    if args.yes:
+        confirm = 'y'
+    else:
+        confirm = input("\nProceed with installation? (y/n): ").strip().lower()
+        
     if confirm != 'y':
         print("Cancelled.")
         sys.exit(0)
