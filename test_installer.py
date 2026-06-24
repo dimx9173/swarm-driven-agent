@@ -93,6 +93,42 @@ class TestSDAInstaller(unittest.TestCase):
         self.assertIn("Template FSM rules.", merged)
         self.assertNotIn("Template positioning.", merged)
 
+    def test_scan_agents_with_home_in_parent_path(self):
+        # Create a mock home directory structure containing "/home/" in its path
+        home_with_slash_home = os.path.join(self.test_dir, "home", "carlos")
+        os.makedirs(home_with_slash_home, exist_ok=True)
+        
+        # Backup original environment home
+        original_home = os.environ.get("HOME")
+        os.environ["HOME"] = home_with_slash_home
+        
+        try:
+            # Create a mock agent in this home structure
+            workspace_dir = os.path.join(home_with_slash_home, ".openclaw", "workspaces", "devpc_agent")
+            os.makedirs(workspace_dir, exist_ok=True)
+            with open(os.path.join(workspace_dir, "SOUL.md"), "w") as f:
+                f.write("# 1. 系統定位\nDevPC agent identity\n")
+                
+            # Create a folder that SHOULD be skipped (nested mock home inside the agent)
+            skipped_dir = os.path.join(workspace_dir, "home", "nested_dir")
+            os.makedirs(skipped_dir, exist_ok=True)
+            with open(os.path.join(skipped_dir, "SOUL.md"), "w") as f:
+                f.write("# 1. 系統定位\nShould be skipped\n")
+            
+            # Scan agents
+            agents = installer.scan_agents()
+            
+            # We should detect 'devpc_agent', but NOT the nested 'SOUL.md' in skipped_dir
+            names = [a['name'] for a in agents]
+            self.assertIn("devpc_agent", names)
+            self.assertNotIn("nested_dir", names)
+            self.assertEqual(len(agents), 1)
+        finally:
+            if original_home:
+                os.environ["HOME"] = original_home
+            else:
+                del os.environ["HOME"]
+
     def test_cli_create_agent(self):
         # Run installer command to create a new agent
         script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer.py")

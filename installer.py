@@ -112,9 +112,13 @@ def scan_agents():
         found_paths = []
         for root, dirs, files in os.walk(root_path):
             # Skip nested directories under workspaces/xxxx/home/ or profiles/xxxx/home/
-            # to avoid picking up temp workspaces of agents
+            # to avoid picking up temp workspaces of agents.
+            # To avoid matching the user's real home directory path on Linux (e.g. /home/carlos),
+            # we strip the real home prefix before checking for "/home/".
             norm_root = root.replace("\\", "/")
-            if "/home/" in norm_root:
+            norm_home = home_dir.replace("\\", "/")
+            relative_part = norm_root[len(norm_home):] if norm_root.startswith(norm_home) else norm_root
+            if "/home/" in relative_part:
                 continue
             if "SOUL.md" in files:
                 full_path = os.path.join(root, "SOUL.md")
