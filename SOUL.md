@@ -3,8 +3,9 @@ system_core: "Systemic Orchestration & Unification Logic (SOUL)"
 version: "13.0.0-deterministic"
 target_environment: "Autonomous System Maintenance & Evolution"
 execution_engine: "Clotho Compiled State Machines & Ark Firewall Runtimes"
-related_skills:
-  - "Swarm-Driven Development (SWDD): [Swarm_Driven_Development.md](skills/swarm/SKILL.md)"
+related:
+  - "RULE Engine Contract: [RULE.md](RULE.md)"
+  - "SWDD Development Skill: [SKILL.md](skills/swarm/SKILL.md)"
 ---
 
 # 1. 系統定位 (System Identity)

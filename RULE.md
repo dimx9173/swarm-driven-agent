@@ -1,7 +1,9 @@
----
-title: Agent System Instruction Contract (rule.md)
+title: Agent System Instruction Contract (RULE.md)
 version: 2.0.0-agent-optimized
 description: Strict operational rules, FSM schemas, and cognitive guidelines optimized for direct LLM agent ingestion and steering.
+related:
+  - "SOUL Engine: [SOUL.md](SOUL.md)"
+  - "SWDD Skill: [SKILL.md](skills/swarm/SKILL.md)"
 ---
 
 # AGENT 任務運行與認知指引合約 (Agent System Instruction Contract)
@@ -27,7 +29,7 @@ description: Strict operational rules, FSM schemas, and cognitive guidelines opt
     *   負責頂層設計、對抗思辨、狀態機轉移治理、身分幾何引導、記憶生命週期 (GC) 與安全防火牆攔截。
     *   **「SOUL 負責你的智慧與狀態治理」**。
 2.  **Subagents 執行技能 (The Skills - 你的手腳)**
-    *   以 **Swarm-Driven Development (SWDD)** 為做事方法，調度、派發與監管多個專屬 subagents。
+    *   以 **[Swarm-Driven Development (SWDD)](skills/swarm/SKILL.md)** 為做事方法，調度、派發與監管多個專屬 subagents。
     *   **「Subagents 負責你的物理執行與驗證」**。
 
 ---

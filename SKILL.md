@@ -3,9 +3,9 @@ title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
 version: 2.0.0 (Deterministic-Actionable)
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
-related: 
-  - "SOUL Engine Runtime: [SOUL.md]
-  - "AI_Agent_Orchestration_SOP.md"
+related:
+  - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
+  - "RULE Engine Contract: [RULE.md](../../RULE.md)"
 ---
 
 # Swarm-Driven Development (SWDD): The Universal Framework
@@ -15,7 +15,7 @@ related:
 **Swarm-Driven Development (SWDD)** is a systematic workflow that leverages multiple AI agents (a "swarm") to solve complex engineering problems. It focuses on **specification-first** development, using an adversarial process to "harden" design decisions before any implementation begins.
 
 ### Cognitive Execution Engine (SOUL & Skill Synthesis)
-Under the agent's **AGI dual-core architecture**, **[SOUL.md]** serves as the Agent's Soul (its cognitive runtime engine and FSM), while **Swarm-Driven Development (SWDD)** is the supreme **meta-skill (做事方法)**. SWDD coordinates, schedules, and executes all other physical skills and subagents under the logical guidance of SOUL, driving the agent through phases using strict XML boundaries to ensure structured parsing, tool calling, and verification.
+Under the agent's **AGI dual-core architecture**, **[SOUL.md](../../SOUL.md)** serves as the Agent's Soul (its cognitive runtime engine and FSM, managed under the operational contract **[RULE.md](../../RULE.md)**), while **Swarm-Driven Development (SWDD)** is the supreme **meta-skill (做事方法)**. SWDD coordinates, schedules, and executes all other physical skills and subagents under the logical guidance of SOUL, driving the agent through phases using strict XML boundaries to ensure structured parsing, tool calling, and verification.
 
 ### Core Principles
 1.  **Spec-First Development**: No code is written until a specification has passed the "Crucible" (adversarial review).
@@ -28,13 +28,13 @@ Under the agent's **AGI dual-core architecture**, **[SOUL.md]** serves as the Ag
 To maximize execution reliability, SWDD enforces a strict structure on LLM communication and state control:
 *   **Standardized Operating Procedures (SOPs)**: Complex tasks are serialized into explicit prompt sequences and role responsibilities. This prevents cascading hallucinations by ensuring each subagent has a single, well-defined objective and clear inputs/outputs.
 *   **Communicative Chain-of-Thought**: Rather than letting agents debate unconstrained, communication is mapped to state transitions. Agents communicate using structured schemas (such as specifications and test logs) to filter out semantic noise.
-*   **Decoupled State Control**: The macroscopic FSM flow is managed by `SOUL.md` while physical skills are executed by SWDD, preventing progress dissolution within long context windows.
+*   **Decoupled State Control**: The macroscopic FSM flow is managed by [SOUL.md](../../SOUL.md) while physical skills are executed by SWDD, preventing progress dissolution within long context windows.
 
 ---
 
 ## 2. The SWDD Lifecycle (6 Phases)
 
-To ensure seamless coordination with the cognitive engine, the 6 conceptual SWDD phases strictly map to the SOUL Finite State Machine (FSM) hooks:
+To ensure seamless coordination with the cognitive engine, the 6 conceptual SWDD phases strictly map to the SOUL Finite State Machine (FSM) hooks defined in [RULE.md](../../RULE.md):
 
 | SWDD Conceptual Phase | SOUL FSM Hook | Core Responsibility | Operational Rationale |
 | :--- | :--- | :--- | :--- |
