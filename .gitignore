@@ -1,0 +1,12 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Installer backups
+*.bak
+
+# OS generated
+.DS_Store
+Thumbs.db
