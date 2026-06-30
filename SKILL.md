@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
-version: 2.0.0 (Deterministic-Actionable)
+version: 2.1.0 (Deterministic-Actionable)
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
@@ -191,3 +191,5 @@ Always maintain a `docs/specs/` folder. A spec is only "Complete" if it includes
 3.  **Empirical Validation**: If a design involves mathematical models or performance targets, run a "Pilot Experiment" (Phase 3.5) or VM sandbox PoC before full implementation.
 4.  **Consensus Limits**: Apply compute governors to prevent infinite loops. If consensus is not reached after 3 turns, halt and escalate.
 5.  **Git Hygiene**: Ensure the implementation agent commits in logical chunks that correspond to the Synthesis plan.
+6.  **Scientific Debugging**: Investigate, do not guess. Read the entire error and stack trace. Reproduce the problem before changing code. Change one variable at a time. Never use defensive null checks to mask unexpected nulls; trace the root cause.
+7.  **Transparent & Precise Communication**: Explain what you did and why, not just a block of code. Flag concerns even when executing exactly what was asked. Express precise uncertainty (e.g. "I am not sure if this library supports streaming" rather than "I think it should work").

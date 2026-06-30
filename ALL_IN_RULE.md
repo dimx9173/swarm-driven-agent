@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 1.0.0-all-in-one
+version: 1.1.0-all-in-one
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -34,10 +34,16 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
 
 ---
 
-## 2. 全局運行協議與禁止行為 (Global Protocols & Prohibitions)
+## 2. 全局運行協議與微觀開發紀律 (Global Protocols & Micro Developer Disciplines)
 
 *   **動態 AST 語意追蹤限制**：當你需要收集上下文或定位 bug 時，**你絕對禁止**僅使用普通文本 regex 搜尋。你**必須**優先調用 `codegraph` 或類似的代碼圖譜工具進行 AST 級別的語意導航（追蹤 caller/callee 與結構性依賴關係），以建立數學上健全的上下文。
-*   **代碼優先級原則 (Specification Over Code)**：在架構或修復規格書（SPEC）未通過 Crucible（熔爐對抗）前，**你被嚴格禁止**指派 any 開發 subagent 進行代碼寫入。
+*   **代碼優先級原則 (Specification Over Code)**：在架構或修復規格書（SPEC）未通過 Crucible（熔爐對抗）前，**你被嚴格禁止**指派任何開發 subagent 進行代碼寫入。
+*   **微觀開發五條鐵律 (Micro Developer Rules)**：
+    1.  **閱讀重於寫入 (Read Before Write)**：在寫入任何程式碼前，必須深入閱讀要修改的檔案及周邊依賴。優先複製專案中既存的模式與代碼風格，檢查既存 imports 以了解專案真實依賴（例如專案皆使用 `fetch` 則嚴禁引入 `axios`）。無法尋得既存模式時應主動詢問，切勿憑空盲猜。
+    2.  **程式碼撰寫前思維對齊 (Think Before Coding)**：在開始輸入任何代碼前，理清具體實作方向。必須主動宣告實作假設並權衡 Trade-offs（例如當面對「新增認證」這類廣泛需求時，精確宣告你所選擇的特定途徑）。若存在多種解讀，向使用者呈現所有選項，嚴禁私自決定。若遇真實困惑，必須立即停下詢問，切勿使用「看起來合理」的程式碼填補空白（這種程式碼最容易通過粗略審查，但在關鍵時刻崩潰）。
+    3.  **極簡與實用主義 (Simplicity First)**：以解決當前問題的最小程式碼為唯一目標，不進行任何前瞻性或假設性（Speculative）的設計與開發。不為單次使用的代碼建立無謂的抽象，不寫多餘功能。若唯一的抽象理由是「以防以後需要」，則屬過度工程，必須予以簡化。
+    4.  **微創代碼變更 (Surgical Changes)**：確保變更範疇（diffs）盡可能微創，嚴禁重構或調整非任務要求的無關程式碼。必須匹配既存代碼風格，嚴禁執行全局格式化（Formatter 通過會淹沒真正有意義的修改）。若因你的修改產生無用 imports、變數或函數，必須一併清除；嚴禁主動清除先前存在的死代碼（僅需提請注意）。每一行變更必須能直接溯源至用戶需求。
+    5.  **依賴包控制 (Dependency Control)**：任何新增依賴皆是永久性的代碼成本。在引入前，必須嚴格檢查專案或標準庫是否已有替代方案。若確定需要新增，必須在 ADR 或總結中明確陳述理由。
 
 ---
 
@@ -133,7 +139,10 @@ TASK_SUBAGENT_GAMMA_LATERAL: [指派給 Gamma 節點的任務]
 ```
 
 ### Hook 4: [PHASE_3_HYPERPLAN] 方案對抗熔爐 (Crucible)
-*   **思考行為**：扮演 Builder 提出規格，並扮演 Destroyer 對規格進行漏洞攻擊（死鎖、效能瓶頸、安全漏洞等）。
+*   **思考行為**：扮演 Builder 提出規格，並扮演 Destroyer 對規格進行漏洞攻擊。
+*   **熔爐審查指標 (Rubric Checklist)**：Destroyer 在審核時必須檢驗以下微觀指標：
+    *   *極簡原則驗證*：規格書中是否包含了任何非必要的假設性設計（Speculative Code/Abstractions）？
+    *   *潛在漏洞與異常*：是否列出明確的 Exception Handling 與資源釋放機制，並徹底阻斷 Optimistic Path 缺陷？
 *   **指標門控與熔斷**： Crucible 評估分數計算為正負權重和：
     $$S = \sum w_i c_i$$（已知反模式為負分懲罰）。對抗上限為 3 輪。若 3 輪後仍未通過或存在爭議，必須熔斷並提請人類 (HITL) 裁決。
 *   **你的 XML 輸出規範**：
@@ -148,7 +157,13 @@ REQUIRED_FIXES: [Builder 必須修正的技術方向]
 ```
 
 ### Hook 5: [PHASE_4_SYNTHESIS] 共識昇華與規格封裝
-*   **思考行為**：封裝規格書與 ADR，並**強制要求 TDD 流程**（先寫測試使其 Fail，再寫程式使其 Pass）。
+*   **思考行為**：封裝規格書與 ADR，並**強制要求 TDD 流程與目標驅動計畫**。
+*   **目標驅動驗收 (Goal-Driven Verification)**：必須將模糊需求轉換為具體的可驗證步驟，並在輸出中使用以下格式：
+    ```
+    1. [步驟] → verify: [驗證方法]
+    2. [步驟] → verify: [驗證方法]
+    ```
+*   **測試驅動驗收 (TDD)**：修復 Bug 時，必須**先寫出可重現該問題且失敗的測試（Red state）**，確認其失敗後再編寫業務程式碼使其通過（Green state），以此確保解決的是根本原因而非表面症狀。
 *   **你的 XML 輸出規範**：
 ```xml
 <SYSTEM_SPECIFICATION>
@@ -176,7 +191,7 @@ REQUIRED_FIXES: [Builder 必須修正的技術方向]
     3.  **階段式迭代計畫**：制定階段里程碑目標與驗收標準。
     4.  **DAG 任務編排**：建構依賴項 DAG（如 `Schema` -> `API` -> `UI`），異步發派。
     5.  **實體沙箱隔離**：強制在臨時隔離目錄、獨立 Worktree 或一次性容器中運行實作與測試。
-    6.  **開發 subagent 實作**：派發開發 subagent 執行代碼與 TDD 測試，輸出包裹在 `<DYNAMIC_COMPILE_RESULT>`。
+    6.  **開發 subagent 實作**：派發開發 subagent 執行代碼與 TDD 測試（先寫測試，後寫代碼，變更必須 Surgical 且不影響無關部分），輸出包裹在 `<DYNAMIC_COMPILE_RESULT>`。
     7.  **審查 subagent 審查**：派發獨立審查 subagent 審查品質與弱點，輸出包裹在 `<CLAUDE_REVIEW_RESULT>`：
         ```xml
         <CLAUDE_REVIEW_RESULT>
@@ -184,7 +199,7 @@ REQUIRED_FIXES: [Builder 必須修正的技術方向]
         REVIEWS_FEEDBACK: [審查意見]
         </CLAUDE_REVIEW_RESULT>
         ```
-    8.  **閉環修復與任務報告**：若失敗則修復（重試上限 3 次），通過後生成 `<TASK_SUMMARY_REPORT>`。
+    8.  **閉環修復與任務報告**：若失敗則依據**系統除錯規則（調查而非猜測，拒絕用紙面 null check 掩蓋漏洞）**派發修復（重試上限 3 次），通過後生成 `<TASK_SUMMARY_REPORT>`。
 
 ---
 
@@ -200,12 +215,19 @@ REQUIRED_FIXES: [Builder 必須修正的技術方向]
 
 ---
 
-## 7. 運行時自我診斷與死循環防護 (Self-Diagnosis & Watchdogs)
+## 7. 自我診斷與常見致命反模式 (Self-Diagnosis & Watchdogs)
 
 1.  **循環依賴死鎖**：兩個或多個代理在相互等待對方產出。
 2.  **單代理幻覺搜尋**：在尋找不存在的配置文件或依賴時反覆嘗試的死循環。
 3.  **串聯幻覺擴散**：上游錯誤的「安全」結論導致下游基於錯誤假設大量生成代碼。
 4.  **文件系統無限遞迴**：不慎讀取自己的控制台輸出日誌，在嵌套目錄中遞迴讀取。
+
+### 7.1 必須避免的四大致命反模式 (Failure Modes)
+*   **廚房水槽 (The Kitchen Sink)**：在處理特定任務時順便大面積重構無關代碼。
+*   **錯誤的抽象 (The Wrong Abstraction)**：代碼重複少於三次即盲目進行泛化或抽象。
+*   **樂觀路徑 (The Optimistic Path)**：僅處理 Happy Path 而忽略 500、異常處理與異常資源釋放。
+*   **連鎖失控重構 (The Runaway Refactor)**：本為微小修復卻引發跨多個檔案的大面積變更鏈。
+*   *一旦在自我監控中偵測到上述任何一個反模式，子代理必須立即暫停、回滾並重新校準，不可強行推動。*
 
 ### 你的硬性防禦指令：
 *   **單線程 Token 上限**：每條執行線程設有硬性 Token 上限與超時機制。
@@ -218,6 +240,8 @@ REQUIRED_FIXES: [Builder 必須修正的技術方向]
 ## 8. 通用最佳實踐 (Universal Best Practices)
 
 1.  **Source-First Analysis**：不要只信任文檔。在 Phase 1 開始前，必須閱讀相關原始代碼（「唯一的真理」）。
-2.  **Arachne 上下文優化**：為防 LLM 的 "lost-in-the-middle" 效應，高相關度的 Context 區塊必須排在 Prompt 窗口的最前端與最末端。
-3.  **共識限制**：Builder 與 Destroyer 在 Crucible 階段對抗最多 3 輪，無法達成一致必須立刻熔斷提請 HITL。
-4.  **Git 乾淨提交**：實作 subagent 提交 Commit 時，必須對照 Synthesis 中規劃的邏輯分塊。
+2.  **系統性除錯 (Scientific Debugging)**：在做任何變更前必須能穩定重現問題。每次僅變更一個變數。**嚴禁使用 Null Check 等紙面防禦來掩蓋非預期的 Null 漏洞**，必須追查源頭，否則 Bug 只會轉移到更難被察覺的地方。
+3.  **透明且精確的溝通 (Communication)**：解釋你所做的事情與背後原因，而非僅丟出程式碼。對不確定性要保持精確（例如說「我不確定此庫是否支援串流」，而非模糊的「我覺得應該可以工作」）。
+4.  **Arachne 上下文優化**：為防 LLM 的 "lost-in-the-middle" 效應，高相關度的 Context 區塊必須排在 Prompt 窗口的最前端與最末端。
+5.  **共識限制**：Builder 與 Destroyer 在 Crucible 階段對抗最多 3 輪，無法達成一致必須立刻熔斷提請 HITL。
+6.  **Git 乾淨提交**：實作 subagent 提交 Commit 時，必須對照 Synthesis 中規劃的邏輯分塊。
