@@ -174,129 +174,207 @@ def scan_agents():
     return detected
 
 def merge_soul_content(target_content, template_content):
-    template_lines = template_content.splitlines()
-    frontmatter_lines = []
-    template_body_lines = []
+    begin_marker = "<!-- sda-begin -->"
+    end_marker = "<!-- sda-end -->"
     
-    if len(template_lines) > 0 and template_lines[0] == '---':
-        idx = 1
-        while idx < len(template_lines) and template_lines[idx] != '---':
-            idx += 1
-        if idx < len(template_lines):
-            frontmatter_lines = template_lines[:idx+1]
-            template_body_lines = template_lines[idx+1:]
+    # Check if template has block markers
+    if begin_marker in template_content and end_marker in template_content:
+        # 1. Extract frontmatter from template
+        template_lines = template_content.splitlines()
+        frontmatter_str = ""
+        template_body = template_content
+        if len(template_lines) > 0 and template_lines[0] == '---':
+            idx = 1
+            while idx < len(template_lines) and template_lines[idx] != '---':
+                idx += 1
+            if idx < len(template_lines):
+                frontmatter_str = '\n'.join(template_lines[:idx+1]) + '\n'
+                template_body = '\n'.join(template_lines[idx+1:])
+
+        # 2. Extract sda block from template
+        block_start = template_body.find(begin_marker)
+        block_end = template_body.find(end_marker)
+        template_block = template_body[block_start:block_end + len(end_marker)].strip()
+
+        # 3. Extract preserved user identity from target
+        target_lines = target_content.splitlines()
+        target_body = target_content
+        if len(target_lines) > 0 and target_lines[0] == '---':
+            idx = 1
+            while idx < len(target_lines) and target_lines[idx] != '---':
+                idx += 1
+            if idx < len(target_lines):
+                target_body = '\n'.join(target_lines[idx+1:])
+
+        # Clean target body from sda block or legacy FSM rules
+        t_start = target_body.find(begin_marker)
+        t_end = target_body.find(end_marker)
+        if t_start != -1 and t_end != -1:
+            user_identity = target_body[:t_start].strip() + "\n" + target_body[t_end + len(end_marker):].strip()
+        else:
+            # Legacy fallback for target content
+            cleaned_target_body = []
+            for line in target_body.splitlines():
+                if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
+                    break
+                cleaned_target_body.append(line)
+            # Remove trailing separators/empty lines
+            while cleaned_target_body and (cleaned_target_body[-1].strip() == '' or cleaned_target_body[-1].strip() == '---'):
+                cleaned_target_body.pop()
+            user_identity = '\n'.join(cleaned_target_body).strip()
+
+        # 4. Reconstruct new SOUL.md content
+        new_content = []
+        if frontmatter_str:
+            new_content.append(frontmatter_str.strip())
+        if user_identity.strip():
+            new_content.append(user_identity.strip())
+        if template_block:
+            new_content.append(template_block)
+            
+        return '\n\n'.join(new_content) + '\n'
+        
+    else:
+        # --- LEGACY HEADER-BASED MERGE (Fallback for legacy templates/tests) ---
+        template_lines = template_content.splitlines()
+        frontmatter_lines = []
+        template_body_lines = []
+        
+        if len(template_lines) > 0 and template_lines[0] == '---':
+            idx = 1
+            while idx < len(template_lines) and template_lines[idx] != '---':
+                idx += 1
+            if idx < len(template_lines):
+                frontmatter_lines = template_lines[:idx+1]
+                template_body_lines = template_lines[idx+1:]
+            else:
+                template_body_lines = template_lines
         else:
             template_body_lines = template_lines
-    else:
-        template_body_lines = template_lines
+            
+        template_body = '\n'.join(template_body_lines)
+        frontmatter_str = '\n'.join(frontmatter_lines)
         
-    template_body = '\n'.join(template_body_lines)
-    
-    # Replace the local path in template frontmatter with relative path
-    frontmatter_str = '\n'.join(frontmatter_lines)
-    frontmatter_str = frontmatter_str.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
-    
-    # Parse target_content and strip existing frontmatter & FSM rules
-    target_lines = target_content.splitlines()
-    target_body_lines = []
-    if len(target_lines) > 0 and target_lines[0] == '---':
-        idx = 1
-        while idx < len(target_lines) and target_lines[idx] != '---':
-            idx += 1
-        if idx < len(target_lines):
-            target_body_lines = target_lines[idx+1:]
+        target_lines = target_content.splitlines()
+        target_body_lines = []
+        if len(target_lines) > 0 and target_lines[0] == '---':
+            idx = 1
+            while idx < len(target_lines) and target_lines[idx] != '---':
+                idx += 1
+            if idx < len(target_lines):
+                target_body_lines = target_lines[idx+1:]
+            else:
+                target_body_lines = target_lines
         else:
             target_body_lines = target_lines
-    else:
-        target_body_lines = target_lines
-        
-    target_body = '\n'.join(target_body_lines)
-    has_system_identity = "# 1. 系統定位" in target_body
-    
-    cleaned_target_body = []
-    if has_system_identity:
-        # Split at "# 2. 核心運作原則" or "# 2. 認知合約"
-        for line in target_body_lines:
-            if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
-                break
-            cleaned_target_body.append(line)
-        preserved_identity = '\n'.join(cleaned_target_body).strip()
-        
-        # Extract template body starting from "# 2. 認知合約" or "# 2. 核心運作原則"
-        body_start_idx = template_body.find('# 2. 認知合約與運行規範')
-        if body_start_idx == -1:
-            body_start_idx = template_body.find('# 2. 核心運作原則')
             
-        if body_start_idx != -1:
-            template_to_append = template_body[body_start_idx:]
-        else:
-            template_to_append = template_body
-    else:
-        # Split at "# 核心認知架構" or "# 1. 系統定位" or "# 核心認知架構 (The SOUL Framework)"
-        for line in target_body_lines:
-            if (line.strip().startswith('# 核心認知架構') or 
-                line.strip().startswith('# 1. 系統定位') or 
-                line.strip().startswith('# 核心認知架構 (The SOUL Framework)')):
-                break
-            cleaned_target_body.append(line)
-        preserved_identity = '\n'.join(cleaned_target_body).strip()
+        target_body = '\n'.join(target_body_lines)
+        has_system_identity = "# 1. 系統定位" in target_body
         
-        # Extract entire template body starting from "# 1. 系統定位"
-        body_start_idx = template_body.find('# 1. 系統定位')
-        if body_start_idx != -1:
-            template_to_append = template_body[body_start_idx:]
-        else:
-            template_to_append = template_body
+        cleaned_target_body = []
+        if has_system_identity:
+            for line in target_body_lines:
+                if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
+                    break
+                cleaned_target_body.append(line)
+            preserved_identity = '\n'.join(cleaned_target_body).strip()
             
-    # Combine
-    new_content = []
-    if frontmatter_str:
-        new_content.append(frontmatter_str)
-    if preserved_identity:
-        new_content.append(preserved_identity)
-    
-    new_content.append("\n---\n")
-    new_content.append(template_to_append.strip())
-    
-    return '\n'.join(new_content) + '\n'
+            body_start_idx = template_body.find('# 2. 認知合約與運行規範')
+            if body_start_idx == -1:
+                body_start_idx = template_body.find('# 2. 核心運作原則')
+                
+            if body_start_idx != -1:
+                template_to_append = template_body[body_start_idx:]
+            else:
+                template_to_append = template_body
+        else:
+            for line in target_body_lines:
+                if (line.strip().startswith('# 核心認知架構') or 
+                    line.strip().startswith('# 1. 系統定位') or 
+                    line.strip().startswith('# 核心認知架構 (The SOUL Framework)')):
+                    break
+                cleaned_target_body.append(line)
+            preserved_identity = '\n'.join(cleaned_target_body).strip()
+            
+            body_start_idx = template_body.find('# 1. 系統定位')
+            if body_start_idx != -1:
+                template_to_append = template_body[body_start_idx:]
+            else:
+                template_to_append = template_body
+                
+        new_content = []
+        if frontmatter_str:
+            new_content.append(frontmatter_str)
+        if preserved_identity:
+            new_content.append(preserved_identity)
+        
+        new_content.append("\n---\n")
+        new_content.append(template_to_append.strip())
+        
+        return '\n'.join(new_content) + '\n'
 
 def uninstall_soul_content(soul_content):
     """Strips FSM rules and metadata links from SOUL.md content, keeping only the frontmatter and System Identity."""
-    lines = soul_content.splitlines()
-    cleaned_lines = []
+    begin_marker = "<!-- sda-begin -->"
+    end_marker = "<!-- sda-end -->"
     
-    has_frontmatter = len(lines) > 0 and lines[0].strip() == '---'
-    idx = 0
-    in_related_block = False
-    if has_frontmatter:
-        cleaned_lines.append(lines[0])
+    # 1. Separate frontmatter from body
+    lines = soul_content.splitlines()
+    frontmatter_str = ""
+    body_str = soul_content
+    if len(lines) > 0 and lines[0].strip() == '---':
         idx = 1
         while idx < len(lines) and lines[idx].strip() != '---':
-            line = lines[idx]
-            stripped_line = line.strip()
-            if stripped_line.startswith("related:") or stripped_line.startswith("related_skills:"):
-                in_related_block = True
-            elif in_related_block and stripped_line.startswith("-"):
-                # Skip list items under related block
-                pass
-            else:
-                in_related_block = False
-                cleaned_lines.append(line)
             idx += 1
         if idx < len(lines):
-            cleaned_lines.append(lines[idx])
-            idx += 1
+            # Do not keep the 'related' section in uninstalled frontmatter
+            frontmatter_lines = []
+            frontmatter_lines.append(lines[0])
+            in_related_block = False
+            for f_idx in range(1, idx):
+                line = lines[f_idx]
+                stripped = line.strip()
+                if stripped.startswith("related:") or stripped.startswith("related_skills:"):
+                    in_related_block = True
+                elif in_related_block and stripped.startswith("-"):
+                    pass
+                else:
+                    in_related_block = False
+                    frontmatter_lines.append(line)
+            frontmatter_lines.append(lines[idx])
+            frontmatter_str = '\n'.join(frontmatter_lines) + '\n'
+            body_str = '\n'.join(lines[idx+1:])
+
+    # 2. Strip sda block from body
+    t_start = body_str.find(begin_marker)
+    t_end = body_str.find(end_marker)
+    if t_start != -1 and t_end != -1:
+        cleaned_body = body_str[:t_start].strip() + "\n" + body_str[t_end + len(end_marker):].strip()
+        
+        new_content = []
+        if frontmatter_str.strip():
+            new_content.append(frontmatter_str.strip())
+        if cleaned_body.strip():
+            new_content.append(cleaned_body.strip())
+        return '\n\n'.join(new_content) + '\n'
+        
+    else:
+        # Fallback to legacy parser
+        cleaned_lines = []
+        if frontmatter_str:
+            cleaned_lines.extend(frontmatter_str.splitlines())
             
-    for i in range(idx, len(lines)):
-        line = lines[i]
-        if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
-            break
-        cleaned_lines.append(line)
-        
-    while cleaned_lines and (cleaned_lines[-1].strip() == '' or cleaned_lines[-1].strip() == '---'):
-        cleaned_lines.pop()
-        
-    return '\n'.join(cleaned_lines).strip() + '\n'
+        body_lines = body_str.splitlines()
+        for line in body_lines:
+            if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
+                break
+            cleaned_lines.append(line)
+            
+        while cleaned_lines and (cleaned_lines[-1].strip() == '' or cleaned_lines[-1].strip() == '---'):
+            cleaned_lines.pop()
+            
+        return '\n'.join(cleaned_lines).strip() + '\n'
+
 
 def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     """Creates a new agent profile/workspace directory and installs the SDA workflow files."""
