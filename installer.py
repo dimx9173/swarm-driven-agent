@@ -8,9 +8,9 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "SOUL.md")
-RULE_SOURCE = os.path.join(SCRIPT_DIR, "RULE.md")
-SKILL_SOURCE = os.path.join(SCRIPT_DIR, "SKILL.md")
+SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "SOUL.md")
+RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "RULE.md")
+SKILL_SOURCE = os.path.join(SCRIPT_DIR, "template", "SKILL.md")
 
 def parse_semver(version_str):
     if not version_str:
