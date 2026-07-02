@@ -261,6 +261,23 @@ REQUIRED_FIXES: [Builder 必須修正的技術方向]
 3.  **串聯幻覺擴散**：上游錯誤的「安全」結論導致下游基於錯誤假設大量生成代碼。
 4.  **文件系統無限遞迴**：不慎讀取自己的控制台輸出日誌，在嵌套目錄中遞迴讀取。
 
+### 7.0 Trajectory 退化分類（借鏡 Life-Harness Trajectory Regulation）
+
+Watchdog 必須區分三類退化模式，以精確的證據鏈進行檢測與分類恢復：
+
+| 模式 | 偵測訊號 | 恢復策略 |
+|---|---|---|
+| **Repetition** | 相同動作或指令語意 Hash $\ge 3$ 次 / 5 步窗口 | 觸發**角色切換 (Role Gating)**：強制重啟 subagent，依據任務類型切換至 Debugger/Reviewer 範本，並在 System Prompt 強制加重注入相關失敗案例的反向提示。 |
+| **Stagnation** | 連續 $N$ 步實體 **State Hash** 無變化 | 主動回退 (Rollback) 至上一次 State Hash 變動的狀態點，清除緩存，並強制啟用 §3.2 Mimir 檢索相關反模式。 |
+| **Budget Exhaustion** | 剩餘 token 數 $<$ 20% 閾值，或執行步數達 85% 限制 | 暫停當前自動執行，觸發 Adaptive HITL 物理對話，提示用戶縮減當前任務邊界或手動介入決策。 |
+
+*   **實體 State Hash 定義**：
+    為了防範 LLM 僅靠 Thought 欄位變化來規避停滯檢測，實體 State Hash 必須由實體環境特徵計算得出：
+    $$\text{State Hash} = \text{Hash}(\text{當前 Git Diff} \oplus \text{最後 2 次 terminal 輸出的 stdout} \oplus \text{當前操作的檔案路徑與大小})$$
+*   **偵測頻率**：每次 subagent 執行結束時檢查一次；每 5 步全局窗口檢查一次。
+*   **誤報率控制**：每次退化警報必須附帶 $\ge 1$ 個可觀察的實體 hash 變動證據，禁止僅憑模型直覺判斷。
+*   **與 §7「工具級循環檢測」的關係**：本節為工具級檢測的**上位分類與應對指導**，當偵測到工具循環後，必須先套入此分類，再執行對應的恢復策略。
+
 ### 7.1 必須避免的四大致命反模式 (Failure Modes)
 *   **廚房水槽 (The Kitchen Sink)**：在處理特定任務時順便大面積重構無關代碼。
 *   **錯誤的抽象 (The Wrong Abstraction)**：代碼重複少於三次即盲目進行泛化或抽象。
