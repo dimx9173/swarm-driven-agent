@@ -519,6 +519,48 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     print(f"\nSuccessfully created and installed SDA workflow for new agent: {name}!")
     record_agent_installed(dest_dir)
 
+def upgrade_swda():
+    """Performs self-upgrade of swda CLI by pulling from git and re-installing."""
+    import subprocess
+    import sys
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    print("="*60)
+    print("             Self-Upgrading swda CLI Tool")
+    print("="*60)
+    print(f"Repository directory: {script_dir}\n")
+    
+    # 1. Run git pull
+    print(" -> Pulling latest changes from git remote...")
+    try:
+        result = subprocess.run(["git", "pull"], cwd=script_dir, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(result.stdout)
+        else:
+            print(f"Error pulling from git:\n{result.stderr}", file=sys.stderr)
+            sys.exit(1)
+    except Exception as e:
+        print(f"Failed to execute git pull: {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    # 2. Re-install using pip in editable mode
+    print(" -> Re-installing the package...")
+    try:
+        result = subprocess.run([sys.executable, "-m", "pip", "install", "-e", "."], cwd=script_dir, capture_output=True, text=True)
+        if result.returncode != 0:
+            if "externally-managed-environment" in result.stderr or "break-system-packages" in result.stderr:
+                print(" -> Retrying with --break-system-packages...")
+                result = subprocess.run([sys.executable, "-m", "pip", "install", "--break-system-packages", "-e", "."], cwd=script_dir, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print("\nswda upgraded successfully!")
+            sys.exit(0)
+        else:
+            print(f"Error during package re-installation:\n{result.stderr}", file=sys.stderr)
+            sys.exit(1)
+    except Exception as e:
+        print(f"Failed to run pip install: {e}", file=sys.stderr)
+        sys.exit(1)
+
 def main():
     import argparse
     
@@ -546,14 +588,11 @@ def main():
     install_parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
-    # Update sub-command (alias of install)
-    update_parser = subparsers.add_parser("update", help="Update SDA workflow on agents.")
-    update_parser.add_argument("agents", nargs="?", help="Comma-separated list of agent names to update (e.g. xuandao,finance). Runs in interactive mode if omitted.")
+    # Update sub-command (Self-upgrade or update agents)
+    update_parser = subparsers.add_parser("update", help="Self-upgrade swda or update specific agents.")
+    update_parser.add_argument("--agents", nargs="?", const="all", help="Update specified agents (comma-separated) or 'all' if omitted.")
     update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     update_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SDA workflow from selected agents.")
-    update_parser.add_argument("--create", help="Create a new agent with the specified name and install the SDA workflow.")
-    update_parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
-    update_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
     # Doctor sub-command
     doctor_parser = subparsers.add_parser("doctor", help="Check agent status and optionally fix mismatches.")
@@ -583,14 +622,24 @@ def main():
             args.agents = []
             args.uninstall = False
             args.yes = False
-        args.create = None
+    elif args.command == "update" and not args.agents:
+        # Self-upgrade swda itself
+        upgrade_swda()
     else:
-        # install or update command
+        # install command, or update command with --agents specified
         args.check = False
         if args.agents:
             args.agents = [t.strip() for t in args.agents.split(",") if t.strip()]
         else:
             args.agents = []
+
+    # Safe default fallback for attributes not defined by the active subparser
+    if not hasattr(args, "create"):
+        args.create = None
+    if not hasattr(args, "type"):
+        args.type = "openclaw"
+    if not hasattr(args, "identity"):
+        args.identity = None
 
 
     print("="*60)

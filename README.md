@@ -132,23 +132,32 @@ Install or update the SDA workflow on specific agents. Note that multiple agents
 # Install on xuandao and finance agents (registers them as tracked)
 swda install xuandao,finance
 
-# Update templates on xuandao and finance agents (you can use 'update' as an alias of 'install')
-swda update xuandao,finance
+# Update templates on xuandao and finance agents
+swda update --agents xuandao,finance
+
+# Update templates on ALL tracked agents
+swda update --agents
 ```
 
-### 7. Uninstall SDA Workflow
+### 7. Self-Upgrade swda CLI Tool
+Self-upgrade the CLI tool itself by pulling the latest changes from the git remote repository and re-installing the package:
+```bash
+swda update
+```
+
+### 8. Uninstall SDA Workflow
 Cleanly remove the SDA/SWDD files from specified agents, revert `SOUL.md` back to its original System Identity, and remove them from the tracked installed list:
 ```bash
 # Uninstall from specific agents
 swda install --uninstall xuandao,finance
 # Or:
-swda update --uninstall xuandao,finance
+swda update --uninstall --agents xuandao,finance
 
-# Quietly uninstall from all detected agents
+# Quietly uninstall from all tracked agents
 swda install --uninstall -y all
 ```
 
-### 8. Run Automated Tests
+### 9. Run Automated Tests
 Execute the comprehensive unit test suite to verify the CLI parser and installer logic:
 ```bash
 python3 test_installer.py

@@ -242,9 +242,9 @@ class TestSDAInstaller(unittest.TestCase):
         with open(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up", "SOUL.md"), "w") as f:
             f.write("# 1. 系統定位\nAgent Update\n")
             
-        # Run update subcommand
+        # Run update subcommand with --agents
         result = subprocess.run(
-            [sys.executable, script_path, "update", "agent_up", "-y"],
+            [sys.executable, script_path, "update", "--agents", "agent_up", "-y"],
             capture_output=True,
             text=True
         )
