@@ -88,6 +88,34 @@ $$R(t) = P \cdot F^c \cdot e^{-\lambda \cdot t}$$
 
 ---
 
+### 4.5 Task Dispatch Validator 與 Action Realization（借鏡 Life-Harness Action Layer）
+
+為防止任務範疇失控或格式毀損，必須引進前置驗證與後置攔截機制：
+
+*   **前置 Task Dispatch Validator (任務派發預檢)**：
+    在派遣開發或審查 subagent 之前，主控程序 (SOUL) 必須先對任務包進行結構化合約校驗。
+    - **校驗方式**：為減少 Token 與延遲開銷，**邊界檢查與依賴審查等規則優先採用 Python 腳本進行靜態代碼校驗**。僅在涉及主觀邏輯（如可逆性、測試契約完整性）時，才調用輕量級預檢 subagent。
+    - **校驗清單**：
+      1. **任務邊界檢查 (靜態)**：輸入與輸出路徑是否嚴格限制在工作區內（防止 §7.1 Kitchen Sink）。
+      2. **副作用與依賴審查 (靜態)**：若有新增依賴，是否在 §2.5 鐵律中通過安全掃描與白名單確認。
+      3. **測試契約完整性 (LLM)**：是否已產出明確的 TDD acceptance criteria 與驗證腳本路徑。
+      4. **可逆性與復原評估 (LLM)**：重大變更是否聲明 undo 方案，否則需觸發 Adaptive HITL 物理確認。
+    - **預檢攔截 (Block) 輸出**：若任一項未通過則 Block 並回傳：
+      ```
+      <ACTION_REALIZATION_BLOCK>
+      reason: [失敗的校驗項編號 + 一句話說明]
+      required_action: [具體補救指引]
+      bypass_allowed: [True | False]  # True 表示 HITL 可覆寫
+      </ACTION_REALIZATION_BLOCK>
+      ```
+
+*   **後置 Action Realization Layer (輸出合約攔截)**：
+    在 subagent 執行完畢並回傳 XML 數據後，主控程序在寫入檔案或調用工具前，必須執行實體校驗：
+    - **解析驗證**：自動解析輸出區塊。若發現 XML 根標籤未閉合、格式毀損、或根標籤外有額外字符，立即攔截。
+    - **校正與回饋**：不直接發送至環境執行，而是將 XML 格式錯誤訊息回傳給 subagent，要求其在 1 輪內完成 canonicalization 自我修正。
+
+---
+
 ## 5. 狀態機運行流程與 XML 輸出規範 (FSM Workflow & Schemas)
 
 你必須嚴格對照你當前被觸發的 Hook，輸出對應格式的 XML 數據塊：
