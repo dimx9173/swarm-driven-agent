@@ -93,6 +93,62 @@ def get_agent_status(agent, template_versions):
         "skill_status": skill_status
     }
 
+def get_installed_agents_config_path():
+    home_dir = os.path.expanduser("~")
+    config_dir = os.path.join(home_dir, ".swda")
+    os.makedirs(config_dir, exist_ok=True)
+    return os.path.join(config_dir, "installed_agents.json")
+
+def load_installed_agents(agents_list=None):
+    import json
+    path = get_installed_agents_config_path()
+    if not os.path.exists(path):
+        # Auto-discovery fallback: if no config file exists,
+        # scan the system and record any agents that already have RULE.md installed.
+        installed = []
+        if agents_list:
+            for agent in agents_list:
+                rule_path = os.path.join(agent['dir_path'], "RULE.md")
+                if os.path.exists(rule_path):
+                    installed.append(agent['dir_path'])
+            save_installed_agents(installed)
+        return installed
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+    except Exception:
+        pass
+    return []
+
+def save_installed_agents(installed_paths):
+    import json
+    path = get_installed_agents_config_path()
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(installed_paths, f, indent=4)
+    except Exception as e:
+        print(f"Warning: Failed to save installed agents config: {e}", file=sys.stderr)
+
+def record_agent_installed(agent_dir_path):
+    # Normalize path
+    norm_path = os.path.abspath(agent_dir_path).replace("\\", "/")
+    installed = load_installed_agents()
+    # Normalize paths in list
+    installed = [os.path.abspath(p).replace("\\", "/") for p in installed]
+    if norm_path not in installed:
+        installed.append(norm_path)
+        save_installed_agents(installed)
+
+def record_agent_uninstalled(agent_dir_path):
+    norm_path = os.path.abspath(agent_dir_path).replace("\\", "/")
+    installed = load_installed_agents()
+    installed = [os.path.abspath(p).replace("\\", "/") for p in installed]
+    if norm_path in installed:
+        installed.remove(norm_path)
+        save_installed_agents(installed)
+
 def scan_agents():
     """Scans the local system for openclaw and hermes agents by searching for SOUL.md."""
     home_dir = os.path.expanduser("~")
@@ -461,6 +517,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
         sys.exit(1)
         
     print(f"\nSuccessfully created and installed SDA workflow for new agent: {name}!")
+    record_agent_installed(dest_dir)
 
 def main():
     import argparse
@@ -468,7 +525,7 @@ def main():
     # Pre-process arguments for subcommand mapping & backward compatibility
     if len(sys.argv) > 1:
         first_arg = sys.argv[1]
-        known_commands = {"install", "doctor", "-h", "--help"}
+        known_commands = {"install", "doctor", "update", "-h", "--help"}
         if first_arg not in known_commands:
             if first_arg in {"-c", "--check"}:
                 # Map old --check or -c to doctor command
@@ -488,6 +545,15 @@ def main():
     install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SDA workflow.")
     install_parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
+
+    # Update sub-command (alias of install)
+    update_parser = subparsers.add_parser("update", help="Update SDA workflow on agents.")
+    update_parser.add_argument("agents", nargs="?", help="Comma-separated list of agent names to update (e.g. xuandao,finance). Runs in interactive mode if omitted.")
+    update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
+    update_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SDA workflow from selected agents.")
+    update_parser.add_argument("--create", help="Create a new agent with the specified name and install the SDA workflow.")
+    update_parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
+    update_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
     # Doctor sub-command
     doctor_parser = subparsers.add_parser("doctor", help="Check agent status and optionally fix mismatches.")
@@ -519,7 +585,7 @@ def main():
             args.yes = False
         args.create = None
     else:
-        # install command
+        # install or update command
         args.check = False
         if args.agents:
             args.agents = [t.strip() for t in args.agents.split(",") if t.strip()]
@@ -549,7 +615,15 @@ def main():
         sys.exit(0)
         
     agents = scan_agents()
-    if not agents:
+    if args.command == "doctor":
+        installed_paths = load_installed_agents(agents)
+        # Normalize installed paths to absolute paths with forward slashes for matching
+        installed_paths = [os.path.abspath(p).replace("\\", "/") for p in installed_paths]
+        agents = [a for a in agents if os.path.abspath(a['dir_path']).replace("\\", "/") in installed_paths]
+        if not agents:
+            print("No installed agents tracked. Run 'swda install' to install on an agent.")
+            sys.exit(0)
+    elif not agents:
         print("No openclaw or hermes agents found on the local machine.")
         sys.exit(0)
         
@@ -732,6 +806,7 @@ def main():
                     pass
                     
             print(f" Successfully uninstalled SDA from: {agent['name']}")
+            record_agent_uninstalled(agent['dir_path'])
             
         else:
             print(f"\nInstalling/Upgrading SDA for: {agent['name']} ({agent['type']})")
@@ -820,6 +895,7 @@ def main():
                 continue
                 
             print(f" Successfully installed/upgraded SDA for: {agent['name']}")
+            record_agent_installed(agent['dir_path'])
             
     print("\nAll done!")
 

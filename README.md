@@ -105,19 +105,19 @@ swda install
 ```
 
 ### 3. Check Agent Statuses (Doctor)
-Run the doctor command to scan the local machine, detect all Hermes and OpenClaw agents, and check their SOUL/RULE/SKILL version status:
+Run the doctor command to check the SOUL/RULE/SKILL version status of all **explicitly installed** agents (tracked in `~/.swda/installed_agents.json`). Uninstalled or untracked agents are ignored by default to prevent noise:
 ```bash
 swda doctor
 ```
 
-### 4. Automatically Fix/Upgrade All Agents
-Quickly fix or upgrade all outdated agents to the latest templates:
+### 4. Automatically Fix/Upgrade Tracked Agents
+Quickly fix or upgrade all outdated, tracked agents to the latest templates:
 ```bash
 swda doctor --fix -y
 ```
 
 ### 5. Create a Brand New Agent
-Initialize a new agent workspace folder, set its system identity, and install the SDA workflow:
+Initialize a new agent workspace folder, set its system identity, install the SDA workflow, and automatically register it in the installed list:
 ```bash
 # Initialize an OpenClaw agent
 swda install --create my_coder_agent --type openclaw --identity "A senior software engineering assistant specializing in Python refactoring."
@@ -126,21 +126,23 @@ swda install --create my_coder_agent --type openclaw --identity "A senior softwa
 swda install --create my_analyst_agent --type hermes
 ```
 
-### 6. Install/Upgrade Specific Agents
-Target specific agents for installation. Note that multiple agents must be separated by commas (no spaces allowed, spaces are reserved for CLI options):
+### 6. Install/Upgrade/Update Specific Agents
+Install or update the SDA workflow on specific agents. Note that multiple agents must be separated by commas (no spaces allowed, spaces are reserved for CLI options):
 ```bash
-# Upgrade xuandao and finance agents
+# Install on xuandao and finance agents (registers them as tracked)
 swda install xuandao,finance
 
-# Quietly upgrade xuandao and finance agents
-swda install xuandao,finance -y
+# Update templates on xuandao and finance agents (you can use 'update' as an alias of 'install')
+swda update xuandao,finance
 ```
 
 ### 7. Uninstall SDA Workflow
-Cleanly remove the SDA/SWDD files from specified agents and revert `SOUL.md` back to its original System Identity:
+Cleanly remove the SDA/SWDD files from specified agents, revert `SOUL.md` back to its original System Identity, and remove them from the tracked installed list:
 ```bash
 # Uninstall from specific agents
 swda install --uninstall xuandao,finance
+# Or:
+swda update --uninstall xuandao,finance
 
 # Quietly uninstall from all detected agents
 swda install --uninstall -y all

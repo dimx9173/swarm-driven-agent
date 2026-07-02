@@ -156,18 +156,18 @@ class TestSDAInstaller(unittest.TestCase):
         with open(os.path.join(self.openclaw_workspace_dir, "SOUL.md"), "w") as f:
             f.write("# 1. 系統定位\nFinance Agent positioning.\n")
             
-        # 2. Run check and verify status is "Not Installed"
+        # 2. Run check and verify it is not checked (since it's not registered/installed)
         result = subprocess.run(
-            [sys.executable, script_path, "--check"],
+            [sys.executable, script_path, "doctor"],
             capture_output=True,
             text=True
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("Status:  Not Installed", result.stdout)
+        self.assertIn("No installed agents tracked", result.stdout)
         
-        # 3. Run install on all agents
+        # 3. Run install on the dummy agent (which registers it)
         result = subprocess.run(
-            [sys.executable, script_path, "-y", "all"],
+            [sys.executable, script_path, "install", "test_openclaw", "-y"],
             capture_output=True,
             text=True
         )
@@ -178,9 +178,9 @@ class TestSDAInstaller(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.openclaw_workspace_dir, "RULE.md")))
         self.assertTrue(os.path.exists(os.path.join(self.openclaw_workspace_dir, "skills", "swarm", "SKILL.md")))
         
-        # 4. Run check and verify status is "Up-to-date"
+        # 4. Run check (doctor) and verify status is "Up-to-date" (now registered/installed)
         result = subprocess.run(
-            [sys.executable, script_path, "--check"],
+            [sys.executable, script_path, "doctor"],
             capture_output=True,
             text=True
         )
@@ -189,7 +189,7 @@ class TestSDAInstaller(unittest.TestCase):
         
         # 5. Run uninstall
         result = subprocess.run(
-            [sys.executable, script_path, "--uninstall", "-y", "all"],
+            [sys.executable, script_path, "install", "--uninstall", "-y", "test_openclaw"],
             capture_output=True,
             text=True
         )
@@ -233,6 +233,24 @@ class TestSDAInstaller(unittest.TestCase):
         # Verify files created
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent1", "RULE.md")))
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent2", "RULE.md")))
+
+    def test_cli_update_command(self):
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer.py")
+        
+        # Create a mock agent
+        os.makedirs(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up"), exist_ok=True)
+        with open(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up", "SOUL.md"), "w") as f:
+            f.write("# 1. 系統定位\nAgent Update\n")
+            
+        # Run update subcommand
+        result = subprocess.run(
+            [sys.executable, script_path, "update", "agent_up", "-y"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Successfully installed/upgraded SDA for: agent_up", result.stdout)
+        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up", "RULE.md")))
 
 if __name__ == '__main__':
     unittest.main()
