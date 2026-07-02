@@ -62,6 +62,16 @@ $$R(t) = P \cdot F^c \cdot e^{-\lambda \cdot t}$$
 *   當你在 Crucible 階段被駁回，或在實體代碼驗證中遭遇失敗時，你必須立即將該次失敗模式提取為**「反模式記錄 (Anti-pattern)」**。
 *   你必須將此記錄強制寫入全域知識圖譜（透過 `mempalace` MCP），在後續任務中作為 Few-Shot 樣本加載，以實現直覺共享。
 
+#### 3.2.1 Procedural Skill 檢索機制（借鏡 Life-Harness Skill Layer）
+*   **結構化反模式庫**：所有反模式記錄必須以 YAML 結構儲存，至少包含 `id`、`trigger_context`、`failure_mode`、`remediation`、`frequency`、`last_seen` 六欄位；`frequency` 與 `last_seen` 為 §3.1 衰減計算的輸入。
+*   **檢索觸發時機**：
+    1. `[INTENT_GATE]` 階段：根據意圖分類檢索對應反模式子集
+    2. `[PHASE_3_HYPERPLAN]` FAILED 後：在修補方案前注入相關歷史失敗案例
+    3. `subagent dispatch` 前：依任務類型檢索 subagent 角色反模式
+*   **檢索實作與冷啟動**：MVP 採 **Tag-based / Metadata matching**，避免引入複雜外部語意檢索或詞袋庫造成冷啟動延遲；後續可升級為 LSP-aware semantic search。
+*   **Arachne 注入策略**：檢索結果必須放在 Prompt 窗口的**最末端（即 Task Context 之前，緊貼任務指令）**，無須在前端重複注入以節省 Token。
+*   **衰減整合（與 §3.1 對齊）**：每筆反模式的優先級 P 遵循 §3.1 的 Ebbinghaus 公式；衰減步數 t 以 `dt = current_timestamp − last_seen`（實體時間差）計算；當 R(t) < 0.15 時自動從 active set 歸檔至 cold archive。
+
 ---
 
 ## 4. 安全防火牆防線 (Ark AI Firewall Guards)
