@@ -84,7 +84,7 @@
 - 不引入新依賴（使用內建標籤匹配）
 
 **Goal-Driven Verification**：
-1. 讀者能在 §3.2.1 中找到六欄結構定義 → verify: `grep "trigger_context|failure_mode|remediation" template/ALL_IN_RULE.md`
+1. 讀者能在 §3.2.1 中找到六欄結構定義 → verify: `grep "trigger_context|failure_mode|remediation" template/integrated/ALL_IN_RULE.md`
 2. 讀者能說出三個檢索觸發時機 → verify: 程式化 grep "INTENT_GATE|Crucible|subagent dispatch"
 3. 讀者能找到標籤匹配 → LSP 升級路徑 → verify: `grep "LSP-aware semantic search"`
 4. 讀者能找到 Arachne 注入位置約束 → verify: `grep "最末端.*Task Context"`
@@ -140,10 +140,10 @@
 - 不破壞既有 §5 FSM（新增為 subagent dispatch 流程的前/後置步驟）
 
 **Goal-Driven Verification**：
-1. 讀者能找到新小節位置 → verify: `grep "Task Dispatch Validator" template/ALL_IN_RULE.md`
-2. 讀者能列出四項校驗清單 → verify: `grep -c "^\\s*[0-9]\\." template/ALL_IN_RULE.md` ≥ 4 in section
-3. 讀者能找出靜態代碼校驗與 LLM 預檢的區分 → verify: `grep "優先採用 Python 腳本進行靜態代碼校驗" template/ALL_IN_RULE.md`
-4. 讀者能找到後置輸出合約攔截定義 → verify: `grep "後置 Action Realization Layer" template/ALL_IN_RULE.md`
+1. 讀者能找到新小節位置 → verify: `grep "Task Dispatch Validator" template/integrated/ALL_IN_RULE.md`
+2. 讀者能列出四項校驗清單 → verify: `grep -c "^\\s*[0-9]\\." template/integrated/ALL_IN_RULE.md` ≥ 4 in section
+3. 讀者能找出靜態代碼校驗與 LLM 預檢的區分 → verify: `grep "優先採用 Python 腳本進行靜態代碼校驗" template/integrated/ALL_IN_RULE.md`
+4. 讀者能找到後置輸出合約攔截定義 → verify: `grep "後置 Action Realization Layer" template/integrated/ALL_IN_RULE.md`
 
 **風險標記**：
 - ⚠️ 預檢本身可能引入 Token 開銷——緩解：只對寫入任務預檢，跳過純讀取任務
@@ -193,9 +193,9 @@ Watchdog 必須區分三類退化模式，以精確的證據鏈進行檢測與�
 - 新增 1 個表格
 
 **Goal-Driven Verification**：
-1. 讀者能列出三類退化模式 → verify: `grep "Repetition\\|Stagnation\\|Budget Exhaustion" template/ALL_IN_RULE.md`
-2. 讀者能找到對應恢復策略 → verify: `grep "恢復策略" template/ALL_IN_RULE.md`
-3. 讀者能找到偵測頻率規範 → verify: `grep "5 步全局窗口" template/ALL_IN_RULE.md`
+1. 讀者能列出三類退化模式 → verify: `grep "Repetition\\|Stagnation\\|Budget Exhaustion" template/integrated/ALL_IN_RULE.md`
+2. 讀者能找到對應恢復策略 → verify: `grep "恢復策略" template/integrated/ALL_IN_RULE.md`
+3. 讀者能找到偵測頻率規範 → verify: `grep "5 步全局窗口" template/integrated/ALL_IN_RULE.md`
 
 **風險標記**：
 - ⚠️ 表格化新增可能破壞「極簡」鐵律——緩解：採用緊湊表格（已展示），不加任何說明性段落
@@ -252,7 +252,7 @@ Watchdog 必須區分三類退化模式，以精確的證據鏈進行檢測與�
 **Goal-Driven Verification**：
 1. 讀者能找到契約檔 → verify: `ls docs/contracts/output-schema.md`
 2. 契約檔含全局強制條款 → verify: `grep "根標籤\\|NEXT_STATE" docs/contracts/output-schema.md`
-3. §0 含契約錨定條目 → verify: `grep "Contract Anchoring\\|契約檔錨定" template/ALL_IN_RULE.md`
+3. §0 含契約錨定條目 → verify: `grep "Contract Anchoring\\|契約檔錨定" template/integrated/ALL_IN_RULE.md`
 
 **風險標記**：
 - ⚠️ 新增檔案 = 違反「ALWAYS prefer editing existing files」——緩解：契約檔屬於全新範疇（docs/ 而非合約本體），無既有檔案可編輯
@@ -346,13 +346,16 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 
 ## 6. 文件交叉引用
 
+> **2026-07-02 路徑更新**：原始錯誤假設「ALL_IN_RULE.md 與 RULE/SKILL/SOUL 是同步的 master/derivative 關係」已被 Architect 否決。**兩者為獨立套餐**（見 `../architecture/bundle-comparison.md`）。本路線圖的所有 P1/P2 提案目前**僅以 `template/integrated/ALL_IN_RULE.md` 為單一改造目標**；如要將變更同步到 `template/modular/` 套餐，需由 Architect 明確授權另開任務。
+
 | 引用 | 用途 |
 |---|---|
 | `../papers/2605.22166-life-harness.md` | 原始論文結構化筆記 |
-| `../../template/ALL_IN_RULE.md` | 改造目標主檔案 |
-| `../../ALL_IN_RULE.md` | 同上（專案根的副本） |
-| `../../RULE.md` | 第二備援副本（待確認是否同步修改） |
-| `../../SOUL.md` | 角色定義檔（§4.5 新 subagent 角色可能需新增條目） |
+| `../../template/integrated/ALL_IN_RULE.md` | 改造目標主檔案（integrated 套餐） |
+| `../../template/modular/SOUL.md` | 認知引擎（modular 套餐）— 不在本路線圖改造範圍 |
+| `../../template/modular/RULE.md` | 運行合約（modular 套餐）— 不在本路線圖改造範圍 |
+| `../../template/modular/SKILL.md` | SWDD 框架（modular 套餐）— 不在本路線圖改造範圍 |
+| `../../installer.py` | 模板發佈器（僅引用 `template/modular/`） |
 
 ---
 
