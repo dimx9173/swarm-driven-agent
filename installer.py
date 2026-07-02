@@ -590,7 +590,7 @@ def main():
 
     # Update sub-command (Self-upgrade or update agents)
     update_parser = subparsers.add_parser("update", help="Self-upgrade swda or update specific agents.")
-    update_parser.add_argument("--agents", nargs="?", const="all", help="Update specified agents (comma-separated) or 'all' if omitted.")
+    update_parser.add_argument("--agents", nargs="?", const="_interactive_", help="Update specified agents (comma-separated) or prompt for interactive selection if no agents are specified.")
     update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     update_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SDA workflow from selected agents.")
 
@@ -622,13 +622,13 @@ def main():
             args.agents = []
             args.uninstall = False
             args.yes = False
-    elif args.command == "update" and not args.agents:
+    elif args.command == "update" and args.agents is None:
         # Self-upgrade swda itself
         upgrade_swda()
     else:
         # install command, or update command with --agents specified
         args.check = False
-        if args.agents:
+        if args.agents and args.agents != "_interactive_":
             args.agents = [t.strip() for t in args.agents.split(",") if t.strip()]
         else:
             args.agents = []

@@ -135,7 +135,7 @@ swda install xuandao,finance
 # Update templates on xuandao and finance agents
 swda update --agents xuandao,finance
 
-# Update templates on ALL tracked agents
+# Prompt for interactive selection to update tracked agents
 swda update --agents
 ```
 
