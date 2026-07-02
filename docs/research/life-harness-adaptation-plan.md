@@ -364,3 +364,17 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 | 版本 | 日期 | 異動 |
 |---|---|---|
 | v0.1 | 2026-07-02 | 初稿建立，待 HITL 裁決 |
+| **v1.0-executed** | 2026-07-02 | **全部 4 項提案已落地**（見下表） |
+
+### v1.0 執行落地對照表
+
+| 提案 | 狀態 | Commit | 目標檔案 | 行數變化 |
+|---|---|---|---|---|
+| P1-A（§3.2.1 Mimir 檢索化） | ✅ DONE | `35dbfe3` | `template/integrated/ALL_IN_RULE.md` | 248 → 258（+10） |
+| P1-B（§4.5 Dispatch Validator + Action Realization） | ✅ DONE | `28ccce6` | `template/integrated/ALL_IN_RULE.md` | 258 → 286（+28） |
+| P2-A（§7.0 退化分類 + State Hash） | ✅ DONE | `416584a` | `template/integrated/ALL_IN_RULE.md` | 286 → 303（+17） |
+| P2-B（§0 條目 6 + output-schema contract） | ✅ DONE | `02964d6` | `template/integrated/ALL_IN_RULE.md` + `docs/contracts/output-schema.md` | 303 → 304（+1）+ 新檔 58 行 |
+
+**總計**：`ALL_IN_RULE.md` 248 → 304 行（+56 行，+22.6%），新契約檔 58 行；4 個獨立 commit；所有 §2 Goal-Driven Verification 4/4 通過；`test_installer.py` 6/6 仍通過（modular 套餐未觸碰）。
+**版本**：依 Q6 = B 維持 `1.1.1-all-in-one`（patch-level，不觸發 semver bump）。
+**P3-A**（Cross-Session Harness 遷移實驗）：屬研究任務，不需檔案變更；前置依賴（P1-A/P1-B/P2-A）已滿足 3/3，現可獨立發起研究 session。
