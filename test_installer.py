@@ -208,5 +208,31 @@ class TestSDAInstaller(unittest.TestCase):
             self.assertNotIn("SWDD Development Skill", content)
             self.assertIn("Finance Agent positioning.", content)
 
+    def test_cli_comma_separated_agents(self):
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer.py")
+        
+        # Create two mock agents
+        os.makedirs(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent1"), exist_ok=True)
+        os.makedirs(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent2"), exist_ok=True)
+        
+        with open(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent1", "SOUL.md"), "w") as f:
+            f.write("# 1. 系統定位\nAgent 1\n")
+        with open(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent2", "SOUL.md"), "w") as f:
+            f.write("# 1. 系統定位\nAgent 2\n")
+            
+        # Run install passing agent1,agent2 as a comma-separated list
+        result = subprocess.run(
+            [sys.executable, script_path, "install", "agent1,agent2", "-y"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Successfully installed/upgraded SDA for: agent1", result.stdout)
+        self.assertIn("Successfully installed/upgraded SDA for: agent2", result.stdout)
+        
+        # Verify files created
+        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent1", "RULE.md")))
+        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent2", "RULE.md")))
+
 if __name__ == '__main__':
     unittest.main()

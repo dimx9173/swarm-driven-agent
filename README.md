@@ -30,11 +30,25 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 
 ```
 swarm-driven-agent/
-├── installer.py     # CLI installer, version manager & creator
-├── SOUL.md          # SDA System Identity template (streamlined)
-├── RULE.md          # SDA System Instruction Contract
-├── SKILL.md         # SWDD Swarm meta-skill workflow
+├── installer.py     # CLI installer engine & helper functions
+├── setup.py         # Installer packaging for the swda CLI command
+├── template/
+│   ├── integrated/
+│   │   └── ALL_IN_RULE.md         # Single-file bundle (for general LLM tools)
+│   └── modular/
+│       ├── SOUL.md                # SDA System Identity template (openclaw/hermes)
+│       ├── RULE.md                # SDA System Instruction Contract (openclaw/hermes)
+│       └── SKILL.md               # SWDD Swarm meta-skill workflow (openclaw/hermes)
+├── docs/
+│   ├── contracts/
+│   │   ├── output-schema.md          # Integrated output schema contract
+│   │   └── output-schema-modular.md  # Modular output schema contract
+│   ├── papers/
+│   │   └── 2605.22166-life-harness.md  # Notes on the Life-Harness paper
+│   └── research/
+│       └── life-harness-adaptation-plan.md  # SWDD optimization & adaptation plan
 ├── images/          # Visualizations of the SWDD architecture & FSM
+├── test_installer.py # Automated test suite for the installer
 └── .gitignore       # Standard git ignore definitions
 ```
 
@@ -71,59 +85,71 @@ The retention function `R(t) = P · F^c · e^(−λ·t)` plotted as a glowing de
 
 ---
 
-## 🛠️ Usage Instructions
+## 🛠️ CLI Installation & Usage
 
-Ensure the script is executable:
+You can package and install the script locally as a global or developer command-line tool `swda`.
+
+### 1. Installation
+Run the following command in the repository root directory:
 ```bash
-chmod +x installer.py
+pip install -e .
+```
+*(On macOS, if pip blocks global package modification, use `pip install --break-system-packages -e .`)*
+
+Once installed, the `swda` command is available globally.
+
+### 2. Interactive Selection Menu
+Run the installer with no subcommands to scan your system and choose which agents to update interactively:
+```bash
+swda install
 ```
 
-### 1. Interactive Selection Menu
-Run the installer with no arguments to scan your system and choose which agents to update interactively:
+### 3. Check Agent Statuses (Doctor)
+Run the doctor command to scan the local machine, detect all Hermes and OpenClaw agents, and check their SOUL/RULE/SKILL version status:
 ```bash
-./installer.py
+swda doctor
 ```
 
-### 2. Check Agent Statuses
-Print a detailed report showing the installation status and version breakdown of all detected agents:
+### 4. Automatically Fix/Upgrade All Agents
+Quickly fix or upgrade all outdated agents to the latest templates:
 ```bash
-./installer.py --check
+swda doctor --fix -y
 ```
 
-### 3. Create a Brand New Agent
+### 5. Create a Brand New Agent
 Initialize a new agent workspace folder, set its system identity, and install the SDA workflow:
 ```bash
 # Initialize an OpenClaw agent
-./installer.py --create my_coder_agent --type openclaw --identity "A senior software engineering assistant specializing in Python refactoring."
+swda install --create my_coder_agent --type openclaw --identity "A senior software engineering assistant specializing in Python refactoring."
 
 # Initialize a Hermes agent
-./installer.py --create my_analyst_agent --type hermes
+swda install --create my_analyst_agent --type hermes
 ```
 
-### 4. Direct/Quiet Agent Upgrades
-Install or upgrade specific agents directly via CLI arguments:
+### 6. Install/Upgrade Specific Agents
+Target specific agents for installation. Note that multiple agents must be separated by commas (no spaces allowed, spaces are reserved for CLI options):
 ```bash
 # Upgrade xuandao and finance agents
-./installer.py xuandao finance
+swda install xuandao,finance
 
-# Quietly upgrade all detected agents without prompting for confirmation
-./installer.py -y all
+# Quietly upgrade xuandao and finance agents
+swda install xuandao,finance -y
 ```
 
-### 5. Uninstall SDA Workflow
+### 7. Uninstall SDA Workflow
 Cleanly remove the SDA/SWDD files from specified agents and revert `SOUL.md` back to its original System Identity:
 ```bash
 # Uninstall from specific agents
-./installer.py --uninstall xuandao finance
+swda install --uninstall xuandao,finance
 
 # Quietly uninstall from all detected agents
-./installer.py --uninstall -y all
+swda install --uninstall -y all
 ```
 
-### 6. Run Automated Tests
-Execute the comprehensive test suite to verify installer and workflow logic:
+### 8. Run Automated Tests
+Execute the comprehensive unit test suite to verify the CLI parser and installer logic:
 ```bash
-python3 -m unittest test_installer.py
+python3 test_installer.py
 ```
 
 ---

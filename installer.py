@@ -464,15 +464,68 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Universal Swarm-Driven Agent (SDA) Workflow Installer")
-    parser.add_argument("agents", nargs="*", help="Names of agents to install (e.g. xuandao finance). Runs in interactive mode if omitted.")
-    parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
-    parser.add_argument("-c", "--check", action="store_true", help="Check and print agent status without installing.")
-    parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SDA workflow from selected agents.")
-    parser.add_argument("--create", help="Create a new agent with the specified name and install the SDA workflow.")
-    parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
-    parser.add_argument("--identity", help="The system identity description of the new agent.")
+    
+    # Pre-process arguments for subcommand mapping & backward compatibility
+    if len(sys.argv) > 1:
+        first_arg = sys.argv[1]
+        known_commands = {"install", "doctor", "-h", "--help"}
+        if first_arg not in known_commands:
+            if first_arg in {"-c", "--check"}:
+                # Map old --check or -c to doctor command
+                sys.argv[1] = "doctor"
+            else:
+                # Default to install command
+                sys.argv.insert(1, "install")
+
+    parser = argparse.ArgumentParser(description="Universal Swarm-Driven Agent (SDA) CLI Tool (swda)")
+    subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
+
+    # Install sub-command
+    install_parser = subparsers.add_parser("install", help="Install or update SDA workflow on agents.")
+    install_parser.add_argument("agents", nargs="?", help="Comma-separated list of agent names (e.g. xuandao,finance). Runs in interactive mode if omitted.")
+    install_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
+    install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SDA workflow from selected agents.")
+    install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SDA workflow.")
+    install_parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
+    install_parser.add_argument("--identity", help="The system identity description of the new agent.")
+
+    # Doctor sub-command
+    doctor_parser = subparsers.add_parser("doctor", help="Check agent status and optionally fix mismatches.")
+    doctor_parser.add_argument("--fix", action="store_true", help="Automatically fix/upgrade agent rules and schemas.")
+    doctor_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when fixing.")
+
     args = parser.parse_args()
+
+    # If no command is provided, default to install (interactive mode)
+    if not args.command:
+        args.command = "install"
+        args.agents = None
+        args.yes = False
+        args.uninstall = False
+        args.create = None
+        args.type = "openclaw"
+        args.identity = None
+
+    # Map command behaviors to old variables for minimal code churn:
+    if args.command == "doctor":
+        if args.fix:
+            args.check = False
+            args.agents = ["all"]
+            args.uninstall = False
+        else:
+            args.check = True
+            args.agents = []
+            args.uninstall = False
+            args.yes = False
+        args.create = None
+    else:
+        # install command
+        args.check = False
+        if args.agents:
+            args.agents = [t.strip() for t in args.agents.split(",") if t.strip()]
+        else:
+            args.agents = []
+
 
     print("="*60)
     print("       Swarm-Driven Agent (SDA) Workflow Installer")

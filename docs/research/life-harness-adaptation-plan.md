@@ -351,11 +351,13 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 | 引用 | 用途 |
 |---|---|
 | `../papers/2605.22166-life-harness.md` | 原始論文結構化筆記 |
-| `../../template/integrated/ALL_IN_RULE.md` | 改造目標主檔案（integrated 套餐） |
-| `../../template/modular/SOUL.md` | 認知引擎（modular 套餐）— 不在本路線圖改造範圍 |
-| `../../template/modular/RULE.md` | 運行合約（modular 套餐）— 不在本路線圖改造範圍 |
-| `../../template/modular/SKILL.md` | SWDD 框架（modular 套餐）— 不在本路線圖改造範圍 |
+| `../../template/integrated/ALL_IN_RULE.md` | 改造目標主檔案（integrated 套餐，v1.0 已執行） |
+| `../../template/modular/RULE.md` | 運行合約（modular 套餐，v2.0 已執行） |
+| `../../template/modular/SOUL.md` | 認知引擎（modular 套餐）— **不在改造範圍**（屬 §1 雙核心架構，非運行合約） |
+| `../../template/modular/SKILL.md` | SWDD 框架（modular 套餐）— **不在改造範圍**（屬做事方法層，非運行合約） |
 | `../../installer.py` | 模板發佈器（僅引用 `template/modular/`） |
+| `../../docs/contracts/output-schema.md` | integrated 契約檔（v1.0） |
+| `../../docs/contracts/output-schema-modular.md` | modular 契約檔（v2.0） |
 
 ---
 
@@ -366,7 +368,7 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 | v0.1 | 2026-07-02 | 初稿建立，待 HITL 裁決 |
 | **v1.0-executed** | 2026-07-02 | **全部 4 項提案已落地**（見下表） |
 
-### v1.0 執行落地對照表
+### v1.0 執行落地對照表（integrated 套餐）
 
 | 提案 | 狀態 | Commit | 目標檔案 | 行數變化 |
 |---|---|---|---|---|
@@ -377,4 +379,32 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 
 **總計**：`ALL_IN_RULE.md` 248 → 304 行（+56 行，+22.6%），新契約檔 58 行；4 個獨立 commit；所有 §2 Goal-Driven Verification 4/4 通過；`test_installer.py` 6/6 仍通過（modular 套餐未觸碰）。
 **版本**：依 Q6 = B 維持 `1.1.1-all-in-one`（patch-level，不觸發 semver bump）。
+
+---
+
+### v2.0-executed：modular 套餐鏡像（2026-07-02，Architect 觸發）
+
+> **觸發**：用戶於 v1.0 完成後追加指令「`@template/modular` 也要整合優化」——授權將同 4 項提案鏡像至 modular 套餐（target: openclaw/hermes）。**未複製 integrated 內容**，而是按 modular 的 §5 結構（方括號 FSM Hook 命名、`http://localhost:9720` 端點、SOUL.md sda 標記機制）重新撰寫。
+
+| 提案 | 狀態 | Commit | 目標檔案 | 行數變化 |
+|---|---|---|---|---|
+| P1-A'（§3.2.1 modular） | ✅ DONE | `53ffe87` | `template/modular/RULE.md` | 256 → 266（+10） |
+| P1-B'（§4.5 modular） | ✅ DONE | `3435dc5` | `template/modular/RULE.md` | 266 → 296（+30） |
+| P2-A'（§7.0 modular） | ✅ DONE | `e408e3a` | `template/modular/RULE.md` | 296 → 313（+17） |
+| P2-B'（§0 条目 6 + modular contract） | ✅ DONE | `cd03796` | `template/modular/RULE.md` + `docs/contracts/output-schema-modular.md` | 313 → 314（+1）+ 新檔 88 行 |
+
+**總計**：`RULE.md` 256 → 314 行（+58，+22.7%），新 modular 契約檔 88 行；4 個獨立 commit；所有 Goal-Driven Verification 4/4 + 5/5 通過；`test_installer.py` 6/6 全程通過（modular 部署管道未壞）。
+**版本**：依 Q6 = B 維持 `2.2.1-agent-optimized`（patch-level，不觸發 semver bump）。
+
+#### 兩套餐鏡像對照（用於審查 reviewer 確認）
+
+| 變更點 | integrated/ALL_IN_RULE.md | modular/RULE.md | 差異 |
+|---|---|---|---|
+| §3.2.1 YAML 欄位 | 6 欄基本結構 | 6 欄 + 顯式標記 frequency/last_seen 為 §3.1 Ebbinghaus 輸入 | modular 強調衰減整合 |
+| §4.5 Firewall 關係 | 無 §4 引用（獨立小節） | 顯式聲明與 §4 Firewall 正交 | modular 因 §4 含 TC-01~07 表格需明確區隔 |
+| §7.0 Budget Exhaustion | 觸發 Adaptive HITL | 觸發 Adaptive HITL **（透過 §0 的 `http://localhost:9720`）** | modular 走實體端點 |
+| 契約檔命名 | `output-schema.md` | `output-schema-modular.md` | 顯式區分（防混淆） |
+| 契約檔特色 | 含 6 個根標籤 + 4 個內嵌標籤 | 額外含 `COMMAND_EXECUTE_START/END` 邊界（modular §5 Hook 6 特有） | modular 反映其實體執行語法 |
+| sda 標記同步 | N/A | §4 顯式協議：契約變更 → SOUL.md sda 區塊同步 → installer.py 邏輯同步 | modular 因有 installer.py merge 流程需多一步 |
+
 **P3-A**（Cross-Session Harness 遷移實驗）：屬研究任務，不需檔案變更；前置依賴（P1-A/P1-B/P2-A）已滿足 3/3，現可獨立發起研究 session。
