@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 2.3.0-agent-optimized
+version: 2.3.1-agent-optimized
 description: Strict operational rules, FSM schemas, and cognitive guidelines optimized for direct LLM agent ingestion and steering.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"

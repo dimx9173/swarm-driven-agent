@@ -415,11 +415,12 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 | 版本 | 日期 | 異動 |
 |---|---|---|
 | **v2.0-release** | 2026-07-07 | **流程規則優化與 FSM 對齊發佈**（Task Dispatch Validator 與 Action Realization 落地，SKILL.md 8 步對齊與 Mimir 檢索優化） |
+| **v2.0.1-patch** | 2026-07-07 | **修復 pipx update 錯誤**（增加環境無 pip 時自動執行 pipx reinstall swda 備用方案） |
 
 ### v2.0 執行落地對照表
-- `ALL_IN_RULE.md` 升級至 `1.2.0-all-in-one`
-- `RULE.md` 升級至 `2.3.0-agent-optimized`
-- `SKILL.md` 升級至 `2.2.0 (Deterministic-Actionable)`
+- `ALL_IN_RULE.md` 升級至 `1.2.1-all-in-one`
+- `RULE.md` 升級至 `2.3.1-agent-optimized`
+- `SKILL.md` 升級至 `2.2.1 (Deterministic-Actionable)`
 - `docs/contracts/output-schema.md` 升級至 `v1.1`
 - `docs/contracts/output-schema-modular.md` 升級至 `v1.1`
-- `setup.py` 升級至 `1.2.0`
+- `setup.py` 升級至 `1.2.1`

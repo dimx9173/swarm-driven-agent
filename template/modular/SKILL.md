@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
-version: 2.2.0 (Deterministic-Actionable)
+version: 2.2.1 (Deterministic-Actionable)
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
