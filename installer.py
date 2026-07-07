@@ -555,6 +555,18 @@ def upgrade_swda():
         has_pip = False
         
     if not has_pip:
+        if "pipx" in sys.executable:
+            pipx_path = shutil.which("pipx")
+            if pipx_path:
+                print(" -> Missing 'pip' inside the virtualenv. Trying 'pipx reinstall swda' as fallback...")
+                try:
+                    result = subprocess.run([pipx_path, "reinstall", "swda"])
+                    if result.returncode == 0:
+                        print("\nswda upgraded successfully via pipx!")
+                        sys.exit(0)
+                except Exception as e:
+                    print(f"Failed to run pipx reinstall: {e}", file=sys.stderr)
+                    
         print("\n[Error] Python environment is missing the 'pip' module.", file=sys.stderr)
         if "pipx" in sys.executable:
             print("This happens because swda was installed via pipx, which prunes pip by default.", file=sys.stderr)
