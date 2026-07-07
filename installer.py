@@ -544,6 +544,27 @@ def upgrade_swda():
         
     # 2. Re-install using pip in editable mode
     print(" -> Re-installing the package...")
+    
+    # Check if pip is available
+    has_pip = True
+    try:
+        pip_check = subprocess.run([sys.executable, "-m", "pip", "--version"], capture_output=True, text=True)
+        if pip_check.returncode != 0:
+            has_pip = False
+    except Exception:
+        has_pip = False
+        
+    if not has_pip:
+        print("\n[Error] Python environment is missing the 'pip' module.", file=sys.stderr)
+        if "pipx" in sys.executable:
+            print("This happens because swda was installed via pipx, which prunes pip by default.", file=sys.stderr)
+            print("Please run the following command in your terminal to fix this:", file=sys.stderr)
+            print("  pipx inject swda pip", file=sys.stderr)
+            print("Then try 'swda update' again.\n", file=sys.stderr)
+        else:
+            print("Please install pip in your current Python environment.\n", file=sys.stderr)
+        sys.exit(1)
+        
     try:
         result = subprocess.run([sys.executable, "-m", "pip", "install", "-e", "."], cwd=script_dir, capture_output=True, text=True)
         if result.returncode != 0:
