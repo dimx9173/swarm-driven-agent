@@ -408,3 +408,18 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 | sda 標記同步 | N/A | §4 顯式協議：契約變更 → SOUL.md sda 區塊同步 → installer.py 邏輯同步 | modular 因有 installer.py merge 流程需多一步 |
 
 **P3-A**（Cross-Session Harness 遷移實驗）：屬研究任務，不需檔案變更；前置依賴（P1-A/P1-B/P2-A）已滿足 3/3，現可獨立發起研究 session。
+
+---
+
+### v2.0-release (2026-07-07)
+| 版本 | 日期 | 異動 |
+|---|---|---|
+| **v2.0-release** | 2026-07-07 | **流程規則優化與 FSM 對齊發佈**（Task Dispatch Validator 與 Action Realization 落地，SKILL.md 8 步對齊與 Mimir 檢索優化） |
+
+### v2.0 執行落地對照表
+- `ALL_IN_RULE.md` 升級至 `1.2.0-all-in-one`
+- `RULE.md` 升級至 `2.3.0-agent-optimized`
+- `SKILL.md` 升級至 `2.2.0 (Deterministic-Actionable)`
+- `docs/contracts/output-schema.md` 升級至 `v1.1`
+- `docs/contracts/output-schema-modular.md` 升級至 `v1.1`
+- `setup.py` 升級至 `1.2.0`

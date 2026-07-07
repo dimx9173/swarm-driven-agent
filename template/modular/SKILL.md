@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
-version: 2.1.0 (Deterministic-Actionable)
+version: 2.2.0 (Deterministic-Actionable)
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
@@ -62,7 +62,8 @@ Dispatch three isolated nodes to explore the problem space. Under the SOUL runti
 Consolidate facts from Alpha, Beta, and Gamma. Under the SOUL runtime, this maps to **`[PHASE_2_GATHER]`**, producing the structured `<GATHER_RESULT>` list output.
 *   **動態 AST 語意追蹤 (Dynamic AST Semantic Tracing)**: When gathering context for problem-solving or bug-fixing, agents are strictly prohibited from relying solely on regex or plain-text searches. Agents **must** prioritize AST-based semantic navigation (e.g., using `codegraph` to trace callers/callees and structural dependencies) to build mathematically sound context.
 *   Extract constraints, dependencies, and risks based on AST evidence.
-*   Identify the most promising solution path without synthesizing into architecture yet.
+*   **Mimir Anti-pattern Retrieval**: Query the Mimir database (using tag-based/metadata matching) for historically relevant failure modes/anti-patterns associated with this task category or scope.
+*   Identify the most promising solution path and package the gathered facts and anti-patterns for the Crucible phase.
 
 ### PHASE 3 & 4: THE CRUCIBLE (Builder vs. Destroyer)
 This represents the adversarial debate phase. Under the SOUL runtime, these two phases are executed in a tight adversarial loop under **`[PHASE_3_HYPERPLAN]`**, producing the structured `<HYPERPLAN_RESULT>` output.
@@ -81,7 +82,7 @@ This represents the adversarial debate phase. Under the SOUL runtime, these two 
 
 *   **Autorubric Score Gating**: Evaluators must use an analytic rubric model where score aggregation is calculated as a weighted sum of positive and negative criteria to counteract evaluation leniency bias:
     $$S = \sum w_i c_i$$
-    Where $w_i$ represents the weight of criterion $c_i$, and negative weights serve as penalties for documented anti-patterns.
+    Where $w_i$ represents the weight of criterion $c_i$, and negative weights serve as penalties for documented anti-patterns. **Documented anti-patterns are retrieved from Mimir during Phase 2 GATHER and must be explicitly evaluated as negative constraints in this step.**
 *   **Consensus Limits & Compute Governors**: If the Builder and Destroyer are stuck in a loop after **3 rounds**, the compute governor circuit breaker fires. The FSM halts, rolls back the specification to the last stable state, and alerts a human reviewer to resolve the logical contradiction.
 
 ### PHASE 5: SYNTHESIS (Final Blueprint)
@@ -94,20 +95,25 @@ Consolidate the hardened spec into a final Execution Directive. Under the SOUL r
 Under the SOUL runtime, this maps to the **`[PHASE_DYNAMIC_COMPILE]`** phase, which orchestrates the physical code implementation, validation, and review loop using multiple specialized agents.
 
 1.  **Step 1: Multi-Source Info-Gathering & Intent Analysis**
-    *   Dispatch multiple information-gathering subagents to consolidate intelligence and analyze intent.
+    *   Dispatch multiple information-gathering subagents to consolidate intelligence and analyze intent, outputting to `<GATHER_CONSOLIDATION>`.
 2.  **Step 2: Tri-Dimensional Thinking Framework**
-    *   Establish a cognitive structure with at least three dimensional quadrants to analyze, discuss, and debate the design from diverse perspectives.
-3.  **Step 3: DAG-Based Task Orchestration**
-    *   For complex, cross-module tasks, the system must automatically construct a **Directed Acyclic Graph (DAG)** of dependencies (e.g., `Schema/DB` $\rightarrow$ `Backend API` $\rightarrow$ `Frontend UI`). 
-    *   Subagents are dispatched asynchronously to work on independent nodes of the DAG, automatically triggering downstream nodes upon completion, replacing simple linear staging.
-4.  **Step 4: Spec-Driven TDD Implementation (claude)**
-    *   Dispatch the `claude` agent to execute physical code development within an **Ephemeral Sandbox**. It must first write tests that fail, then implement the logic to pass them.
-5.  **Step 5: Code Quality & Logical Review (claude)**
-    *   Dispatch the `claude` agent to perform rigorous code quality audits and logical validation.
-6.  **Step 6: Closed-Loop Remediation**
-    *   If any validation check fails, direct the `claude` agent to implement fixes.
-7.  **Step 7: Task Summary Reporting**
-    *   Generate a comprehensive final report summarizing execution details and validation outcomes.
+    *   Establish a cognitive structure with Alpha, Beta, and Gamma nodes to analyze, discuss, and debate the design from diverse perspectives.
+3.  **Step 3: Staged Iterative Planning**
+    *   For complex tasks, formulate a clear stage-by-stage roadmap and define acceptance criteria for each phase.
+4.  **Step 4: DAG-Based Task Orchestration**
+    *   For complex, cross-module tasks, the system must automatically construct a **Directed Acyclic Graph (DAG)** of dependencies (e.g., `Schema/DB` $\rightarrow$ `Backend API` $\rightarrow$ `Frontend UI`). Subagents are dispatched asynchronously to work on independent nodes.
+5.  **Step 5: Ephemeral Sandbox Isolation**
+    *   Enforce that all implementations and testing run inside isolated virtual sandboxes, container instances, or clean temporary directories to prevent workspace contamination.
+6.  **Step 6: Spec-Driven TDD Implementation (Developer subagent)**
+    *   Dispatch the developer subagent to execute code development. It must write tests that fail (Red) before writing implementation code to make them pass (Green).
+    *   **Pre-dispatch task pre-check**: Call the `Task Dispatch Validator` (§4.5 in `RULE.md`) to verify boundary/dependency safety.
+    *   **Post-execution contract interceptor**: Validate subagent's XML schema outputs (`<DYNAMIC_COMPILE_RESULT>` with `COMMAND_EXECUTE_START/END`) using the `Action Realization Layer` (§4.5) to catch and fix formatting errors before execution.
+7.  **Step 7: Code Quality & Logical Review (Reviewer subagent)**
+    *   Dispatch an independent reviewer subagent to audit code quality, check edge cases, and run regression tests.
+    *   **Pre-dispatch task pre-check**: Perform contract checks on the review package.
+    *   **Post-execution contract interceptor**: Verify the reviewer's output (`<CLAUDE_REVIEW_RESULT>` containing `REVIEW_STATUS`/`REVIEWS_FEEDBACK`) matches the schema and is free of extraneous characters.
+8.  **Step 8: Closed-Loop Remediation & Reporting**
+    *   If validation checks fail, trigger the closed-loop repair mechanism. Once all checks pass, output the `<TASK_SUMMARY_REPORT>`.
 
 ---
 

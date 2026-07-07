@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 2.2.1-agent-optimized
+version: 2.3.0-agent-optimized
 description: Strict operational rules, FSM schemas, and cognitive guidelines optimized for direct LLM agent ingestion and steering.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -240,6 +240,8 @@ REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向]
     4.  **DAG 任務編排**：自動建構依賴項 DAG（如 `Schema` -> `API` -> `UI`），異步發派 subagents。
     5.  **實體沙箱隔離**：強制所有實作與測試必須在隔離的一性次容器、臨時目錄或獨立 Worktree 中運行，避免測試時污染主環境。
     6.  **派遣開發 subagent 實作**：派發開發 subagent 執行代碼與 TDD 測試（先寫測試，再寫代碼）。你的實作指令輸出必須包裹在 `<DYNAMIC_COMPILE_RESULT>` 內，格式如下：
+        *   **前置任務預檢 (Task Dispatch Validator)**：主控端派遣前，必須先調用 §4.5 規則對任務包執行靜態/LLM 混合預檢，未通過則 Block 阻斷。
+        *   **後置合約攔截 (Action Realization)**：subagent 執行結束後，主控端在寫入檔案或調用工具前，必須執行實體 XML 解析與合約校驗，違規時打回要求 1 輪內自我修正。
         ```xml
         <DYNAMIC_COMPILE_RESULT>
         COMMAND_EXECUTE_START
@@ -248,6 +250,8 @@ REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向]
         </DYNAMIC_COMPILE_RESULT>
         ```
     7.  **派遣審查 subagent 審查**：派發獨立審查 subagent 審查品質與弱點。審查結果必須包裹在 `<CLAUDE_REVIEW_RESULT>` 內，包含狀態與詳細意見：
+        *   **前置任務預檢 (Task Dispatch Validator)**：主控端派遣前，必須對審查任務包執行合約校驗。
+        *   **後置合約攔截 (Action Realization)**：審查結束後，主控端必須驗證 XML 標籤閉合且無雜質，否則打回修正。
         ```xml
         <CLAUDE_REVIEW_RESULT>
         REVIEW_STATUS: [PASSED | FAILED]

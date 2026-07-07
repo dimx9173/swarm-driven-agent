@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 1.1.1-all-in-one
+version: 1.2.0-all-in-one
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -232,7 +232,11 @@ REQUIRED_FIXES: [Builder 必須修正的技術方向]
     4.  **DAG 任務編排**：建構依賴項 DAG（如 `Schema` -> `API` -> `UI`），異步發派。
     5.  **實體沙箱隔離**：強制在臨時隔離目錄、獨立 Worktree 或一次性容器中運行實作與測試。
     6.  **開發 subagent 實作**：派發開發 subagent 執行代碼與 TDD 測試（先寫測試，後寫代碼，變更必須 Surgical 且不影響無關部分），輸出包裹在 `<DYNAMIC_COMPILE_RESULT>`。
-    7.  **審查 subagent 審查**：派發獨立審查 subagent 審查品質與弱點，輸出包裹在 `<CLAUDE_REVIEW_RESULT>`：
+        *   **前置任務預檢 (Task Dispatch Validator)**：主控端派遣前，必須先調用 §4.5 規則對任務包執行靜態/LLM 混合預檢，未通過則 Block 阻斷。
+        *   **後置合約攔截 (Action Realization)**：subagent 執行結束後，主控端在寫入檔案或調用工具前，必須執行實體 XML 解析與合約校驗，違規時打回要求 1 輪內自我修正。
+    7.  **審查 subagent 審查**：派發獨立審查 subagent 審查品質與弱點，輸出包裹在 `<CLAUDE_REVIEW_RESULT>`。
+        *   **前置任務預檢 (Task Dispatch Validator)**：主控端派遣前，必須對審查任務包執行合約校驗。
+        *   **後置合約攔截 (Action Realization)**：審查結束後，主控端必須驗證 XML 標籤閉合且無雜質，否則打回修正。
         ```xml
         <CLAUDE_REVIEW_RESULT>
         REVIEW_STATUS: [PASSED | FAILED]
