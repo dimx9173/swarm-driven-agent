@@ -1,6 +1,6 @@
 # SWDD Modular Output Schema Contract v1.1
 
-> **用途**：本檔為 `template/modular/RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**，專供 **openclaw / hermes agent runtime** 使用。SOUL 應在每次大版本變更時同步更新本檔，並與 `SOUL.md` 的 sda-begin/end 標記區塊保持版本一致。
+> **用途**：本檔為 `template/modular/RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**，專供 **openclaw / hermes agent runtime** 使用。SOUL 應在每次大版本變更時同步更新本檔，並與 `SOUL.md` 的 swda-begin/end 標記區塊保持版本一致。
 > **生效日**：2026-07-07
 > **版本**：v1.1
 > **與 integrated 套餐的關係**：本檔為 modular 套餐專屬，**不與 `output-schema.md`（integrated）共用**。兩者根標籤名稱雖部分重疊，但 §2 內嵌指令語法不同。
@@ -70,12 +70,12 @@ COMMAND_EXECUTE_END
 
 ---
 
-## 4. 與 SOUL.md sda 標記的同步協議
+## 4. 與 SOUL.md swda 標記的同步協議
 
-`SOUL.md` 內含 `<!-- sda-begin -->` 與 `<!-- sda-end -->` 區塊，由 `installer.py merge_soul_content` 函式處理。若本契約檔變更，**必須**：
+`SOUL.md` 內含 `<!-- swda-begin -->` 與 `<!-- swda-end -->` 區塊，由 `installer.py merge_soul_content` 函式處理。若本契約檔變更，**必須**：
 
 1. 更新本檔版本號（§ 抬頭）
-2. 更新 `SOUL.md` 的 sda 區塊以反映契約版本差異
+2. 更新 `SOUL.md` 的 swda 區塊以反映契約版本差異
 3. 同步更新 `installer.py` 的 `extract_version` 邏輯（若版本命名格式變更）
 
 → 跳過任一步驟會導致 `installer.py` 對 SOUL.md 的 merge 結果與 RULE.md 期望不一致。

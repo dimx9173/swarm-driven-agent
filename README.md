@@ -1,6 +1,6 @@
-# Swarm-Driven Agent (SDA) Installer & Workflow
+# Swarm-Driven Agent (SWDA) Installer & Workflow
 
-A universal, local-first installer and manager for **SDA** (Swarm-Driven Agent) configurations and **SWDD** (Swarm-Driven Development) workflows. It simplifies scanning, version checking, upgrading, and creating Hermes and OpenClaw agents on your local machine.
+A universal, local-first installer and manager for **SWDA** (Swarm-Driven Agent) configurations and **SWDD** (Swarm-Driven Development) workflows. It simplifies scanning, version checking, upgrading, and creating Hermes and OpenClaw agents on your local machine.
 
 ---
 
@@ -10,8 +10,8 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 
 | Term | Context | File | Purpose |
 | :--- | :--- | :--- | :--- |
-| **SDA** | Swarm-Driven Agent | [SOUL.md](SOUL.md) | Streamlined entry point focusing strictly on **System Identity** (定位) and dual-core references. |
-| **SDA Contract** | System Contract | [RULE.md](RULE.md) | Defines FSM transition hooks, attention anchors, memory decay, safety firewalls, and self-diagnosis. |
+| **SWDA** | Swarm-Driven Agent | [SOUL.md](SOUL.md) | Streamlined entry point focusing strictly on **System Identity** (定位) and dual-core references. |
+| **SWDA Contract** | System Contract | [RULE.md](RULE.md) | Defines FSM transition hooks, attention anchors, memory decay, safety firewalls, and self-diagnosis. |
 | **SWDD** | Swarm-Driven Development | [SKILL.md](SKILL.md) | The supreme development meta-skill (做事方法) describing parallel planning, Builder/Destroyer reviews, and sandbox execution. |
 
 ---
@@ -36,8 +36,8 @@ swarm-driven-agent/
 │   ├── integrated/
 │   │   └── ALL_IN_RULE.md         # Single-file bundle (for general LLM tools)
 │   └── modular/
-│       ├── SOUL.md                # SDA System Identity template (openclaw/hermes)
-│       ├── RULE.md                # SDA System Instruction Contract (openclaw/hermes)
+│       ├── SOUL.md                # SWDA System Identity template (openclaw/hermes)
+│       ├── RULE.md                # SWDA System Instruction Contract (openclaw/hermes)
 │       └── SKILL.md               # SWDD Swarm meta-skill workflow (openclaw/hermes)
 ├── docs/
 │   ├── contracts/
@@ -56,7 +56,7 @@ swarm-driven-agent/
 
 ## 🎨 Architecture Visualizations
 
-A curated gallery of the SWDD / SDA cognitive architecture, rendered as standalone SVG diagrams (no external assets, fully scalable).
+A curated gallery of the SWDD / SWDA cognitive architecture, rendered as standalone SVG diagrams (no external assets, fully scalable).
 
 ### 1. Swarm Architecture — Dual-Core Topology
 The **SOUL** core at the center orchestrating six peripheral subagents (Alpha / Beta / Gamma / Builder / Destroyer / Mempalace). Concentric rotating rings symbolize the FSM state space; glowing dashed lines represent the data-flow contract between the soul and its swarm.
@@ -117,7 +117,7 @@ swda doctor --fix -y
 ```
 
 ### 5. Create a Brand New Agent
-Initialize a new agent workspace folder, set its system identity, install the SDA workflow, and automatically register it in the installed list:
+Initialize a new agent workspace folder, set its system identity, install the SWDA workflow, and automatically register it in the installed list:
 ```bash
 # Initialize an OpenClaw agent
 swda install --create my_coder_agent --type openclaw --identity "A senior software engineering assistant specializing in Python refactoring."
@@ -127,7 +127,7 @@ swda install --create my_analyst_agent --type hermes
 ```
 
 ### 6. Install/Upgrade/Update Specific Agents
-Install or update the SDA workflow on specific agents. Note that multiple agents must be separated by commas (no spaces allowed, spaces are reserved for CLI options):
+Install or update the SWDA workflow on specific agents. Note that multiple agents must be separated by commas (no spaces allowed, spaces are reserved for CLI options):
 ```bash
 # Install on xuandao and finance agents (registers them as tracked)
 swda install xuandao,finance
@@ -145,8 +145,8 @@ Self-upgrade the CLI tool itself by pulling the latest changes from the git remo
 swda update
 ```
 
-### 8. Uninstall SDA Workflow
-Cleanly remove the SDA/SWDD files from specified agents, revert `SOUL.md` back to its original System Identity, and remove them from the tracked installed list:
+### 8. Uninstall SWDA Workflow
+Cleanly remove the SWDA/SWDD files from specified agents, revert `SOUL.md` back to its original System Identity, and remove them from the tracked installed list:
 ```bash
 # Uninstall from specific agents
 swda install --uninstall xuandao,finance

@@ -230,8 +230,8 @@ def scan_agents():
     return detected
 
 def merge_soul_content(target_content, template_content):
-    begin_marker = "<!-- sda-begin -->"
-    end_marker = "<!-- sda-end -->"
+    begin_marker = "<!-- swda-begin -->"
+    end_marker = "<!-- swda-end -->"
     
     # Check if template has block markers
     if begin_marker in template_content and end_marker in template_content:
@@ -247,7 +247,7 @@ def merge_soul_content(target_content, template_content):
                 frontmatter_str = '\n'.join(template_lines[:idx+1]) + '\n'
                 template_body = '\n'.join(template_lines[idx+1:])
 
-        # 2. Extract sda block from template
+        # 2. Extract swda block from template
         block_start = template_body.find(begin_marker)
         block_end = template_body.find(end_marker)
         template_block = template_body[block_start:block_end + len(end_marker)].strip()
@@ -262,7 +262,7 @@ def merge_soul_content(target_content, template_content):
             if idx < len(target_lines):
                 target_body = '\n'.join(target_lines[idx+1:])
 
-        # Clean target body from sda block or legacy FSM rules
+        # Clean target body from swda block or legacy FSM rules
         t_start = target_body.find(begin_marker)
         t_end = target_body.find(end_marker)
         if t_start != -1 and t_end != -1:
@@ -371,8 +371,8 @@ def merge_soul_content(target_content, template_content):
 
 def uninstall_soul_content(soul_content):
     """Strips FSM rules and metadata links from SOUL.md content, keeping only the frontmatter and System Identity."""
-    begin_marker = "<!-- sda-begin -->"
-    end_marker = "<!-- sda-end -->"
+    begin_marker = "<!-- swda-begin -->"
+    end_marker = "<!-- swda-end -->"
     
     # 1. Separate frontmatter from body
     lines = soul_content.splitlines()
@@ -401,7 +401,7 @@ def uninstall_soul_content(soul_content):
             frontmatter_str = '\n'.join(frontmatter_lines) + '\n'
             body_str = '\n'.join(lines[idx+1:])
 
-    # 2. Strip sda block from body
+    # 2. Strip swda block from body
     t_start = body_str.find(begin_marker)
     t_end = body_str.find(end_marker)
     if t_start != -1 and t_end != -1:
@@ -433,7 +433,7 @@ def uninstall_soul_content(soul_content):
 
 
 def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
-    """Creates a new agent profile/workspace directory and installs the SDA workflow files."""
+    """Creates a new agent profile/workspace directory and installs the SWDA workflow files."""
     if not re.match(r"^[a-zA-Z0-9_\-]+$", name):
         print(f"Error: Invalid agent name '{name}'. Only alphanumeric characters, underscores, and hyphens are allowed.", file=sys.stderr)
         sys.exit(1)
@@ -516,7 +516,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
         print(f"Error: Failed to copy SKILL.md: {e}", file=sys.stderr)
         sys.exit(1)
         
-    print(f"\nSuccessfully created and installed SDA workflow for new agent: {name}!")
+    print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
     record_agent_installed(dest_dir)
 
 def upgrade_swda():
@@ -609,15 +609,15 @@ def main():
                 # Default to install command
                 sys.argv.insert(1, "install")
 
-    parser = argparse.ArgumentParser(description="Universal Swarm-Driven Agent (SDA) CLI Tool (swda)")
+    parser = argparse.ArgumentParser(description="Universal Swarm-Driven Agent (SWDA) CLI Tool (swda)")
     subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
 
     # Install sub-command
-    install_parser = subparsers.add_parser("install", help="Install or update SDA workflow on agents.")
+    install_parser = subparsers.add_parser("install", help="Install or update SWDA workflow on agents.")
     install_parser.add_argument("agents", nargs="?", help="Comma-separated list of agent names (e.g. xuandao,finance). Runs in interactive mode if omitted.")
     install_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
-    install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SDA workflow from selected agents.")
-    install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SDA workflow.")
+    install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
+    install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SWDA workflow.")
     install_parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
@@ -625,7 +625,7 @@ def main():
     update_parser = subparsers.add_parser("update", help="Self-upgrade swda or update specific agents.")
     update_parser.add_argument("--agents", nargs="?", const="_interactive_", help="Update specified agents (comma-separated) or prompt for interactive selection if no agents are specified.")
     update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
-    update_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SDA workflow from selected agents.")
+    update_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
 
     # Doctor sub-command
     doctor_parser = subparsers.add_parser("doctor", help="Check agent status and optionally fix mismatches.")
@@ -676,7 +676,7 @@ def main():
 
 
     print("="*60)
-    print("       Swarm-Driven Agent (SDA) Workflow Installer")
+    print("       Swarm-Driven Agent (SWDA) Workflow Installer")
     print("="*60)
     
     # Verify local sources exist in the root directory
@@ -767,7 +767,7 @@ def main():
     else:
         # Interactive mode
         action_verb = "uninstall" if args.uninstall else "install/update"
-        print(f"Select agents to {action_verb} SDA workflow:")
+        print(f"Select agents to {action_verb} SWDA workflow:")
         print("  Enter comma-separated numbers (e.g. 1,3,4)")
         print("  Enter 'all' to select all agents")
         print("  Enter 'q' to quit")
@@ -819,7 +819,7 @@ def main():
         status_info = agent_statuses[idx]
         
         if args.uninstall:
-            print(f"\nUninstalling SDA from: {agent['name']} ({agent['type']})")
+            print(f"\nUninstalling SWDA from: {agent['name']} ({agent['type']})")
             
             # 1. Back up target SOUL.md
             print(" -> Backing up SOUL.md...")
@@ -887,11 +887,11 @@ def main():
                 except Exception:
                     pass
                     
-            print(f" Successfully uninstalled SDA from: {agent['name']}")
+            print(f" Successfully uninstalled SWDA from: {agent['name']}")
             record_agent_uninstalled(agent['dir_path'])
             
         else:
-            print(f"\nInstalling/Upgrading SDA for: {agent['name']} ({agent['type']})")
+            print(f"\nInstalling/Upgrading SWDA for: {agent['name']} ({agent['type']})")
             
             # 1. Back up target SOUL.md
             print(" -> Backing up SOUL.md...")
@@ -976,7 +976,7 @@ def main():
                 print(f"    Failed to copy SKILL.md: {e}")
                 continue
                 
-            print(f" Successfully installed/upgraded SDA for: {agent['name']}")
+            print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
             record_agent_installed(agent['dir_path'])
             
     print("\nAll done!")

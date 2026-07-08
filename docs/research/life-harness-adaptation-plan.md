@@ -384,7 +384,7 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 
 ### v2.0-executed：modular 套餐鏡像（2026-07-02，Architect 觸發）
 
-> **觸發**：用戶於 v1.0 完成後追加指令「`@template/modular` 也要整合優化」——授權將同 4 項提案鏡像至 modular 套餐（target: openclaw/hermes）。**未複製 integrated 內容**，而是按 modular 的 §5 結構（方括號 FSM Hook 命名、`http://localhost:9720` 端點、SOUL.md sda 標記機制）重新撰寫。
+> **觸發**：用戶於 v1.0 完成後追加指令「`@template/modular` 也要整合優化」——授權將同 4 項提案鏡像至 modular 套餐（target: openclaw/hermes）。**未複製 integrated 內容**，而是按 modular 的 §5 結構（方括號 FSM Hook 命名、`http://localhost:9720` 端點、SOUL.md swda 標記機制）重新撰寫。
 
 | 提案 | 狀態 | Commit | 目標檔案 | 行數變化 |
 |---|---|---|---|---|
@@ -405,7 +405,7 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 | §7.0 Budget Exhaustion | 觸發 Adaptive HITL | 觸發 Adaptive HITL **（透過 §0 的 `http://localhost:9720`）** | modular 走實體端點 |
 | 契約檔命名 | `output-schema.md` | `output-schema-modular.md` | 顯式區分（防混淆） |
 | 契約檔特色 | 含 6 個根標籤 + 4 個內嵌標籤 | 額外含 `COMMAND_EXECUTE_START/END` 邊界（modular §5 Hook 6 特有） | modular 反映其實體執行語法 |
-| sda 標記同步 | N/A | §4 顯式協議：契約變更 → SOUL.md sda 區塊同步 → installer.py 邏輯同步 | modular 因有 installer.py merge 流程需多一步 |
+| swda 標記同步 | N/A | §4 顯式協議：契約變更 → SOUL.md swda 區塊同步 → installer.py 邏輯同步 | modular 因有 installer.py merge 流程需多一步 |
 
 **P3-A**（Cross-Session Harness 遷移實驗）：屬研究任務，不需檔案變更；前置依賴（P1-A/P1-B/P2-A）已滿足 3/3，現可獨立發起研究 session。
 

@@ -10,7 +10,7 @@ import sys
 # Import helper functions directly from installer.py
 import installer
 
-class TestSDAInstaller(unittest.TestCase):
+class TestSWDAInstaller(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
         self.mock_home = os.path.join(self.test_dir, "mock_home")
@@ -227,8 +227,8 @@ class TestSDAInstaller(unittest.TestCase):
             text=True
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("Successfully installed/upgraded SDA for: agent1", result.stdout)
-        self.assertIn("Successfully installed/upgraded SDA for: agent2", result.stdout)
+        self.assertIn("Successfully installed/upgraded SWDA for: agent1", result.stdout)
+        self.assertIn("Successfully installed/upgraded SWDA for: agent2", result.stdout)
         
         # Verify files created
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent1", "RULE.md")))
@@ -249,7 +249,7 @@ class TestSDAInstaller(unittest.TestCase):
             text=True
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("Successfully installed/upgraded SDA for: agent_up", result.stdout)
+        self.assertIn("Successfully installed/upgraded SWDA for: agent_up", result.stdout)
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up", "RULE.md")))
 
 if __name__ == '__main__':

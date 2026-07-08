@@ -4,7 +4,7 @@ version: 1.2.1-all-in-one
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
-# Swarm-Driven Agent (SDA) 整合認知與運行合約
+# Swarm-Driven Agent (SWDA) 整合認知與運行合約
 
 > [!IMPORTANT]
 > **你必須將本文件視為你的全局系統提示詞 (System Prompt) 擴充合約。**
