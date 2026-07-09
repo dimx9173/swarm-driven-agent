@@ -1,8 +1,8 @@
-# SWDD Output Schema Contract v1.1
+# SWDD Output Schema Contract v1.2
 
 > **用途**：本檔為 `template/integrated/ALL_IN_RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**。SOUL 在每次大版本變更時必須同步更新本檔。
-> **生效日**：2026-07-07
-> **版本**：v1.1
+> **生效日**：2026-07-09
+> **版本**：v1.2（同步 ALL_IN_RULE.md v1.3.0）
 
 ---
 
@@ -24,18 +24,16 @@
 
 | 根標籤 | 對應 Hook | 觸發時機 |
 |---|---|---|
-| `<INTENT_GATE_RESULT>` | `[INTENT_GATE]` | 接收新任務時 |
+| `<INTENT_GATE_RESULT>` | `[INTENT_GATE]` | 接收新任務時（含 TC-08/09 消毒後） |
+| `<LITE_MODE_RESULT>` | `[LITE_MODE]` | `USE_SWARM: False` 時的單代理直接執行 |
 | `<DESTRUCT_RESULT>` | `[PHASE_1_DESTRUCT]` | 使用 Swarm 時 |
 | `<GATHER_RESULT>` | `[PHASE_2_GATHER]` | Destruct 完成後 |
 | `<HYPERPLAN_RESULT>` | `[PHASE_3_HYPERPLAN]` | Gather 完成後 |
 | `<SYSTEM_SPECIFICATION>` | `[PHASE_4_SYNTHESIS]` | Crucible PASSED 後 |
-| `<TASK_SUMMARY_REPORT>` | （收束） | Dynamic_Compile 結束時 |
+| `<TASK_SUMMARY_REPORT>` | （收束） | Dynamic_Compile 或 LITE_MODE 結束時 |
 
 ### 2.1 階段性內嵌標籤（非根標籤，可出現在 root tag 內）
 
-- `<GATHER_CONSOLIDATION>`：Phase 6 內部使用
-- `<DYNAMIC_COMPILE_RESULT>`：Phase 6 內部使用
-- `<CLAUDE_REVIEW_RESULT>`：Phase 6 內部使用
 - `<ACTION_REALIZATION_BLOCK>`：§4.5 subagent 上游攔截使用
 
 ---

@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
-version: 2.2.1 (Deterministic-Actionable)
+version: 2.3.0 (Deterministic-Actionable)
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
@@ -15,7 +15,7 @@ related:
 **Swarm-Driven Development (SWDD)** is a systematic workflow that leverages multiple AI agents (a "swarm") to solve complex engineering problems. It focuses on **specification-first** development, using an adversarial process to "harden" design decisions before any implementation begins.
 
 ### Cognitive Execution Engine (SOUL & Skill Synthesis)
-Under the agent's **AGI dual-core architecture**, **[SOUL.md](../../SOUL.md)** serves as the Agent's Soul (its cognitive runtime engine and FSM, managed under the operational contract **[RULE.md](../../RULE.md)**), while **Swarm-Driven Development (SWDD)** is the supreme **meta-skill (做事方法)**. SWDD coordinates, schedules, and executes all other physical skills and subagents under the logical guidance of SOUL, driving the agent through phases using strict XML boundaries to ensure structured parsing, tool calling, and verification.
+Under the agent's **AGI dual-core architecture**, **[SOUL.md](../../SOUL.md)** serves as the Agent's Soul (its cognitive runtime engine and FSM, managed under the operational contract **[RULE.md](../../RULE.md)**), while **Swarm-Driven Development (SWDD)** is the supreme **meta-skill (methodology)**. SWDD coordinates, schedules, and executes all other physical skills and subagents under the logical guidance of SOUL, driving the agent through phases using strict XML boundaries to ensure structured parsing, tool calling, and verification.
 
 ### Core Principles
 1.  **Spec-First Development**: No code is written until a specification has passed the "Crucible" (adversarial review).
@@ -60,7 +60,7 @@ Dispatch three isolated nodes to explore the problem space. Under the SOUL runti
 
 ### PHASE 2: GATHER (Intelligence Consolidation)
 Consolidate facts from Alpha, Beta, and Gamma. Under the SOUL runtime, this maps to **`[PHASE_2_GATHER]`**, producing the structured `<GATHER_RESULT>` list output.
-*   **動態 AST 語意追蹤 (Dynamic AST Semantic Tracing)**: When gathering context for problem-solving or bug-fixing, agents are strictly prohibited from relying solely on regex or plain-text searches. Agents **must** prioritize AST-based semantic navigation (e.g., using `codegraph` to trace callers/callees and structural dependencies) to build mathematically sound context.
+*   **Dynamic AST Semantic Tracing**: When gathering context for problem-solving or bug-fixing, agents are strictly prohibited from relying solely on regex or plain-text searches. Agents **must** prioritize AST-based semantic navigation (e.g., using `codegraph` or similar code graph tools to trace callers/callees and structural dependencies) to build mathematically sound context.
 *   Extract constraints, dependencies, and risks based on AST evidence.
 *   **Mimir Anti-pattern Retrieval**: Query the Mimir database (using tag-based/metadata matching) for historically relevant failure modes/anti-patterns associated with this task category or scope.
 *   Identify the most promising solution path and package the gathered facts and anti-patterns for the Crucible phase.
@@ -89,31 +89,32 @@ This represents the adversarial debate phase. Under the SOUL runtime, these two 
 Consolidate the hardened spec into a final Execution Directive. Under the SOUL runtime, this maps to **`[PHASE_4_SYNTHESIS]`**, producing the structured `<SYSTEM_SPECIFICATION>` output.
 *   Write an **ADR (Architecture Decision Record)** explaining *why* this path was chosen (incorporating the Crucible debate logs).
 *   Define the step-by-step implementation plan.
-*   **測試驅動驗收 (TDD Auto-Remediation Requirements)**: List specific test cases for validation. The spec must explicitly demand that unit/integration tests be generated and verified to fail (Red state) *before* implementing the actual business logic to pass them (Green state).
+*   **TDD Auto-Remediation Requirements**: List specific test cases for validation. The spec must explicitly demand that unit/integration tests be generated and verified to fail (Red state) *before* implementing the actual business logic to pass them (Green state).
 
 ### PHASE 6: IMPLEMENT & REVIEW (Multi-Agent Swarm Execution)
-Under the SOUL runtime, this maps to the **`[PHASE_DYNAMIC_COMPILE]`** phase, which orchestrates the physical code implementation, validation, and review loop using multiple specialized agents.
+Under the SOUL runtime, this maps to the **`[PHASE_DYNAMIC_COMPILE]`** phase, which is the ultimate integration crucible for Swarm Driven, Test Driven, and Life-Harness.
+* **Thinking Behavior**: Guide subagents in order through the following stages:
 
-1.  **Step 1: Multi-Source Info-Gathering & Intent Analysis**
-    *   Dispatch multiple information-gathering subagents to consolidate intelligence and analyze intent, outputting to `<GATHER_CONSOLIDATION>`.
-2.  **Step 2: Tri-Dimensional Thinking Framework**
-    *   Establish a cognitive structure with Alpha, Beta, and Gamma nodes to analyze, discuss, and debate the design from diverse perspectives.
-3.  **Step 3: Staged Iterative Planning**
-    *   For complex tasks, formulate a clear stage-by-stage roadmap and define acceptance criteria for each phase.
-4.  **Step 4: DAG-Based Task Orchestration**
-    *   For complex, cross-module tasks, the system must automatically construct a **Directed Acyclic Graph (DAG)** of dependencies (e.g., `Schema/DB` $\rightarrow$ `Backend API` $\rightarrow$ `Frontend UI`). Subagents are dispatched asynchronously to work on independent nodes.
-5.  **Step 5: Ephemeral Sandbox Isolation**
-    *   Enforce that all implementations and testing run inside isolated virtual sandboxes, container instances, or clean temporary directories to prevent workspace contamination.
-6.  **Step 6: Spec-Driven TDD Implementation (Developer subagent)**
-    *   Dispatch the developer subagent to execute code development. It must write tests that fail (Red) before writing implementation code to make them pass (Green).
-    *   **Pre-dispatch task pre-check**: Call the `Task Dispatch Validator` (§4.5 in `RULE.md`) to verify boundary/dependency safety.
-    *   **Post-execution contract interceptor**: Validate subagent's XML schema outputs (`<DYNAMIC_COMPILE_RESULT>` with `COMMAND_EXECUTE_START/END`) using the `Action Realization Layer` (§4.5) to catch and fix formatting errors before execution.
-7.  **Step 7: Code Quality & Logical Review (Reviewer subagent)**
-    *   Dispatch an independent reviewer subagent to audit code quality, check edge cases, and run regression tests.
-    *   **Pre-dispatch task pre-check**: Perform contract checks on the review package.
-    *   **Post-execution contract interceptor**: Verify the reviewer's output (`<CLAUDE_REVIEW_RESULT>` containing `REVIEW_STATUS`/`REVIEWS_FEEDBACK`) matches the schema and is free of extraneous characters.
-8.  **Step 8: Closed-Loop Remediation & Reporting**
-    *   If validation checks fail, trigger the closed-loop repair mechanism. Once all checks pass, output the `<TASK_SUMMARY_REPORT>`.
+**Stage 1. Action Realization Gateway** — max 2 retries, exceeding triggers HITL
+Before dispatching tasks, the main control program must perform mandatory pre-checks, merging Spec and Test driven requirements:
+- **Spec-Driven Check**: Verify task boundaries and Architecture Decision Records (ADR) are clear, and do not trigger §4 firewall blocks (including TC-08/TC-09 sanitization).
+- **Test-Driven Check**: Verify TDD acceptance criteria are defined, and a failing Red-state script is ready.
+- **Residual Reasoning Check**: If the task involves numerical calculations (money, indices, formulas), force the subagent to write verifiable assertions for intermediate steps in the code for verification during Stage 3.
+- **Blocking Mechanism (Block)**: If any check fails, block dispatch and return to SYNTHESIS. **Return to SYNTHESIS is capped at 2 times**; exceeding 2 blocks will trigger Adaptive HITL confirmation, strictly prohibiting infinite loops.
+
+**Stage 2. Ephemeral Sandbox Isolation & Swarm-Driven Execution**
+- **DAG Task Orchestration**: Construct dependency DAG (such as `Schema` -> `API` -> `UI`), dispatch asynchronously.
+- **Physical Sandbox Isolation**: Force implementation and testing in temporary isolated directories, separate Worktrees, or disposable containers.
+- **Development Subagent Implementation**: Dispatch development subagent to execute code and TDD tests in the isolated environment.
+- **Review Subagent Review**: Dispatch independent review subagent to review quality and weaknesses.
+
+**Stage 3. Trajectory Regulation Gateway** — max 3 retries, exceeding triggers HITL
+After subagent returns, it must pass physical execution validation:
+- **Test-Driven Verification**: Execute tests. If in Red-state, automatically trigger repair loop according to §8.2 system debugging rules (**max 3 retries**). Refuse to cover bugs with defensive null checks. **Exceeding 3 retries in Red-state will force Adaptive HITL escalation**, strictly prohibiting infinite loops.
+- **Residual Reasoning Verification**: Run assertion scripts automatically to verify correctness of intermediate numerical computation steps (e.g., off-by-one, decimal precision, boundaries).
+- **Contract Interception (XML Parsing)**: Verify XML tags are closed and free of impurities. Return formatting error message to subagent on violation, requiring canonicalization self-correction within 1 round.
+- **Degeneration Detection (Stagnation/Repetition)**: Apply §7.0 Trajectory rules. If Swarm is detected blindly guessing or in a loop, immediately trigger Role Gating or Rollback.
+After passing, generate `<TASK_SUMMARY_REPORT>`.
 
 ---
 
@@ -192,10 +193,9 @@ Always maintain a `docs/specs/` folder. A spec is only "Complete" if it includes
 
 ## 7. Universal Best Practices
 
-1.  **Source-First Analysis**: Never trust documentation or `.env` files alone. Always read the source code (the "Truth") before starting Phase 1.
-2.  **Bounded Context**: Ensure each subagent has enough context to understand the *intent*, but not so much that it gets distracted by unrelated files. Use Arachne to automate this filtering.
-3.  **Empirical Validation**: If a design involves mathematical models or performance targets, run a "Pilot Experiment" (Phase 3.5) or VM sandbox PoC before full implementation.
-4.  **Consensus Limits**: Apply compute governors to prevent infinite loops. If consensus is not reached after 3 turns, halt and escalate.
-5.  **Git Hygiene**: Ensure the implementation agent commits in logical chunks that correspond to the Synthesis plan.
-6.  **Scientific Debugging**: Investigate, do not guess. Read the entire error and stack trace. Reproduce the problem before changing code. Change one variable at a time. Never use defensive null checks to mask unexpected nulls; trace the root cause.
-7.  **Transparent & Precise Communication**: Explain what you did and why, not just a block of code. Flag concerns even when executing exactly what was asked. Express precise uncertainty (e.g. "I am not sure if this library supports streaming" rather than "I think it should work").
+1.  **(§8.1) Source-First Analysis**: Do not trust documentation alone. Before Phase 1 begins, you must read the relevant source code ("the only truth"). (Complementary to §2.1 Read Before Write: §2.1 focuses on "read before writing code", while §8.1 focuses on "read source code before analyzing the issue rather than trusting documentation")
+2.  **(§8.2) Systematic Debugging (Scientific Debugging)**: Before making any changes, you must be able to stably reproduce the problem. Change only one variable at a time. **Strictly prohibit using Null Check or other superficial defenses to cover unexpected Null vulnerabilities** (see also §7.1 Optimistic Path anti-pattern). You must trace to the source; otherwise, the bug will only be transferred to a harder-to-detect location.
+3.  **(§8.3) Transparent & Precise Communication**: Explain what you are doing and the reasons behind it, not just dump code. Be precise about uncertainty (for example, say "I'm not sure if this library supports streaming" rather than the vague "I think it should work").
+4.  **(§8.4) Arachne Context Optimization**: To prevent LLM's "lost-in-the-middle" effect, high-relevance Context blocks must be placed at the very front and very end of the Prompt window.
+5.  **(§8.5) Consensus Limit**: Builder and Destroyer in the Crucible phase can confront for a maximum of 3 rounds. If consensus cannot be reached, must immediately trigger circuit breaker and request HITL.
+6.  **(§8.6) Git Clean Commits**: When the implementation subagent commits, it must compare against the logical blocks planned in Synthesis.

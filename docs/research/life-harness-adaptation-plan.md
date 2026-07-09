@@ -414,13 +414,15 @@ DYNAMIC_COMPILE (Phase 6 Swarm)
 ### v2.0-release (2026-07-07)
 | 版本 | 日期 | 異動 |
 |---|---|---|
-| **v2.0-release** | 2026-07-07 | **流程規則優化與 FSM 對齊發佈**（Task Dispatch Validator 與 Action Realization 落地，SKILL.md 8 步對齊與 Mimir 檢索優化） |
+| **v2.1.0-release** | 2026-07-09 | **整合 Life-Harness 三階段流程與對抗式規則更新**（引入 TC-08/TC-09 防火牆、FSM Hook 6 三階段落地、Stagnation N>=3 條件優化與 Section 8 通用最佳實踐） |
 | **v2.0.1-patch** | 2026-07-07 | **修復 pipx update 錯誤**（增加環境無 pip 時自動執行 pipx reinstall swda 備用方案） |
+| **v2.0-release** | 2026-07-07 | **流程規則優化與 FSM 對齊發佈**（Task Dispatch Validator 與 Action Realization 落地，SKILL.md 8 步對齊與 Mimir 檢索優化） |
 
-### v2.0 執行落地對照表
-- `ALL_IN_RULE.md` 升級至 `1.2.1-all-in-one`
-- `RULE.md` 升級至 `2.3.1-agent-optimized`
-- `SKILL.md` 升級至 `2.2.1 (Deterministic-Actionable)`
-- `docs/contracts/output-schema.md` 升級至 `v1.1`
-- `docs/contracts/output-schema-modular.md` 升級至 `v1.1`
-- `setup.py` 升級至 `1.2.1`
+### v2.1.0 執行落地對照表
+- `ALL_IN_RULE.md` 升級至 `1.3.0-all-in-one`
+- `ALL_IN_RULE.en.md` 升級至 `1.3.0-all-in-one`
+- `RULE.md` 升級至 `2.4.0-agent-optimized`
+- `SKILL.md` 升級至 `2.3.0 (Deterministic-Actionable)`
+- `docs/contracts/output-schema.md` 升級至 `v1.2`
+- `docs/contracts/output-schema-modular.md` 升級至 `v1.2`
+- `setup.py` 升級至 `1.2.4`

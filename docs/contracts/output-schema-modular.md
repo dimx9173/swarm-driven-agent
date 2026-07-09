@@ -1,9 +1,9 @@
-# SWDD Modular Output Schema Contract v1.1
+# SWDD Modular Output Schema Contract v1.2
 
 > **用途**：本檔為 `template/modular/RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**，專供 **openclaw / hermes agent runtime** 使用。SOUL 應在每次大版本變更時同步更新本檔，並與 `SOUL.md` 的 swda-begin/end 標記區塊保持版本一致。
-> **生效日**：2026-07-07
-> **版本**：v1.1
-> **與 integrated 套餐的關係**：本檔為 modular 套餐專屬，**不與 `output-schema.md`（integrated）共用**。兩者根標籤名稱雖部分重疊，但 §2 內嵌指令語法不同。
+> **生效日**：2026-07-09
+> **版本**：v1.2（同步 modular/RULE.md v2.4.0）
+> **與 integrated 套餐的關係**：本檔為 modular 套餐專屬，**不與 `output-schema.md`（integrated）共用**。兩者根標籤名稱與 FSM 轉移定義保持同步。
 
 ---
 
@@ -25,35 +25,19 @@
 
 | 根標籤 | 對應 Hook | 觸發時機 |
 |---|---|---|
-| `<INTENT_GATE_RESULT>` | `[INTENT_GATE]` | 接收新任務時 |
+| `<INTENT_GATE_RESULT>` | `[INTENT_GATE]` | 接收新任務時（含 TC-08/09 消毒後） |
+| `<LITE_MODE_RESULT>` | `[LITE_MODE]` | `USE_SWARM: False` 時的單代理直接執行 |
 | `<DESTRUCT_RESULT>` | `[PHASE_1_DESTRUCT]` | USE_SWARM_WORKFLOW=True 時 |
 | `<GATHER_RESULT>` | `[PHASE_2_GATHER]` | Destruct 完成後 |
 | `<HYPERPLAN_RESULT>` | `[PHASE_3_HYPERPLAN]` | Gather 完成後 |
 | `<SYSTEM_SPECIFICATION>` | `[PHASE_4_SYNTHESIS]` | Crucible PASSED 後 |
-| `<TASK_SUMMARY_REPORT>` | （收束） | Dynamic_Compile 結束時 |
+| `<TASK_SUMMARY_REPORT>` | （收束） | Dynamic_Compile 或 LITE_MODE 結束時 |
 
 ### 2.1 階段性內嵌標籤（非根標籤，可出現在 root tag 內）
 
 | 內嵌標籤 | 出現位置 | 用途 |
 |---|---|---|
-| `<GATHER_CONSOLIDATION>` | §5 Hook 6 內部 | 多 subagent 情報彙整 |
-| `<DYNAMIC_COMPILE_RESULT>` | §5 Hook 6 內部 | 開發 subagent 物理執行指令容器（含 `COMMAND_EXECUTE_START/END` 標記） |
-| `<CLAUDE_REVIEW_RESULT>` | §5 Hook 6 內部 | 審查 subagent 結果（含 `REVIEW_STATUS` / `REVIEWS_FEEDBACK` 兩鍵） |
 | `<ACTION_REALIZATION_BLOCK>` | §4.5 上游攔截 | Task Dispatch Validator 拒絕任務時的封裝 |
-
-### 2.2 modular 特有的子指令區塊（**與 integrated 不同**）
-
-`<DYNAMIC_COMPILE_RESULT>` 在 modular 中必須包含**物理執行邊界標記**：
-
-```xml
-<DYNAMIC_COMPILE_RESULT>
-COMMAND_EXECUTE_START
-[實體 subagent 指令]
-COMMAND_EXECUTE_END
-</DYNAMIC_COMPILE_RESULT>
-```
-
-→ 缺少任一標記視為格式毀損，必須 canonicalization 修正。
 
 ---
 
@@ -64,9 +48,8 @@ COMMAND_EXECUTE_END
 | 標籤外有非空字元 | 後置 Action Realization 攔截 → 回傳錯誤訊息要求自我修正 |
 | 缺少 `[NEXT_STATE: ...]` 宣告 | 同上 |
 | 使用未列出的根標籤 | 同上 |
-| 缺少 `COMMAND_EXECUTE_START/END` 邊界 | 同上（modular 專屬） |
 | 連續 2 次違規未修正 | 觸發 §7.0 Repetition 分類 → 角色切換至 Debugger |
-| 對 §4 Firewall 違規 | 透過 `http://localhost:9720` 提請物理確認（modular 專屬） |
+| 對 §4 Firewall 違規 | 透過 `http://localhost:9720` 提請物理確認（實體安全保護） |
 
 ---
 
