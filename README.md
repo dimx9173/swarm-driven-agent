@@ -12,7 +12,7 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 | :--- | :--- | :--- | :--- |
 | **SWDA** | Swarm-Driven Agent | [SOUL.md](SOUL.md) | Streamlined entry point focusing strictly on **System Identity** (定位) and dual-core references. |
 | **SWDA Contract** | System Contract | [RULE.md](RULE.md) | Defines FSM transition hooks, attention anchors, memory decay, safety firewalls, and self-diagnosis. |
-| **SWDD** | Swarm-Driven Development | [SKILL.md](SKILL.md) | The supreme development meta-skill (做事方法) describing parallel planning, Builder/Destroyer reviews, and sandbox execution. |
+| **SWDD** | Swarm-Driven Development | [SKILL.md](SKILL.md) | The supreme development meta-skill (methodology) describing parallel planning, Builder/Destroyer reviews, and sandbox execution. |
 
 ---
 
@@ -34,7 +34,8 @@ swarm-driven-agent/
 ├── setup.py         # Installer packaging for the swda CLI command
 ├── template/
 │   ├── integrated/
-│   │   └── ALL_IN_RULE.md         # Single-file bundle (for general LLM tools)
+│   │   ├── ALL_IN_RULE.md         # Single-file bundle (Chinese, for general LLM tools)
+│   │   └── ALL_IN_RULE.en.md      # Single-file bundle (English, for general LLM tools)
 │   └── modular/
 │       ├── SOUL.md                # SWDA System Identity template (openclaw/hermes)
 │       ├── RULE.md                # SWDA System Instruction Contract (openclaw/hermes)
@@ -69,7 +70,7 @@ A **Builder × Destroyer** arena where the specification document is hammered be
 ![The Crucible](images/02-crucible-battle.svg)
 
 ### 3. Finite State Machine — Hook Transition Flow
-The complete **6-hook SOUL FSM** (`INTENT_GATE → DESTRUCT → GATHER → HYPERPLAN → SYNTHESIS → DYNAMIC_COMPILE`) with explicit loopbacks, continuation arc, and the 5 sub-roles spawned during the 7-step swarm execution.
+The complete **6-hook SOUL FSM** (`INTENT_GATE → DESTRUCT → GATHER → HYPERPLAN → SYNTHESIS → DYNAMIC_COMPILE`) with explicit loopbacks, continuation arc, and the 3-stage swarm execution.
 
 ![FSM Flow](images/03-fsm-flow.svg)
 
