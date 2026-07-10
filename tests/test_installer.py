@@ -131,7 +131,7 @@ class TestSWDAInstaller(unittest.TestCase):
 
     def test_cli_create_agent(self):
         # Run installer command to create a new agent
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer.py")
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
         result = subprocess.run(
             [sys.executable, script_path, "--create", "new_cli_agent", "--type", "openclaw", "--identity", "Testing CLI creation.", "-y"],
             capture_output=True,
@@ -150,7 +150,7 @@ class TestSWDAInstaller(unittest.TestCase):
             self.assertIn("Testing CLI creation.", content)
 
     def test_cli_install_check_uninstall_e2e(self):
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer.py")
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
         
         # 1. Create a dummy agent that is not installed
         with open(os.path.join(self.openclaw_workspace_dir, "SOUL.md"), "w") as f:
@@ -209,7 +209,7 @@ class TestSWDAInstaller(unittest.TestCase):
             self.assertIn("Finance Agent positioning.", content)
 
     def test_cli_comma_separated_agents(self):
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer.py")
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
         
         # Create two mock agents
         os.makedirs(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent1"), exist_ok=True)
@@ -235,7 +235,7 @@ class TestSWDAInstaller(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent2", "RULE.md")))
 
     def test_cli_update_command(self):
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "installer.py")
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
         
         # Create a mock agent
         os.makedirs(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up"), exist_ok=True)

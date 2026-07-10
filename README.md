@@ -49,7 +49,8 @@ swarm-driven-agent/
 │   └── research/
 │       └── life-harness-adaptation-plan.md  # SWDD optimization & adaptation plan
 ├── images/          # Visualizations of the SWDD architecture & FSM
-├── test_installer.py # Automated test suite for the installer
+├── tests/
+│   └── test_installer.py # Automated test suite for the installer
 └── .gitignore       # Standard git ignore definitions
 ```
 
@@ -161,7 +162,7 @@ swda install --uninstall -y all
 ### 9. Run Automated Tests
 Execute the comprehensive unit test suite to verify the CLI parser and installer logic:
 ```bash
-python3 test_installer.py
+python3 -m unittest discover -s tests
 ```
 
 ---
