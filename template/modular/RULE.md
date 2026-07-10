@@ -61,7 +61,10 @@ $$R(t) = P \cdot F^c \cdot e^{-\lambda \cdot t}$$
 
 ### 3.2 Mimir 反模式經驗應用
 *   當你在 Crucible 階段被駁回，或在實體代碼驗證中遭遇失敗時，你必須立即將該次失敗模式提取為**「反模式記錄 (Anti-pattern)」**。
-*   你必須將此記錄強制寫入全域知識圖譜（透過 `mempalace` MCP），在後續任務中作為 Few-Shot 樣本加載，以實現直覺共享。
+*   **記憶儲存介面與降級機制 (Memory Interface & Fallback)**：
+    你必須使用統一的抽象記憶介面進行讀寫。請依據你當前運行環境中的工具可用性，自動切換至以下實作：
+    1.  **首選實作 (Mempalace MCP)**：若當前環境已加載並啟動 `mempalace` MCP 服務，你必須優先調用 `mempalace_kg_add` 與 `mempalace_search` 等工具讀寫全球知識圖譜，在後續任務中作為 Few-Shot 樣本加載，以實現直覺共享。
+    2.  **降級備用實作 (Local File Ledger)**：若未偵測到 `mempalace` 相關工具或呼叫失敗，你必須降級為**本地文件 Ledger 模式**：直接讀寫當前專案目錄下的 `docs/anti-patterns/`（或 `.swda_memory/`）資料夾，將記錄以 YAML 結構寫入個別檔案中（檔案命名為 `[id].yaml`），檢索時則遞迴讀取該資料夾。
 
 #### 3.2.1 Procedural Skill 檢索機制（借鏡 Life-Harness Skill Layer）
 *   **結構化反模式庫**：所有反模式記錄必須以 YAML 結構儲存，至少包含 `id`、`trigger_context`、`failure_mode`、`remediation`、`frequency`、`last_seen` 六欄位；`frequency` 與 `last_seen` 為 §3.1 衰減計算的輸入。

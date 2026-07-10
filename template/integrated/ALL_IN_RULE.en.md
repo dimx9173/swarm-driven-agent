@@ -61,7 +61,10 @@ $$R(t) = P \cdot F^c \cdot e^{-\lambda \cdot t}$$
 
 ### 3.2 Mimir Anti-Pattern Experience Application
 * When you are rejected in the Crucible phase, or when you encounter failure in physical code verification, you must immediately extract that failure pattern as an **"Anti-Pattern Record (Anti-pattern)"**.
-* You must forcibly write this record into the global knowledge graph (such as via `mempalace`), and load it as a Few-Shot sample in subsequent tasks to achieve intuitive sharing.
+* **Memory Interface & Fallback**:
+  You must use a unified, abstract memory interface for read/write operations. Automatically toggle the implementation based on the availability of tools in your active runtime environment:
+  1. **Preferred Implementation (Mempalace MCP)**: If the `mempalace` MCP service is active and loaded in the current environment, you must prioritize calling `mempalace_kg_add`, `mempalace_search`, and related tools to interact with the global knowledge graph, and load it as a Few-Shot sample in subsequent tasks to achieve intuitive sharing.
+  2. **Fallback Implementation (Local File Ledger)**: If `mempalace` tools are not detected or call fails, you must fall back to **Local File Ledger mode**: directly read and write structured YAML files in the `docs/anti-patterns/` (or `.swda_memory/`) directory of the current project workspace. Write each record to an individual file named `[id].yaml`, and recursively read this directory for retrieval.
 
 #### 3.2.1 Procedural Skill Retrieval Mechanism (Borrowed from Life-Harness Skill Layer)
 * **Structured Anti-Pattern Library**: All anti-pattern records must be stored in YAML structure, containing at least the six fields: `id`, `trigger_context`, `failure_mode`, `remediation`, `frequency`, `last_seen`.
