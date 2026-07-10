@@ -63,27 +63,27 @@ A curated gallery of the SWDD / SWDA cognitive architecture, rendered as standal
 ### 1. Swarm Architecture — Dual-Core Topology
 The **SOUL** core at the center orchestrating six peripheral subagents (Alpha / Beta / Gamma / Builder / Destroyer / Mempalace). Concentric rotating rings symbolize the FSM state space; glowing dashed lines represent the data-flow contract between the soul and its swarm.
 
-![Swarm Architecture](images/01-swarm-architecture.svg)
+![Swarm Architecture](./images/01-swarm-architecture.svg)
 
 ### 2. The Crucible — Adversarial Spec Forge
 A **Builder × Destroyer** arena where the specification document is hammered between the two perspectives. The autorubric score `S = Σ wᵢ · cᵢ` gates acceptance, with a hard **3-round circuit breaker** that escalates to HITL on failure.
 
-![The Crucible](images/02-crucible-battle.svg)
+![The Crucible](./images/02-crucible-battle.svg)
 
 ### 3. Finite State Machine — Hook Transition Flow
 The complete **6-hook SOUL FSM** (`INTENT_GATE → DESTRUCT → GATHER → HYPERPLAN → SYNTHESIS → DYNAMIC_COMPILE`) with explicit loopbacks, continuation arc, and the 3-stage swarm execution.
 
-![FSM Flow](images/03-fsm-flow.svg)
+![FSM Flow](./images/03-fsm-flow.svg)
 
 ### 4. Mempalace — Knowledge Palace
 A 3D cathedral representing the **memory palace**: central dome (mempalace core) surrounded by floating **wing-orbs** (backend, decisions, meetings, anti-patterns, specs, prompts) connected via **tunnels**. Every drawer is a verbatim chunk of knowledge, retrievable via semantic search.
 
-![Mempalace](images/04-mempalace.svg)
+![Mempalace](./images/04-mempalace.svg)
 
 ### 5. Ebbinghaus Memory Decay — Retention Curve
 The retention function `R(t) = P · F^c · e^(−λ·t)` plotted as a glowing decay curve, with the **GC threshold at R = 0.15** marked as a red dashed line. Beyond this, memory nodes are evicted from the active context and archived to the global read-only store.
 
-![Ebbinghaus Decay](images/05-ebbinghaus-decay.svg)
+![Ebbinghaus Decay](./images/05-ebbinghaus-decay.svg)
 
 ---
 
