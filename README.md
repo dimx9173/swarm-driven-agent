@@ -10,9 +10,9 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 
 | Term | Context | File | Purpose |
 | :--- | :--- | :--- | :--- |
-| **SWDA** | Swarm-Driven Agent | [SOUL.md](SOUL.md) | Streamlined entry point focusing strictly on **System Identity** (定位) and dual-core references. |
-| **SWDA Contract** | System Contract | [RULE.md](RULE.md) | Defines FSM transition hooks, attention anchors, memory decay, safety firewalls, and self-diagnosis. |
-| **SWDD** | Swarm-Driven Development | [SKILL.md](SKILL.md) | The supreme development meta-skill (methodology) describing parallel planning, Builder/Destroyer reviews, and sandbox execution. |
+| **SWDA** | Swarm-Driven Agent | [SOUL.md](template/modular/SOUL.md) | Streamlined entry point focusing strictly on **System Identity** (定位) and dual-core references. |
+| **SWDA Contract** | System Contract | [RULE.md](template/modular/RULE.md) | Defines FSM transition hooks, attention anchors, memory decay, safety firewalls, and self-diagnosis. |
+| **SWDD** | Swarm-Driven Development | [SKILL.md](template/modular/SKILL.md) | The supreme development meta-skill (methodology) describing parallel planning, Builder/Destroyer reviews, and sandbox execution. |
 
 ---
 
