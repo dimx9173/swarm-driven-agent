@@ -18,3 +18,7 @@ entities.json
 CLAUDE.md
 hooks.json
 kilo.json
+
+# Logs
+*.log
+bitbucket.log
