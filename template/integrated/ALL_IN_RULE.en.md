@@ -1,11 +1,12 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 1.3.0-all-in-one
+version: 1.4.0-all-in-one
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
 # Swarm-Driven Agent (SWDA) Integrated Cognition & Execution Contract
 
+> Swarm-Driven Agent (SWDA) 
 > [!IMPORTANT]
 > **You must treat this document as your global System Prompt extension contract.**
 > Throughout the entire task execution lifecycle, you must strictly adhere to all cognitive directives, format constraints, and state machine transition rules.
@@ -194,13 +195,24 @@ TASK_SUBAGENT_GAMMA_LATERAL: [Task assigned to Gamma node]
 
 ### Hook 3: [PHASE_2_GATHER] Information Gathering
 * **Trigger Condition**: After receiving divergent directions from each node.
-* **Thinking Behavior**: Collect objective code snippets and dependency relationships. **This phase strictly prohibits proposing any solutions.**
+* **Thinking Behavior**:
+  1. **Dispatch Research Subagent**: Based on the deconstructed directions from Phase 1, dispatch light-weight research/information-gathering subagents to perform comprehensive scanning across codebase, memories, and databases.
+  2. **Query Codebase Graph & Memory Engine**: Must prioritize using `codebase-memory-mcp` or `graphify` for AST-level semantic navigation (tracing caller/callee and neighboring node relationships). Query memory databases (`mempalace` or local anti-pattern records) for historically relevant failure modes, and read relevant Knowledge Items (KIs).
+  3. **Collect Database/State Definitions**: If the task involves databases, state management, or API definitions, query and extract corresponding schemas, field formats, and state machine definitions.
+  4. **Prohibit Plan/Implementation Design**: This phase strictly prohibits proposing any solutions or writing business logic code.
 * **Your XML Output Specification**:
 ```xml
 <GATHER_RESULT>
-- [Key code snippet 1 tracked by AST with call path]
-- [System constraints/configuration file parameter constraints 2]
-- [Dependency package versions and environment contracts 3]
+CODEBASE_GRAPH_CONTEXT:
+- [Key code snippets, caller/callee paths, and structural dependencies tracked by AST]
+RELEVANT_MEMORIES_ANTI_PATTERNS:
+- [Historical anti-pattern IDs and summaries retrieved from Mimir / mempalace / Local-Ledger]
+KNOWLEDGE_ITEMS_FOUND:
+- [Paths and core guidelines of relevant Knowledge Items (KIs)]
+DATABASE_STATE_SCHEMAS:
+- [Schema definitions of databases/in-memory states, or API structural properties]
+GLOBAL_CONTEXT_SUMMARY:
+- [Big picture overview, constraints, and Ark Firewall TC correlations synthesized from the above information]
 </GATHER_RESULT>
 [NEXT_STATE: PHASE_3_HYPERPLAN | Zero-Chat Contract Active]
 ```
@@ -256,9 +268,10 @@ This phase is the ultimate integration crucible for Swarm Driven, Test Driven, a
 * **Thinking Behavior**: Guide subagents in order through the following stages:
 
 **Stage 1. Action Realization Gateway** — max 2 retries, exceeding triggers HITL
-Before dispatching tasks, the main control program must perform mandatory pre-checks, merging Spec and Test driven requirements:
+Before dispatching tasks, the main control program must perform mandatory pre-checks, merging Spec, Test, and Memory/Context driven requirements:
 - **Spec-Driven Check**: Verify task boundaries and Architecture Decision Records (ADR) are clear, and do not trigger §4 firewall blocks (including TC-08/TC-09 sanitization).
 - **Test-Driven Check**: Verify TDD acceptance criteria are defined, and a failing Red-state script is ready.
+- **Memory & Global Context Check (Crucial)**: Verify that the task package contains the `<ANCHORED_MEMORY_AND_CONTEXT>` tag containing the big picture overview, relevant memories (anti-patterns), and database schemas retrieved in Phase 2. If this is missing or empty, block dispatch and return to SYNTHESIS, preventing subagents from executing blindly.
 - **Residual Reasoning Check**: If the task involves numerical calculations (money, indices, formulas), force the subagent to write verifiable assertions for intermediate steps in the code for verification during Stage 3.
 - **Blocking Mechanism (Block)**: If any check fails, block dispatch and return to SYNTHESIS. **Return to SYNTHESIS is capped at 2 times**; exceeding 2 blocks will trigger Adaptive HITL confirmation, strictly prohibiting infinite loops.
 

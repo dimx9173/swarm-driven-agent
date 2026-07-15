@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 2.4.0-agent-optimized
+version: 2.5.0-agent-optimized
 description: Strict operational rules, FSM schemas, and cognitive guidelines optimized for direct LLM agent ingestion and steering.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -193,13 +193,24 @@ TASK_SUBAGENT_GAMMA_LATERAL: [指派給 Gamma 創新節點的任務：跨領域�
 
 ### Hook 3: [PHASE_2_GATHER] 資訊探測
 *   **觸發條件**：收到各節點發散方向後。
-*   **你的思考**：利用 `codegraph` 等工具，僅限收集客觀代碼片段、限制條件與依賴關係。**此階段你嚴禁提出任何解決方案或架構設計。**
+*   **你的思考**：
+    1. **指派探測/研調 Subagent**：依據 Phase 1 拆解的方向，派發輕量級研調 subagent 進行代碼庫、歷史記憶與相關資料庫的全面檢索。
+    2. **調用代碼圖譜與記憶庫**：必須優先使用 `codebase-memory-mcp` 或 `graphify` 等工具進行 AST 級別語意導航（追蹤 caller/callee 與相鄰節點關係），並檢索 `mempalace` 或本地 anti-patterns 記憶庫，同時檢閱相關知識庫項目 (Knowledge Items, KIs)。
+    3. **收集資料庫/狀態定義**：若涉及資料庫、狀態管理、API，必須查詢並提取對應的 schemas、欄位與狀態機定義。
+    4. **禁止方案設計**：此階段嚴禁提出任何解決方案或進行業務程式碼編寫。
 *   **你的 XML 輸出規範**：
 ```xml
 <GATHER_RESULT>
-- [AST 追蹤到的關鍵代碼片段 1 與呼叫路徑]
-- [系統限制/設定檔參數限制 2]
-- [依賴包版本與環境合約 3]
+CODEBASE_GRAPH_CONTEXT:
+- [AST 追蹤到的關鍵代碼片段、呼叫路徑與依賴關係]
+RELEVANT_MEMORIES_ANTI_PATTERNS:
+- [Mimir / mempalace / Local-Ledger 檢索到的歷史反模式 ID 與摘要]
+KNOWLEDGE_ITEMS_FOUND:
+- [相關知識庫項目 KI 檔案路徑與核心指引]
+DATABASE_STATE_SCHEMAS:
+- [資料庫/記憶體狀態表的 schemas 定義或 API 結構特徵]
+GLOBAL_CONTEXT_SUMMARY:
+- [結合上述資訊，歸納出的當前系統全貌、約束與安全防火牆 TC 關聯性]
 </GATHER_RESULT>
 ```
 
@@ -262,6 +273,7 @@ REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向]
 主控程序在發派任務前，必須執行強制性預檢，融合 Spec 與 Test 驅動要求：
 - **Spec-Driven 檢查**：確認任務邊界與架構決策 (ADR) 清晰，不觸發 §4 防火牆攔截（含 TC-08/TC-09 消毒）。
 - **Test-Driven 檢查**：確認 TDD 驗收條件已定義，且 Red-state 失敗腳本已就緒。
+- **Memory & Global Context 檢查 (Crucial)**：確認任務包中是否包含 `<ANCHORED_MEMORY_AND_CONTEXT>` 標籤，內含 Phase 2 收集之 codebase 全貌、歷史記憶（反模式）與資料庫/狀態定義。若缺少或為空，必須阻斷 (Block) 派遣並退回重新編排，防止 subagent 盲目執行。
 - **Residual Reasoning 檢查**：若任務涉及數值計算（金額、索引、公式推導），強制要求 subagent 在實作中提供中間步驟的可驗證斷言 (assertions)，以便在 Stage 3 中自動校驗。
 - **攔截機制 (Block)**：若未通過，拒絕派遣，並回退要求開發者補充規格。**回退至 SYNTHESIS 的上限為 2 次**；超過 2 次仍被 Block 則強制觸發 Adaptive HITL 物理確認，嚴禁無限迴圈。
 

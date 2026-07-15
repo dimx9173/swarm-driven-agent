@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
-version: 2.3.0 (Deterministic-Actionable)
+version: 2.4.0 (Deterministic-Actionable)
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
@@ -59,11 +59,12 @@ Dispatch three isolated nodes to explore the problem space. Under the SOUL runti
 > "Analyze [Task Name]. Focus on: [Alpha: Best Practices | Beta: Breaking Points | Gamma: Novel Approaches]. Output pure technical facts in a bulleted list."
 
 ### PHASE 2: GATHER (Intelligence Consolidation)
-Consolidate facts from Alpha, Beta, and Gamma. Under the SOUL runtime, this maps to **`[PHASE_2_GATHER]`**, producing the structured `<GATHER_RESULT>` list output.
-*   **Dynamic AST Semantic Tracing**: When gathering context for problem-solving or bug-fixing, agents are strictly prohibited from relying solely on regex or plain-text searches. Agents **must** prioritize AST-based semantic navigation (e.g., using `codegraph` or similar code graph tools to trace callers/callees and structural dependencies) to build mathematically sound context.
-*   Extract constraints, dependencies, and risks based on AST evidence.
-*   **Mimir Anti-pattern Retrieval**: Query the Mimir database (using tag-based/metadata matching) for historically relevant failure modes/anti-patterns associated with this task category or scope.
-*   Identify the most promising solution path and package the gathered facts and anti-patterns for the Crucible phase.
+Consolidate facts from Alpha, Beta, and Gamma. Under the SOUL runtime, this maps to **`[PHASE_2_GATHER]`**, producing the structured `<GATHER_RESULT>` output.
+*   **Information-Gathering Subagents**: Proactively dispatch specialized research and info-gathering subagents to query databases, files, and project assets.
+*   **Dynamic AST Semantic Tracing**: When gathering context, agents are strictly prohibited from relying solely on regex or plain-text searches. Agents **must** prioritize AST-based semantic navigation (e.g., using `codebase-memory-mcp` or `graphify` to trace callers/callees and structural dependencies) to build mathematically sound context.
+*   **Memory & Anti-pattern Retrieval**: Query memory engines (using `mempalace` or local ledger) for historically relevant failure modes/anti-patterns associated with this task category or scope. Look up relevant project Knowledge Items (KIs).
+*   **Database Schema & State Collection**: Query table definitions, schemas, and active states if the task involves persistence or state tracking.
+*   **Context Anchoring**: Package the gathered facts, codebase graphs, DB schemas, and anti-patterns into a comprehensive context block for the Crucible phase.
 
 ### PHASE 3 & 4: THE CRUCIBLE (Builder vs. Destroyer)
 This represents the adversarial debate phase. Under the SOUL runtime, these two phases are executed in a tight adversarial loop under **`[PHASE_3_HYPERPLAN]`**, producing the structured `<HYPERPLAN_RESULT>` output.
@@ -96,9 +97,10 @@ Under the SOUL runtime, this maps to the **`[PHASE_DYNAMIC_COMPILE]`** phase, wh
 * **Thinking Behavior**: Guide subagents in order through the following stages:
 
 **Stage 1. Action Realization Gateway** — max 2 retries, exceeding triggers HITL
-Before dispatching tasks, the main control program must perform mandatory pre-checks, merging Spec and Test driven requirements:
+Before dispatching tasks, the main control program must perform mandatory pre-checks, merging Spec, Test, and Memory-driven requirements:
 - **Spec-Driven Check**: Verify task boundaries and Architecture Decision Records (ADR) are clear, and do not trigger §4 firewall blocks (including TC-08/TC-09 sanitization).
 - **Test-Driven Check**: Verify TDD acceptance criteria are defined, and a failing Red-state script is ready.
+- **Memory & Global Context Check (Crucial)**: Verify the task package contains the `<ANCHORED_MEMORY_AND_CONTEXT>` tag containing the big picture, relevant memory (anti-patterns), and database schemas retrieved in Phase 2. If this is missing or empty, block dispatch and return to SYNTHESIS.
 - **Residual Reasoning Check**: If the task involves numerical calculations (money, indices, formulas), force the subagent to write verifiable assertions for intermediate steps in the code for verification during Stage 3.
 - **Blocking Mechanism (Block)**: If any check fails, block dispatch and return to SYNTHESIS. **Return to SYNTHESIS is capped at 2 times**; exceeding 2 blocks will trigger Adaptive HITL confirmation, strictly prohibiting infinite loops.
 
