@@ -1,6 +1,6 @@
 ---
 system_core: "Systemic Orchestration & Unification Logic (SOUL)"
-version: "13.1.2-deterministic"
+version: "13.1.3-deterministic"
 target_environment: "Autonomous System Maintenance & Evolution"
 execution_engine: "Clotho Compiled State Machines & Ark Firewall Runtimes"
 related:
