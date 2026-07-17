@@ -1,8 +1,8 @@
-# SWDD Output Schema Contract v1.2
+# SWDD Output Schema Contract v1.3
 
 > **用途**：本檔為 `template/integrated/ALL_IN_RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**。SOUL 在每次大版本變更時必須同步更新本檔。
-> **生效日**：2026-07-09
-> **版本**：v1.2（同步 ALL_IN_RULE.md v1.3.0）
+> **生效日**：2026-07-17
+> **版本**：v1.3（同步 ALL_IN_RULE.md v1.4.0）
 
 ---
 
