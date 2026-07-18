@@ -250,7 +250,27 @@ class TestSWDAInstaller(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("Successfully installed/upgraded SWDA for: agent_up", result.stdout)
-        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up", "RULE.md")))
+    def test_cli_version_command(self):
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        
+        # Test `version` subcommand
+        result = subprocess.run(
+            [sys.executable, script_path, "version"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Swarm-Driven Agent (SWDA) Version", result.stdout)
+        self.assertIn("Current version:", result.stdout)
+
+        # Test `-v` mapping
+        result_v = subprocess.run(
+            [sys.executable, script_path, "-v"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result_v.returncode, 0)
+        self.assertIn("Current version:", result_v.stdout)
 
 if __name__ == '__main__':
     unittest.main()

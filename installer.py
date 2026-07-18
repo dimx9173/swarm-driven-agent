@@ -8,9 +8,39 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+CLI_VERSION = "1.2.9"
+
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
 SKILL_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "SKILL.en.md")
+
+def get_on_disk_version():
+    setup_py_path = os.path.join(SCRIPT_DIR, "setup.py")
+    if os.path.exists(setup_py_path):
+        try:
+            with open(setup_py_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
+            if match:
+                return match.group(1)
+        except Exception:
+            pass
+    return CLI_VERSION
+
+def get_remote_version():
+    import subprocess
+    try:
+        # Run git fetch origin to check for updates (timeout 5s to avoid offline hanging)
+        subprocess.run(["git", "fetch", "origin"], cwd=SCRIPT_DIR, capture_output=True, text=True, timeout=5)
+        result = subprocess.run(["git", "show", "origin/master:setup.py"], cwd=SCRIPT_DIR, capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            content = result.stdout
+            match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
+            if match:
+                return match.group(1)
+    except Exception:
+        pass
+    return None
 
 def parse_semver(version_str):
     if not version_str:
@@ -562,7 +592,8 @@ def upgrade_swda():
                 try:
                     result = subprocess.run([pipx_path, "reinstall", "swda"])
                     if result.returncode == 0:
-                        print("\nswda upgraded successfully via pipx!")
+                        new_ver = get_on_disk_version()
+                        print(f"\nswda upgraded successfully via pipx to version {new_ver}!")
                         sys.exit(0)
                 except Exception as e:
                     print(f"Failed to run pipx reinstall: {e}", file=sys.stderr)
@@ -585,7 +616,8 @@ def upgrade_swda():
                 result = subprocess.run([sys.executable, "-m", "pip", "install", "--break-system-packages", "-e", "."], cwd=script_dir, capture_output=True, text=True)
         
         if result.returncode == 0:
-            print("\nswda upgraded successfully!")
+            new_ver = get_on_disk_version()
+            print(f"\nswda upgraded successfully to version {new_ver}!")
             sys.exit(0)
         else:
             print(f"Error during package re-installation:\n{result.stderr}", file=sys.stderr)
@@ -600,11 +632,13 @@ def main():
     # Pre-process arguments for subcommand mapping & backward compatibility
     if len(sys.argv) > 1:
         first_arg = sys.argv[1]
-        known_commands = {"install", "doctor", "update", "-h", "--help"}
+        known_commands = {"install", "doctor", "update", "version", "-h", "--help"}
         if first_arg not in known_commands:
             if first_arg in {"-c", "--check"}:
                 # Map old --check or -c to doctor command
                 sys.argv[1] = "doctor"
+            elif first_arg in {"-v", "--version"}:
+                sys.argv[1] = "version"
             else:
                 # Default to install command
                 sys.argv.insert(1, "install")
@@ -630,6 +664,9 @@ def main():
     # Doctor sub-command
     doctor_parser = subparsers.add_parser("doctor", help="Check agent status and optionally fix mismatches.")
     doctor_parser.add_argument("--fix", action="store_true", help="Automatically fix/upgrade agent rules and schemas.")
+
+    # Version sub-command
+    version_parser = subparsers.add_parser("version", help="Show current and latest version of swda.")
     doctor_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when fixing.")
 
     args = parser.parse_args()
@@ -643,6 +680,24 @@ def main():
         args.create = None
         args.type = "openclaw"
         args.identity = None
+
+    if args.command == "version":
+        local_ver = CLI_VERSION
+        print("="*60)
+        print("             Swarm-Driven Agent (SWDA) Version")
+        print("="*60)
+        print(f"Current version: {local_ver}")
+        print("Checking for latest version...")
+        remote_ver = get_remote_version()
+        if remote_ver:
+            print(f"Latest version:  {remote_ver}")
+            if parse_semver(local_ver) < parse_semver(remote_ver):
+                print("\nStatus:          [UPDATE AVAILABLE] Run 'swda update' to upgrade.")
+            else:
+                print("\nStatus:          [UP TO DATE] You are running the latest version.")
+        else:
+            print("Latest version:  Unknown (failed to fetch from remote repository)")
+        sys.exit(0)
 
     # Map command behaviors to old variables for minimal code churn:
     if args.command == "doctor":
