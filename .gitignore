@@ -22,3 +22,8 @@ kilo.json
 # Logs
 *.log
 bitbucket.log
+
+# Python packaging & build artifacts
+*.egg-info/
+build/
+dist/
