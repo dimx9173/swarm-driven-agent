@@ -325,5 +325,44 @@ class TestSWDAInstaller(unittest.TestCase):
             gen_content = f.read()
             self.assertIn("custom-redis-topic", gen_content)
 
+    def test_cli_learn_from_codebase_command(self):
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        
+        # Create a mock codebase directory structure inside mock_home
+        codebase_dir = os.path.join(self.mock_home, "my_mock_project")
+        os.makedirs(os.path.join(codebase_dir, "src"), exist_ok=True)
+        os.makedirs(os.path.join(codebase_dir, "tests"), exist_ok=True)
+        
+        # Write setup.py and CLAUDE.md
+        with open(os.path.join(codebase_dir, "setup.py"), "w") as f:
+            f.write("# setup config\nversion='1.0.0'\n")
+        with open(os.path.join(codebase_dir, "CLAUDE.md"), "w") as f:
+            f.write("Developer Instructions for mock project")
+            
+        # Create mock customizations root
+        agents_dir = os.path.join(self.mock_home, ".agents")
+        os.makedirs(agents_dir, exist_ok=True)
+        
+        # Run learn command with --from-codebase pointing to my_mock_project
+        result = subprocess.run(
+            [sys.executable, script_path, "learn", "my-project-spec", "--from-codebase", codebase_dir, "-y"],
+            cwd=self.mock_home,
+            capture_output=True,
+            text=True,
+            env={"SWDA_TEST_MODE": "1", **os.environ}
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Learning conventions from codebase at:", result.stdout)
+        self.assertIn("Successfully learned and installed skill: 'my-project-spec'", result.stdout)
+        
+        # Verify the generated SKILL.md contains mock codebase topology info
+        skill_file = os.path.join(agents_dir, "skills", "my-project-spec", "SKILL.md")
+        self.assertTrue(os.path.exists(skill_file))
+        with open(skill_file, "r") as f:
+            content = f.read()
+            # The mock learn implementation adds codebase topology to the file in test mode
+            self.assertIn("Codebase topology:", content)
+            self.assertIn("my_mock_project", content)
+
 if __name__ == '__main__':
     unittest.main()

@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.3.0"
+CLI_VERSION = "1.3.1"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -114,11 +114,100 @@ def discover_skills(query):
             print(f"     Command:     swda learn {skill['name']}")
             print()
 
-def generate_ai_skill(topic):
+def probe_codebase_context(dir_path):
+    context = {}
+    ignored_dirs = {".git", "__pycache__", "node_modules", ".pytest_cache", "swda.egg-info", ".gemini", ".cursor", ".claude", ".agents"}
+    
+    # 1. Topology (directory tree up to depth 2)
+    tree = []
+    try:
+        for root, dirs, files in os.walk(dir_path):
+            dirs[:] = [d for d in dirs if d not in ignored_dirs]
+            rel_root = os.path.relpath(root, dir_path)
+            depth = 0 if rel_root == "." else rel_root.count(os.sep) + 1
+            if depth > 2:
+                continue
+            prefix = "  " * depth
+            folder_name = os.path.basename(root) if rel_root != "." else os.path.basename(dir_path)
+            tree.append(f"{prefix}- {folder_name}/")
+            for f in files:
+                if not f.startswith("."):
+                    tree.append(f"{prefix}  - {f}")
+    except Exception:
+        pass
+    context["topology"] = "\n".join(tree)
+
+    # 2. Config Files (first 100 lines)
+    configs = {}
+    common_configs = ["package.json", "setup.py", "pyproject.toml", "requirements.txt", "go.mod", "Cargo.toml"]
+    for conf in common_configs:
+        conf_path = os.path.join(dir_path, conf)
+        if os.path.exists(conf_path):
+            try:
+                with open(conf_path, 'r', encoding='utf-8') as f:
+                    lines = [f.readline() for _ in range(100)]
+                configs[conf] = "".join([l for l in lines if l])
+            except Exception:
+                pass
+    context["configs"] = configs
+
+    # 3. Existing Documentation (first 2000 chars)
+    docs = {}
+    common_docs = ["README.md", "CLAUDE.md", "AGENTS.md"]
+    for doc in common_docs:
+        doc_path = os.path.join(dir_path, doc)
+        if os.path.exists(doc_path):
+            try:
+                with open(doc_path, 'r', encoding='utf-8') as f:
+                    docs[doc] = f.read(2000)
+            except Exception:
+                pass
+    context["docs"] = docs
+
+    # 4. Recent Git Commits
+    git_history = ""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "log", "-n", "5", "--oneline"],
+            cwd=dir_path,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            git_history = result.stdout
+    except Exception:
+        pass
+    context["git_history"] = git_history
+    
+    return context
+
+def generate_ai_skill(topic, codebase_context=None):
     gemini_key = os.environ.get("GEMINI_API_KEY")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
     
+    codebase_info = ""
+    if codebase_context:
+        codebase_info = f"\nHere is the context of the active target codebase you are learning from:\n1. Directory Structure Topology:\n{codebase_context.get('topology', 'Unknown')}\n"
+        
+        cfg_info = codebase_context.get('configs', {})
+        if cfg_info:
+            codebase_info += "\n2. Configuration File Snippets:\n"
+            for filename, content in cfg_info.items():
+                codebase_info += f"--- {filename} ---\n{content}\n"
+                
+        doc_info = codebase_context.get('docs', {})
+        if doc_info:
+            codebase_info += "\n3. Key Documentation / Developer Guides:\n"
+            for filename, content in doc_info.items():
+                codebase_info += f"--- {filename} ---\n{content}\n"
+                
+        git_hist = codebase_context.get('git_history')
+        if git_hist:
+            codebase_info += f"\n4. Recent Git Commit Messages:\n{git_hist}\n"
+            
     prompt = f"""Create a highly structured system instruction file (SKILL.md) for an AI agent to master the following topic: "{topic}".
 The output MUST be in markdown and start with a YAML frontmatter containing:
 ---
@@ -127,10 +216,11 @@ description: [a brief one-sentence description]
 ---
 
 The body of the markdown MUST contain:
-1. Core Principles (Philosophy & rules of the skill)
-2. Common Anti-patterns (Failure modes to avoid)
+1. Core Principles (Philosophy & rules of the skill, specifically tailored to the codebase conventions if context is provided below)
+2. Common Anti-patterns (Failure modes to avoid, reflecting target codebase constraints)
 3. Step-by-step Execution SOP (Red-Green-Refactor, or validation gates)
-Keep it concise, actionable, and under 150 lines. Do not add any conversational introduction or greetings."""
+Keep it concise, actionable, and under 150 lines. Do not add any conversational introduction or greetings.
+{codebase_info}"""
 
     content = None
     if gemini_key:
@@ -244,23 +334,31 @@ def find_customization_root():
         curr = parent
     return os.path.join(cwd, ".agents")
 
-def learn_skill(topic_or_url, yes_bypass=False, is_global=False):
+def learn_skill(topic_or_url, yes_bypass=False, is_global=False, codebase_path=None):
     import urllib.request
     
     matching_skill = None
     content = None
     skill_name = None
     
+    codebase_context = None
+    if codebase_path:
+        print(f" -> Learning conventions from codebase at: {codebase_path}...")
+        codebase_context = probe_codebase_context(codebase_path)
+    
     # Check for test mode mock to avoid network calls in unit tests
     if os.environ.get("SWDA_TEST_MODE") == "1":
         skill_name = topic_or_url.split("/")[-1].replace(".md", "")
         if skill_name.startswith("http"):
             skill_name = "mock-url-skill"
+        
+        topo_snippet = codebase_context.get('topology')[:30] if codebase_context else "None"
         content = f"""---
 name: {skill_name}
 description: Mock skill for {topic_or_url}
 ---
-# Mock Skill Content for {topic_or_url}"""
+# Mock Skill Content for {topic_or_url}
+Codebase topology: {topo_snippet}"""
     else:
         for skill in KNOWN_SKILLS:
             if skill["name"].lower() == topic_or_url.lower():
@@ -296,7 +394,7 @@ description: Mock skill for {topic_or_url}
                 
         else:
             print(f" -> Synthesizing custom skill for topic: '{topic_or_url}'...")
-            content = generate_ai_skill(topic_or_url)
+            content = generate_ai_skill(topic_or_url, codebase_context)
             match = re.search(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
             if match:
                 fm_text = match.group(1)
@@ -967,6 +1065,7 @@ def main():
     learn_parser.add_argument("topic_or_url", help="The skill name in catalog, a raw URL, or a topic name for AI synthesis.")
     learn_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when overwriting.")
     learn_parser.add_argument("--global", dest="is_global", action="store_true", help="Install to global customizations root (~/.gemini/config) instead of local workspace (.agents).")
+    learn_parser.add_argument("--from-codebase", dest="from_codebase", nargs="?", const=".", help="Scan a target codebase conventions (default path: '.') and create a localized skill.")
     doctor_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when fixing.")
 
     args = parser.parse_args()
@@ -1004,7 +1103,7 @@ def main():
         sys.exit(0)
 
     if args.command == "learn":
-        learn_skill(args.topic_or_url, args.yes, args.is_global)
+        learn_skill(args.topic_or_url, args.yes, args.is_global, args.from_codebase)
         sys.exit(0)
 
     # Map command behaviors to old variables for minimal code churn:
