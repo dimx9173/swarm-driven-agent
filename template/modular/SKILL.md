@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - 多代理協同開發框架
 description: 一個用於高質量軟體工程的多代理群體智能工作流程。具有並行規劃、對抗式規格審查（熔爐 Crucible）以及規格驅動實作的特點。
-version: 2.5.0 (Deterministic-Actionable)
+version: 2.6.0-self-evolving
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL 認知引擎運行時: [SOUL.md](SOUL.md)"
@@ -40,7 +40,7 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 *   **記憶與知識檢索子代理**：檢索歷史反模式與知識庫項目 (Knowledge Items)。
 *   **資料庫與狀態探針子代理**：查詢系統資料庫 Tables、Redis schemas 與 API 契約。
 *   **設計文件巡檢子代理**：巡檢既存設計規格書與 ADR 決策。
-*   **動作**：將探測結果封裝至 `<ANCHORED_MEMORY_AND_CONTEXT>` 標籤中，作為後續設計依據。
+*   **動作**：將探測結果封裝至 `<ANCHORED_MEMORY_AND_CONTEXT>` 標籤中，作為後續設計依據。**若在探測中發現缺乏當前技術/框架的 SOP 技能，必須自主調用 `swda discover` 與 `swda learn` 來補齊工作區技能，實現自我成長。**
 
 ### PHASE 3 & 4: THE CRUCIBLE (對抗式方案審查)
 在 `[PHASE_3_HYPERPLAN]` 狀態下執行的對抗式辯論：
