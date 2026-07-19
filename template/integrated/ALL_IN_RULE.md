@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 1.6.1-all-in-one
+version: 1.7.0-all-in-one
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -115,7 +115,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: [分派給 Gamma子代理的獨立研調指令]
 [NEXT_STATE: PHASE_2_GATHER | Zero-Chat Contract Active]
 ```
 
-3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。禁止在此階段設計解決方案。
+3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**你必須主動比對當前任務技術特徵與既存的自定義技能，若發現缺乏特定技術/框架的 SOP，必須調用 `swda discover` 與 `swda learn` 自我進化，並在輸出中聲明學習到的新技能。**
 ```xml
 <GATHER_RESULT>
 CODEBASE_GRAPH_CONTEXT:

@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 1.6.1-all-in-one
+version: 1.7.0-all-in-one
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -115,7 +115,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: [Independent research directive for the Gamma subag
 [NEXT_STATE: PHASE_2_GATHER | Zero-Chat Contract Active]
 ```
 
-3.  `[PHASE_2_GATHER]`: Information gathering and context consolidation. Solution design is prohibited.
+3.  `[PHASE_2_GATHER]`: Information gathering and context consolidation. Solution design is prohibited. **You must actively compare the task's technical stack with existing custom skills; if a specific skill/SOP is missing, call `swda discover` and `swda learn` to self-evolve, and declare the newly learned skill in your output.**
 ```xml
 <GATHER_RESULT>
 CODEBASE_GRAPH_CONTEXT:

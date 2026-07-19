@@ -11,7 +11,7 @@
 ```
 template/
 ├── integrated/
-│   └── ALL_IN_RULE.md         ← 單檔整合套餐（v1.6.1-all-in-one）
+│   └── ALL_IN_RULE.md         ← 單檔整合套餐（v1.7.0-all-in-one）
 └── modular/
     ├── SOUL.md                ← 認知引擎套餐（v13.1.3-deterministic）
     ├── RULE.md                ← 運行合約套餐（v2.7.0-agent-optimized）
@@ -27,7 +27,7 @@ template/
 | **檔案數** | 1 個（ALL_IN_RULE.md） | 3 個（SOUL + RULE + SKILL） |
 | **設計哲學** | 單檔全部載入，便於一次性 prompt ingestion | 分檔組合，彈性高但需 subagent 自行載入 |
 | **適用場景** | **其他通用 LLM 工具**（Kilo / Claude Code / Cursor / OpenCode 等）| **openclaw / hermes agent runtime**（經 `installer.py` 部署） |
-| **版本獨立性** | v1.6.1 自有版本號 | 各自獨立版本號（13.1.3 / 2.7.0 / 2.5.0） |
+| **版本獨立性** | v1.7.0 自有版本號 | 各自獨立版本號（13.1.3 / 2.7.0 / 2.5.0） |
 | **被 installer.py 引用** | ❌ 否 | ✅ 是（見 `installer.py` 第 11-13 行） |
 | **中英文支援** | 提供中文版 (`ALL_IN_RULE.md`) 與英文版 (`ALL_IN_RULE.en.md`) | 提供中文審查版 (`SOUL.md`/`RULE.md`/`SKILL.md`) 與英文安裝版 (`SOUL.en.md`/`RULE.en.md`/`SKILL.en.md`) |
 | **適用任務複雜度** | 中小型任務最佳 | 大型多代理編排任務最佳 |

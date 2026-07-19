@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.2.9"
+CLI_VERSION = "1.3.0"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -41,6 +41,296 @@ def get_remote_version():
     except Exception:
         pass
     return None
+
+KNOWN_SKILLS = [
+    {
+        "name": "grill-me",
+        "description": "Relentless interview to sharpen a plan or design before coding.",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/productivity/grilling/SKILL.md",
+        "category": "productivity"
+    },
+    {
+        "name": "tdd",
+        "description": "Test-driven development with red-green-refactor vertical slices.",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/tdd/SKILL.md",
+        "category": "engineering"
+    },
+    {
+        "name": "diagnosing-bugs",
+        "description": "Scientific bug diagnosis loop (reproduce, minimize, hypothesize, instrument, fix).",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/diagnosing-bugs/SKILL.md",
+        "category": "engineering"
+    },
+    {
+        "name": "code-review",
+        "description": "Standards and Spec review to ensure code quality and alignment.",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/code-review/SKILL.md",
+        "category": "engineering"
+    },
+    {
+        "name": "to-spec",
+        "description": "Turn a high-level conversation or plan into a structured spec document.",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/to-spec/SKILL.md",
+        "category": "engineering"
+    },
+    {
+        "name": "implement",
+        "description": "Drive spec implementation with TDD and code review loops.",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/implement/SKILL.md",
+        "category": "engineering"
+    },
+    {
+        "name": "codebase-design",
+        "description": "Vocabulary and rules for designing deep modules with small interfaces.",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/codebase-design/SKILL.md",
+        "category": "engineering"
+    },
+    {
+        "name": "resolving-merge-conflicts",
+        "description": "Clean step-by-step resolution of git merge/rebase conflicts.",
+        "url": "https://raw.githubusercontent.com/mattpocock/skills/main/skills/engineering/resolving-merge-conflicts/SKILL.md",
+        "category": "engineering"
+    }
+]
+
+def discover_skills(query):
+    query_lower = query.lower()
+    matches = []
+    for skill in KNOWN_SKILLS:
+        if query_lower in skill["name"].lower() or query_lower in skill["description"].lower():
+            matches.append(skill)
+    
+    print("="*60)
+    print(f"             SWDA Skill Discovery (Query: '{query}')")
+    print("="*60)
+    if not matches:
+        print("No matching skills found in the catalog.")
+        print("Try searching for: tdd, grill, bug, review, spec.")
+    else:
+        for idx, skill in enumerate(matches, 1):
+            print(f" [{idx}] {skill['name']} ({skill['category']})")
+            print(f"     Description: {skill['description']}")
+            print(f"     Source URL:  {skill['url']}")
+            print(f"     Command:     swda learn {skill['name']}")
+            print()
+
+def generate_ai_skill(topic):
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    
+    prompt = f"""Create a highly structured system instruction file (SKILL.md) for an AI agent to master the following topic: "{topic}".
+The output MUST be in markdown and start with a YAML frontmatter containing:
+---
+name: [a kebab-case version of the topic name]
+description: [a brief one-sentence description]
+---
+
+The body of the markdown MUST contain:
+1. Core Principles (Philosophy & rules of the skill)
+2. Common Anti-patterns (Failure modes to avoid)
+3. Step-by-step Execution SOP (Red-Green-Refactor, or validation gates)
+Keep it concise, actionable, and under 150 lines. Do not add any conversational introduction or greetings."""
+
+    content = None
+    if gemini_key:
+        import urllib.request
+        import json
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+        data = {
+            "contents": [{"parts": [{"text": prompt}]}]
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                res = json.loads(response.read().decode("utf-8"))
+                content = res["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception as e:
+            print(f"Warning: Gemini API call failed ({e}), falling back to template synthesis.")
+            
+    elif anthropic_key:
+        import urllib.request
+        import json
+        url = "https://api.anthropic.com/v1/messages"
+        data = {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 4000,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": anthropic_key,
+                "anthropic-version": "2023-06-01"
+            },
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                res = json.loads(response.read().decode("utf-8"))
+                content = res["content"][0]["text"]
+        except Exception as e:
+            print(f"Warning: Anthropic API call failed ({e}), falling back to template synthesis.")
+            
+    elif openai_key:
+        import urllib.request
+        import json
+        url = "https://api.openai.com/v1/chat/completions"
+        data = {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {openai_key}"
+            },
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                res = json.loads(response.read().decode("utf-8"))
+                content = res["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"Warning: OpenAI API call failed ({e}), falling back to template synthesis.")
+
+    if not content:
+        name_kebab = re.sub(r'[^a-zA-Z0-9\-]+', '-', topic.lower()).strip('-')
+        content = f"""---
+name: {name_kebab}
+description: Standardized engineering skill workflow for {topic}.
+---
+
+# {topic} Workflow SOP
+
+> [Note: Generated offline using template fallback. For AI-optimized synthesis, configure GEMINI_API_KEY or ANTHROPIC_API_KEY.]
+
+## 1. Core Principles
+*   **Context First**: Read existing code patterns and documentation before applying the {topic} skill.
+*   **Verification**: Define clear seams and test parameters prior to implementation.
+*   **Traceability**: Ensure every action traces back to a verified requirements ticket.
+
+## 2. Anti-patterns to Avoid
+*   **Speculative Design**: Over-engineering for features not currently requested.
+*   **Happy Path Bias**: Ignoring boundary conditions, error handling, and resource leakages.
+
+## 3. Step-by-step SOP
+1.  **Define Contract**: Outline public inputs, outputs, and side-effects.
+2.  **Verify Baseline**: Run existing test suites.
+3.  **Implement**: Write the minimal code to satisfy the contract.
+4.  **Validate**: Execute self-check script.
+"""
+    return content
+
+def find_customization_root():
+    cwd = os.getcwd()
+    curr = cwd
+    while True:
+        agents_dir = os.path.join(curr, ".agents")
+        if os.path.isdir(agents_dir):
+            return agents_dir
+        parent = os.path.dirname(curr)
+        if parent == curr:
+            break
+        curr = parent
+    return os.path.join(cwd, ".agents")
+
+def learn_skill(topic_or_url, yes_bypass=False, is_global=False):
+    import urllib.request
+    
+    matching_skill = None
+    content = None
+    skill_name = None
+    
+    # Check for test mode mock to avoid network calls in unit tests
+    if os.environ.get("SWDA_TEST_MODE") == "1":
+        skill_name = topic_or_url.split("/")[-1].replace(".md", "")
+        if skill_name.startswith("http"):
+            skill_name = "mock-url-skill"
+        content = f"""---
+name: {skill_name}
+description: Mock skill for {topic_or_url}
+---
+# Mock Skill Content for {topic_or_url}"""
+    else:
+        for skill in KNOWN_SKILLS:
+            if skill["name"].lower() == topic_or_url.lower():
+                matching_skill = skill
+                break
+                
+        if matching_skill:
+            print(f" -> Found matching skill '{matching_skill['name']}' in catalog. Fetching...")
+            try:
+                with urllib.request.urlopen(matching_skill["url"], timeout=10) as response:
+                    content = response.read().decode("utf-8")
+                skill_name = matching_skill["name"]
+            except Exception as e:
+                print(f"Error fetching skill from URL: {e}", file=sys.stderr)
+                sys.exit(1)
+                
+        elif topic_or_url.startswith("http://") or topic_or_url.startswith("https://"):
+            print(f" -> Fetching skill from URL: {topic_or_url}...")
+            try:
+                with urllib.request.urlopen(topic_or_url, timeout=10) as response:
+                    content = response.read().decode("utf-8")
+                match = re.search(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
+                if match:
+                    fm_text = match.group(1)
+                    name_match = re.search(r'^name:\s*(.+)$', fm_text, re.MULTILINE)
+                    if name_match:
+                        skill_name = name_match.group(1).strip().strip('"').strip("'")
+                if not skill_name:
+                    skill_name = topic_or_url.split("/")[-2] or "custom-skill"
+            except Exception as e:
+                print(f"Error fetching skill from URL: {e}", file=sys.stderr)
+                sys.exit(1)
+                
+        else:
+            print(f" -> Synthesizing custom skill for topic: '{topic_or_url}'...")
+            content = generate_ai_skill(topic_or_url)
+            match = re.search(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
+            if match:
+                fm_text = match.group(1)
+                name_match = re.search(r'^name:\s*(.+)$', fm_text, re.MULTILINE)
+                if name_match:
+                    skill_name = name_match.group(1).strip().strip('"').strip("'")
+            if not skill_name:
+                skill_name = re.sub(r'[^a-zA-Z0-9\-]+', '-', topic_or_url.lower()).strip('-')
+
+    if is_global:
+        dest_dir = os.path.join(os.path.expanduser("~"), ".gemini", "config", "skills", skill_name)
+    else:
+        agents_root = find_customization_root()
+        dest_dir = os.path.join(agents_root, "skills", skill_name)
+        
+    skill_file = os.path.join(dest_dir, "SKILL.md")
+    
+    print(f"\nInstalling skill '{skill_name}':")
+    print(f"  Target file: {skill_file}")
+    
+    if os.path.exists(skill_file) and not yes_bypass:
+        confirm = input(f"Skill '{skill_name}' already exists. Overwrite? (y/n): ").strip().lower()
+        if confirm != 'y':
+            print("Cancelled.")
+            sys.exit(0)
+            
+    os.makedirs(dest_dir, exist_ok=True)
+    try:
+        with open(skill_file, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"\nSuccessfully learned and installed skill: '{skill_name}'!")
+    except Exception as e:
+        print(f"Error writing skill file: {e}", file=sys.stderr)
+        sys.exit(1)
 
 def parse_semver(version_str):
     if not version_str:
@@ -632,7 +922,7 @@ def main():
     # Pre-process arguments for subcommand mapping & backward compatibility
     if len(sys.argv) > 1:
         first_arg = sys.argv[1]
-        known_commands = {"install", "doctor", "update", "version", "-h", "--help"}
+        known_commands = {"install", "doctor", "update", "version", "discover", "learn", "-h", "--help"}
         if first_arg not in known_commands:
             if first_arg in {"-c", "--check"}:
                 # Map old --check or -c to doctor command
@@ -667,6 +957,16 @@ def main():
 
     # Version sub-command
     version_parser = subparsers.add_parser("version", help="Show current and latest version of swda.")
+
+    # Discover sub-command
+    discover_parser = subparsers.add_parser("discover", help="Search for useful skills in the catalog.")
+    discover_parser.add_argument("query", help="The term/topic to search for.")
+
+    # Learn sub-command
+    learn_parser = subparsers.add_parser("learn", help="Download or generate a skill to learn it.")
+    learn_parser.add_argument("topic_or_url", help="The skill name in catalog, a raw URL, or a topic name for AI synthesis.")
+    learn_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when overwriting.")
+    learn_parser.add_argument("--global", dest="is_global", action="store_true", help="Install to global customizations root (~/.gemini/config) instead of local workspace (.agents).")
     doctor_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when fixing.")
 
     args = parser.parse_args()
@@ -697,6 +997,14 @@ def main():
                 print("\nStatus:          [UP TO DATE] You are running the latest version.")
         else:
             print("Latest version:  Unknown (failed to fetch from remote repository)")
+        sys.exit(0)
+
+    if args.command == "discover":
+        discover_skills(args.query)
+        sys.exit(0)
+
+    if args.command == "learn":
+        learn_skill(args.topic_or_url, args.yes, args.is_global)
         sys.exit(0)
 
     # Map command behaviors to old variables for minimal code churn:

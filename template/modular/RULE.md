@@ -94,7 +94,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 ### 5.1 FSM 狀態機 Hook 列表
 1.  `[INTENT_GATE]`：接收到全新任務輸入時，分析意圖並決定是否啟用 Swarm 多代理流程。
 2.  `[PHASE_1_DESTRUCT]`：降維拆解，分派 Alpha (Canonical)、Beta (Adversary)、Gamma (Innovator) 進行並行研調。
-3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。禁止在此階段設計解決方案。
+3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**你必須主動比對當前任務技術特徵與既存的自定義技能，若發現缺乏特定技術/框架的 SOP，必須調用 `swda discover` 與 `swda learn` 自我進化，並在輸出中聲明學習到的新技能。**
 4.  `[PHASE_3_HYPERPLAN]`：方案對抗熔爐 (Builder vs. Destroyer)，由 Referee 進行 Rubric 評分與熔斷判定。
 5.  `[PHASE_4_SYNTHESIS]`：共識昇華，輸出規格驅動與測試驅動 (TDD) 的實作藍圖合約。
 6.  `[PHASE_DYNAMIC_COMPILE]`：物理執行閘道，依據 TDD 契約進行雙代理（測試編寫 vs. 代碼開發）沙箱實作與驗證。

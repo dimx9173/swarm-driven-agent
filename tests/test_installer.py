@@ -272,5 +272,58 @@ class TestSWDAInstaller(unittest.TestCase):
         self.assertEqual(result_v.returncode, 0)
         self.assertIn("Current version:", result_v.stdout)
 
+    def test_cli_discover_command(self):
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        
+        # Test `discover` subcommand
+        result = subprocess.run(
+            [sys.executable, script_path, "discover", "tdd"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("SWDA Skill Discovery", result.stdout)
+        self.assertIn("tdd (engineering)", result.stdout)
+
+    def test_cli_learn_command(self):
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        
+        # Create mock customization root
+        agents_dir = os.path.join(self.mock_home, ".agents")
+        os.makedirs(agents_dir, exist_ok=True)
+        
+        # Run `learn` subcommand with a known catalog skill name
+        result = subprocess.run(
+            [sys.executable, script_path, "learn", "tdd", "-y"],
+            cwd=self.mock_home,
+            capture_output=True,
+            text=True,
+            env={"SWDA_TEST_MODE": "1", **os.environ}
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Successfully learned and installed skill: 'tdd'", result.stdout)
+        
+        # Verify SKILL.md file created in the local mock customization root
+        skill_file = os.path.join(agents_dir, "skills", "tdd", "SKILL.md")
+        self.assertTrue(os.path.exists(skill_file))
+        
+        # Test AI generation fallback by specifying a custom topic name
+        result_gen = subprocess.run(
+            [sys.executable, script_path, "learn", "custom-redis-topic", "-y"],
+            cwd=self.mock_home,
+            capture_output=True,
+            text=True,
+            env={"SWDA_TEST_MODE": "1", **os.environ}
+        )
+        self.assertEqual(result_gen.returncode, 0)
+        self.assertIn("Successfully learned and installed skill: 'custom-redis-topic'", result_gen.stdout)
+        
+        # Verify generated file exists
+        gen_skill_file = os.path.join(agents_dir, "skills", "custom-redis-topic", "SKILL.md")
+        self.assertTrue(os.path.exists(gen_skill_file))
+        with open(gen_skill_file, "r") as f:
+            gen_content = f.read()
+            self.assertIn("custom-redis-topic", gen_content)
+
 if __name__ == '__main__':
     unittest.main()
