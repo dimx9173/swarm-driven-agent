@@ -94,7 +94,7 @@ You must strictly match the current state Hook and output XML blocks that confor
 ### 5.1 FSM State Hook List
 1.  `[INTENT_GATE]`: Triggered on new task input; analyzes intent and decides whether to enable Swarm workflow.
 2.  `[PHASE_1_DESTRUCT]`: Deconstructs the task and dispatches Alpha (Canonical), Beta (Adversary), and Gamma (Innovator) for parallel research.
-3.  `[PHASE_2_GATHER]`: Dispatches subagents for information gathering and context cross-referencing. Solution design is prohibited. **You must actively compare the task's technical stack with existing custom skills; if a specific skill/SOP is missing, call `swda discover` and `swda learn` to self-evolve, and declare the newly learned skill in your output.**
+3.  `[PHASE_2_GATHER]`: Dispatches subagents for information gathering and context cross-referencing. Solution design is prohibited. **[Adaptive Skill Learning Gate] You must actively compare the task's technical stack (e.g. specific frameworks, databases, or proprietary patterns) with existing custom skills in `.agents/skills/`. If a specific skill/SOP is missing, you must run `swda discover <tech_name>` to find it, then call `swda learn <skill_name> -y` (or `swda learn <tech_name> --from-codebase . -y` to learn and create it from the codebase). Finally, declare the newly learned skills as `DYNAMICALLY_LEARNED_SKILLS` in your output summary.**
 4.  `[PHASE_3_HYPERPLAN]`: Adversarial Crucible (Builder vs. Destroyer), scored and gated by Referee.
 5.  `[PHASE_4_SYNTHESIS]`: Specification consolidation, outputting Spec-Driven and Test-Driven (TDD) implementation blueprints.
 6.  `[PHASE_DYNAMIC_COMPILE]`: Sandboxed execution gateway, driving implementation via TDD split roles (Test Writer vs. Developer).

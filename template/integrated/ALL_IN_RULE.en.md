@@ -115,7 +115,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: [Independent research directive for the Gamma subag
 [NEXT_STATE: PHASE_2_GATHER | Zero-Chat Contract Active]
 ```
 
-3.  `[PHASE_2_GATHER]`: Information gathering and context consolidation. Solution design is prohibited. **You must actively compare the task's technical stack with existing custom skills; if a specific skill/SOP is missing, call `swda discover` and `swda learn` to self-evolve, and declare the newly learned skill in your output.**
+3.  `[PHASE_2_GATHER]`: Information gathering and context consolidation. Solution design is prohibited. **[Adaptive Skill Learning Gate] You must actively compare the task's technical stack (e.g. specific frameworks, databases, or proprietary patterns) with existing custom skills in `.agents/skills/`. If a specific skill/SOP is missing, you must run `swda discover <tech_name>` to find it, then call `swda learn <skill_name> -y` (or `swda learn <tech_name> --from-codebase . -y` to learn and create it from the codebase). Finally, declare the newly learned skills as `DYNAMICALLY_LEARNED_SKILLS` in `<GATHER_RESULT>` summary.**
 ```xml
 <GATHER_RESULT>
 CODEBASE_GRAPH_CONTEXT:
@@ -128,6 +128,7 @@ DESIGN_DOCUMENTS_AND_SPECS:
 - [Design Doc Inspector Subagent output: existing design specs and historical architecture constraints]
 GLOBAL_CONTEXT_SUMMARY:
 - [Consolidated summary of codebase, security boundary, and cross-referenced probe results]
+- DYNAMICALLY_LEARNED_SKILLS: [List dynamically learned and installed skills, or None if none]
 </GATHER_RESULT>
 [NEXT_STATE: PHASE_3_HYPERPLAN | Zero-Chat Contract Active]
 ```

@@ -115,7 +115,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: [分派給 Gamma子代理的獨立研調指令]
 [NEXT_STATE: PHASE_2_GATHER | Zero-Chat Contract Active]
 ```
 
-3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**你必須主動比對當前任務技術特徵與既存的自定義技能，若發現缺乏特定技術/框架的 SOP，必須調用 `swda discover` 與 `swda learn` 自我進化，並在輸出中聲明學習到的新技能。**
+3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**【自適應技能學習閘】你必須主動比對當前任務技術特徵（例如特定框架、資料庫或專有模式）與 `.agents/skills/` 下既存的自定義技能。若發現缺乏專屬 SOP 技能，必須依序調用 `swda discover <技術名稱>` 尋找相關技能，並調用 `swda learn <技能名稱> -y`（若無匹配則使用 `swda learn <技術名稱> --from-codebase . -y` 自主學習與創建）。最終必須在 `<GATHER_RESULT>` 的結論中聲明 `DYNAMICALLY_LEARNED_SKILLS` 學習到的技能名稱。**
 ```xml
 <GATHER_RESULT>
 CODEBASE_GRAPH_CONTEXT:
@@ -128,6 +128,7 @@ DESIGN_DOCUMENTS_AND_SPECS:
 - [設計文件巡檢 Subagent 產出：既存設計規格與歷史架構約束]
 GLOBAL_CONTEXT_SUMMARY:
 - [主控彙整：當前系統全貌、安全邊界與探測結論的交叉比對]
+- DYNAMICALLY_LEARNED_SKILLS: [列出本次動態學習並安裝的技能名稱，若無則填 None]
 </GATHER_RESULT>
 [NEXT_STATE: PHASE_3_HYPERPLAN | Zero-Chat Contract Active]
 ```
