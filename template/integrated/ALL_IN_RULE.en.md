@@ -92,7 +92,7 @@ You must strictly match the current state Hook, wrap your output in the correspo
 
 ### 5.1 FSM State Hook & XML Structure List
 
-1.  `[INTENT_GATE]`: Analyze intent on new task input.
+1.  `[INTENT_GATE]`: Analyze intent on new task input. Re-classification limit is 1. If secondary classification is invalid, force Zero-Chat Contract or request HITL.
 ```xml
 <INTENT_GATE_RESULT>
 INTENT_CLASSIFICATION: [FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]
@@ -115,7 +115,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: [Independent research directive for the Gamma subag
 [NEXT_STATE: PHASE_2_GATHER | Zero-Chat Contract Active]
 ```
 
-3.  `[PHASE_2_GATHER]`: Information gathering and context consolidation. Solution design is prohibited. **[Adaptive Skill Learning Gate] You must actively compare the task's technical stack (e.g. specific frameworks, databases, or proprietary patterns) with existing custom skills in `.agents/skills/`. If a specific skill/SOP is missing, you must run `swda discover <tech_name>` to find it, then call `swda learn <skill_name> -y` (or `swda learn <tech_name> --from-codebase . -y` to learn and create it from the codebase). Finally, declare the newly learned skills as `DYNAMICALLY_LEARNED_SKILLS` in `<GATHER_RESULT>` summary.**
+3.  `[PHASE_2_GATHER]`: Information gathering and context consolidation. Solution design is prohibited. **[Adaptive Skill Learning Gate] You must actively compare the task's technical stack (e.g. specific frameworks, databases, or proprietary patterns) with existing custom skills in `.agents/skills/`. If a specific skill/SOP is missing, you must run `swda discover <tech_name>` to find it, then call `swda learn <skill_name> -y` (or `swda learn <tech_name> --from-codebase . -y` to learn and create it from the codebase). Skill learning is limited to 1 attempt. If it fails, times out, or has no match, you must immediately downgrade and use existing universal skills (e.g., universal TDD/Refactoring) to proceed. Finally, declare the newly learned skills as `DYNAMICALLY_LEARNED_SKILLS` in `<GATHER_RESULT>` summary.**
 ```xml
 <GATHER_RESULT>
 CODEBASE_GRAPH_CONTEXT:
@@ -240,3 +240,4 @@ To prevent infinite loops and token waste, Watchdogs must apply recovery strateg
 4.  **(§8.4) Arachne Context Optimization**: To prevent LLM's "lost-in-the-middle" effect, high-relevance Context blocks must be placed at the very front and very end of the Prompt window.
 5.  **(§8.5) Consensus Limit**: Builder and Destroyer in the Crucible phase can confront for a maximum of 3 rounds. If consensus cannot be reached, must immediately trigger circuit breaker and request HITL.
 6.  **(§8.6) Git Clean Commits**: When the implementation subagent commits, it must compare against the logical blocks planned in Synthesis.
+7.  **(§8.7) Token Budget & Concision Constraint**: To prevent over-reasoning and token bloating (Lost-in-Thought effect), the `<thinking>` section must focus on state transition parameters and be under 1000 characters. Crucible specifications and codebase architecture design must be highly cohesive, and a single XML block must not exceed 4000 tokens. If the budget is exceeded, immediately simplify the architecture or decompose the modules; generating useless verbose text is strictly prohibited.

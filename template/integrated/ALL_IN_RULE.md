@@ -92,7 +92,7 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
 
 ### 5.1 FSM 狀態機 Hook 與 XML 結構列表
 
-1.  `[INTENT_GATE]`：接收到新任務時進行意圖分析。
+1.  `[INTENT_GATE]`：接收到新任務時進行意圖分析。重分類次數上限為 1 次，若二次重分類判定無效，強制進入 Zero-Chat Contract 或請求 HITL。
 ```xml
 <INTENT_GATE_RESULT>
 INTENT_CLASSIFICATION: [FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]
@@ -115,7 +115,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: [分派給 Gamma子代理的獨立研調指令]
 [NEXT_STATE: PHASE_2_GATHER | Zero-Chat Contract Active]
 ```
 
-3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**【自適應技能學習閘】你必須主動比對當前任務技術特徵（例如特定框架、資料庫或專有模式）與 `.agents/skills/` 下既存的自定義技能。若發現缺乏專屬 SOP 技能，必須依序調用 `swda discover <技術名稱>` 尋找相關技能，並調用 `swda learn <技能名稱> -y`（若無匹配則使用 `swda learn <技術名稱> --from-codebase . -y` 自主學習與創建）。最終必須在 `<GATHER_RESULT>` 的結論中聲明 `DYNAMICALLY_LEARNED_SKILLS` 學習到的技能名稱。**
+3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**【自適應技能學習閘】你必須主動比對當前任務技術特徵（例如特定框架、資料庫或專有模式）與 `.agents/skills/` 下既存的自定義技能。若發現缺乏專屬 SOP 技能，必須依序調用 `swda discover <技術名稱>` 尋找相關技能，並調用 `swda learn <技能名稱> -y`（若無匹配則使用 `swda learn <技術名稱> --from-codebase . -y` 自主學習與創建）。技能學習最多嘗試 1 次，若失敗或查無匹配，必須立刻放棄並降級使用既存通用技能繼續執行任務。最終必須在 `<GATHER_RESULT>` 的結論中聲明 `DYNAMICALLY_LEARNED_SKILLS` 學習到的技能名稱。**
 ```xml
 <GATHER_RESULT>
 CODEBASE_GRAPH_CONTEXT:
@@ -240,3 +240,4 @@ bypass_allowed: [True | False]
 4.  **(§8.4) Arachne 上下文優化**：為防 LLM 的 "lost-in-the-middle" 效應，高相關度的 Context 區塊必須排在 Prompt 窗口的最前端與最末端。
 5.  **(§8.5) 共識限制**：Builder 與 Destroyer 在 Crucible 階段對抗最多 3 輪，無法達成一致必須立刻熔斷提請 HITL。
 6.  **(§8.6) Git 乾淨提交**：實作 subagent 提交 Commit 時，必須對照 Synthesis 中規劃的邏輯分塊。
+7.  **(§8.7) Token 預算與簡潔性約束 (Token Budget & Concision Constraint)**：為防範過度推演與 Token 暴漲（Lost-in-Thought 效應），`<thinking>` 區塊必須聚焦於狀態轉移條件，長度限制在 1000 字以內。對抗熔爐中的設計規格書與代碼變更設計應保持高內聚，單次 XML 區塊長度禁止超過 4000 tokens。若超過預算，應立刻精簡架構或將模組拆分，禁止生成無意義的長文。
