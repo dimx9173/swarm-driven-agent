@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 2.7.0-agent-optimized
+version: 2.8.0-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -131,9 +131,11 @@ To prevent infinite loops and token waste, Watchdogs must apply recovery strateg
 ## 8. Universal Best Practices (Universal Best Practices)
 
 1.  **(§8.1) Source-First Analysis**: Do not trust documentation alone. Before Phase 1 begins, you must read and thoroughly understand the relevant source code ("the only truth"). Before starting changes, trace and understand the end-to-end flow of the code. (Complementary to §2.1 Read Before Write)
-2.  **(§8.2) Systematic Debugging & Root Cause Fix (Scientific Debugging & Root Cause Fix)**:
-    *   **Bug Fix = Root Cause, Not Symptom**: A bug report usually only names the symptom. Before attempting a fix, you must grep to retrieve all callers of the function you modify, and fix the shared source function once. A single guard there produces a smaller diff than patching each caller, and fixing only the reported path leaves other calling paths still broken.
-    *   Before making any changes, you must be able to stably reproduce the problem. Change only one variable at a time.
+2.  **(§8.2) Scientific Debugging & Root Cause Fix**:
+    *   **Tight Feedback Loop**: Before guessing hypotheses or modifying code, **you must first establish an automated, deterministic, second-level pass/fail signal** (Red-capable check). Modifying code or guessing without this feedback loop is strictly prohibited.
+    *   **Bug Fix = Root Cause, Not Symptom**: A bug report usually only names the symptom. Before attempting a fix, you must grep to retrieve all callers of the function you modify, and fix the shared source function once. A single guard there produces a smaller diff than patching each caller.
+    *   **Falsifiable Hypotheses**: Proposed diagnostic hypotheses must follow the format: *"If X is the root cause, changing Y will make the bug disappear, or changing Z will exacerbate the symptom."*
+    *   **Tagged Instrumentation & Cleanup**: If debug logs are needed during diagnosis, **they MUST carry a unique random tag (e.g. `[DEBUG-a4f2]`)**. Before completing the task, you MUST use `grep` to thoroughly purge all tagged debug logs; leaving debug junk behind is strictly prohibited.
     *   **Strictly prohibit using Null Check or other superficial defenses to cover unexpected Null vulnerabilities** (see also §7.1 Optimistic Path anti-pattern). You must trace to the source; otherwise, the bug will only be transferred to a harder-to-detect location. If you encounter an unexpected null, find out why it is null.
     *   **Physical Verification for Non-Trivial Code**: Any non-trivial logical change must leave at least one runnable verification check behind (such as an assert-based self-check script or a lightweight single test file; do not introduce heavy test frameworks or fixtures). Trivial one-line changes are exempt from testing.
 3.  **(§8.3) Transparent & Precise Communication**: Explain what you are doing and the reasons behind it, not just dump code. Be precise about uncertainty (for example, say "I'm not sure if this library supports streaming" rather than the vague "I think it should work"). **Even if you implement exactly what was requested, you must proactively point out potential concerns and risks.**
@@ -141,3 +143,7 @@ To prevent infinite loops and token waste, Watchdogs must apply recovery strateg
 5.  **(§8.5) Consensus Limit**: Builder and Destroyer in the Crucible phase can confront for a maximum of 3 rounds. If consensus cannot be reached, must immediately trigger circuit breaker and request HITL.
 6.  **(§8.6) Git Clean Commits**: When the implementation subagent commits, it must compare against the logical blocks planned in Synthesis.
 7.  **(§8.7) Token Budget & Concision Constraint**: To prevent over-reasoning and token bloating (Lost-in-Thought effect), the `<thinking>` section must focus on state transition parameters and be under 1000 characters. Crucible specifications and codebase architecture design must be highly cohesive, and a single XML block must not exceed 4000 tokens. If the budget is exceeded, immediately simplify the architecture or decompose the modules; generating useless verbose text is strictly prohibited.
+8.  **(§8.8) Seam-Based Vertical Slice TDD**:
+    *   **Seam (Public Interface Boundary)**: TDD test assertions must lock onto public seams of the system. **Over-mocking internal private implementation details is strictly prohibited** (Implementation-Coupling anti-pattern).
+    *   **No Tautological Assertions**: Test assertion logic must NEVER mirror or duplicate business code algorithms (e.g. copying identical algorithmic logic into assertion), preventing tests from self-validating without catching bugs.
+    *   **Vertical Slicing (Tracer Bullets)**: Writing large batches of tests at once (Horizontal Slicing) is strictly prohibited. You must use Tracer Bullets: **Write 1 failing test (Red) $\rightarrow$ Write minimal code to pass (Green) $\rightarrow$ Refactor**.

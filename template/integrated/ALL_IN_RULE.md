@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 1.7.0-all-in-one
+version: 1.8.0-all-in-one
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -232,12 +232,18 @@ bypass_allowed: [True | False]
 
 1.  **(§8.1) Source-First Analysis**：不要只信任文檔。在 Phase 1 開始前，必須閱讀並透徹理解相關原始代碼（「唯一的真理」）。在著手變更前，必須追尋並理解代碼端到端（end-to-end）的真實流向。（與 §2.1 Read Before Write 互為補充）
 2.  **(§8.2) 系統性除錯與根本原因修復 (Scientific Debugging & Root Cause Fix)**：
-    *   **Bug 修復 = 根本原因，而非表面症狀**：故障報告通常只命名了症狀。在著手修復前，必須 grep 檢索所修改函數的所有呼叫者（Callers），在共享的源頭函數進行一次性修復。在源頭加一個 guard 產生的 diff 遠比在每個呼叫者處打補丁更小，且只修復被回報的路徑會使其他呼叫路徑依舊處於損壞狀態。
-    *   在做任何變更前必須能穩定重現問題。每次僅變更一個變數。
-    *   **嚴禁使用 Null Check 等紙面防禦來掩蓋非預期的 Null 漏洞**（亦見 §7.1 樂觀路徑反模式），必須追查源頭，否則 Bug 只會轉移到更難被察覺的地方。如果你遇到 unexpected null，去找出它為什麼是 null。
+    *   **極速反饋迴圈 (Tight Feedback Loop)**：在著手修改任何程式碼或提出假說前，**必須先建立一個可自動運行、確定性且秒級運行的 pass/fail 訊號** (Red-capable check)。在該反饋迴圈建立並執行驗證前，嚴禁猜測或改動代碼。
+    *   **Bug 修復 = 根本原因，而非表面症狀**：故障報告通常只命名了症狀。在著手修復前，必須 grep 檢索所修改函數的所有呼叫者（Callers），在共享的源頭函數進行一次性修復。在源頭加一個 guard 產生的 diff 遠比在每個呼叫者處打補丁更小。
+    *   **可證偽假說 (Falsifiable Hypotheses)**：提出的排查假說必須符合規範格式：*「如果 X 是根本原因，那麼改變 Y 會使 bug 消失，或者改變 Z 會使症狀加劇。」*
+    *   **Tag 日誌標記與強制清理 (Tagged Instrumentation)**：若排查過程中必須打 debug log，**強制帶有唯一隨機 Tag (例：`[DEBUG-a4f2]`)**。任務完成前必須使用 `grep` 將所有帶 Tag 的測試與除錯日誌徹底刪除，嚴禁垃圾代碼殘留。
+    *   **嚴禁使用 Null Check 等紙面防禦來掩蓋非預期的 Null 漏洞**（亦見 §7.1 樂觀路徑反模式），必須追查源頭。如果你遇到 unexpected null，去找出它為什麼是 null。
     *   **非輕微代碼的實體測試要求**：任何非輕微（non-trivial）的邏輯變更，必須留下至少一個可執行的實體驗證（runnable check），如基於 assert 的 self-check 腳本或一個輕量單一的測試檔案，嚴禁引入繁重的測試框架或 fixtures。輕微的一行代碼變更可免於測試。
 3.  **(§8.3) 透明且精確的溝通 (Communication)**：解釋你所做的事情與背後原因，而非僅丟出程式碼。對不確定性要保持精確（例如說「我不確定此庫是否支援串流」，而非模糊的「我覺得應該可以工作」）。**即使完全按照要求實作，也必須主動指出可能存在的潛在隱憂與風險。**
 4.  **(§8.4) Arachne 上下文優化**：為防 LLM 的 "lost-in-the-middle" 效應，高相關度的 Context 區塊必須排在 Prompt 窗口的最前端與最末端。
 5.  **(§8.5) 共識限制**：Builder 與 Destroyer 在 Crucible 階段對抗最多 3 輪，無法達成一致必須立刻熔斷提請 HITL。
 6.  **(§8.6) Git 乾淨提交**：實作 subagent 提交 Commit 時，必須對照 Synthesis 中規劃的邏輯分塊。
 7.  **(§8.7) Token 預算與簡潔性約束 (Token Budget & Concision Constraint)**：為防範過度推演與 Token 暴漲（Lost-in-Thought 效應），`<thinking>` 區塊必須聚焦於狀態轉移條件，長度限制在 1000 字以內。對抗熔爐中的設計規格書與代碼變更設計應保持高內聚，單次 XML 區塊長度禁止超過 4000 tokens。若超過預算，應立刻精簡架構或將模組拆分，禁止生成無意義的長文。
+8.  **(§8.8) Seam 介面隔離與縱向切片 TDD (Seam-Based Vertical Slice TDD)**：
+    *   **Seam (接縫/公共邊界)**：TDD 測試斷言必須鎖定在系統的公共邊界（Public Seams），**嚴禁過度 Mock 模組內部私有實作細節**（Implementation-Coupling 反模式）。
+    *   **禁止同義反覆 (No Tautological Assertions)**：測試斷言邏輯絕對禁止與業務代碼算法完全相同（例如鏡像 Copy 演算法），避免測試自我證明而無法捕獲真正的 Bug。
+    *   **縱向切片 (Vertical Slicing)**：嚴禁一次性編寫大批測試（Horizontal Slicing）。必須採用示蹤彈 (Tracer Bullets) 模式：**每次僅編寫 1 個失敗測試 (Red) $\rightarrow$ 寫最少代碼使其通過 (Green) $\rightarrow$ 重構 (Refactor)**。
