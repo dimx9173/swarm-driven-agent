@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.5.1"
+CLI_VERSION = "1.5.2"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -563,6 +563,8 @@ def get_agent_status(agent, template_versions):
         soul_status = "ok" if (soul_ver and p_soul >= p_t_soul) else ("update" if soul_ver else "missing")
         rule_status = "ok"
         skill_status = "ok"
+        rule_ver = None
+        skill_ver = None
     else:
         is_installed = os.path.exists(rule_path) and os.path.exists(skill_path)
         t_soul_ver = template_versions.get("SOUL.md")
@@ -590,6 +592,7 @@ def get_agent_status(agent, template_versions):
         
     return {
         "status": status,
+        "is_integrated": is_integrated,
         "soul_ver": soul_ver,
         "rule_ver": rule_ver,
         "skill_ver": skill_ver,
@@ -1415,11 +1418,14 @@ def main():
         print(f"     Status:  {status_info['status']}")
         
         # Format details
-        soul_detail = f"{status_info['soul_ver'] or 'missing'} -> {template_versions['SOUL.md']}" if status_info['soul_status'] == 'update' else f"{status_info['soul_ver']}"
-        rule_detail = f"{status_info['rule_ver'] or 'missing'} -> {template_versions['RULE.md']}" if status_info['rule_status'] in ('update', 'missing') else f"{status_info['rule_ver']}"
-        skill_detail = f"{status_info['skill_ver'] or 'missing'} -> {template_versions['SKILL.md']}" if status_info['skill_status'] in ('update', 'missing') else f"{status_info['skill_ver']}"
-        
-        print(f"     Details: SOUL: {soul_detail} | RULE: {rule_detail} | SKILL: {skill_detail}")
+        if status_info.get('is_integrated'):
+            contract_detail = f"{status_info['soul_ver'] or 'missing'} -> {template_versions['ALL_IN_RULE.md']}" if status_info['soul_status'] == 'update' else f"{status_info['soul_ver'] or 'missing'}"
+            print(f"     Details: CONTRACT: {contract_detail} (Integrated ALL_IN_RULE)")
+        else:
+            soul_detail = f"{status_info['soul_ver'] or 'missing'} -> {template_versions['SOUL.md']}" if status_info['soul_status'] == 'update' else f"{status_info['soul_ver']}"
+            rule_detail = f"{status_info['rule_ver'] or 'missing'} -> {template_versions['RULE.md']}" if status_info['rule_status'] in ('update', 'missing') else f"{status_info['rule_ver']}"
+            skill_detail = f"{status_info['skill_ver'] or 'missing'} -> {template_versions['SKILL.md']}" if status_info['skill_status'] in ('update', 'missing') else f"{status_info['skill_ver']}"
+            print(f"     Details: SOUL: {soul_detail} | RULE: {rule_detail} | SKILL: {skill_detail}")
         print(f"     Path:    {agent['dir_path']}\n")
         
     if args.check:
