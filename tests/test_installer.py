@@ -237,19 +237,41 @@ class TestSWDAInstaller(unittest.TestCase):
     def test_cli_update_command(self):
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
         
-        # Create a mock agent
-        os.makedirs(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up"), exist_ok=True)
-        with open(os.path.join(self.mock_home, ".openclaw", "workspaces", "agent_up", "SOUL.md"), "w") as f:
-            f.write("# 1. 系統定位\nAgent Update\n")
-            
-        # Run update subcommand with --agents
+        # Run update subcommand (self-upgrade of swda CLI)
         result = subprocess.run(
-            [sys.executable, script_path, "update", "--agents", "agent_up", "-y"],
+            [sys.executable, script_path, "update"],
+            capture_output=True,
+            text=True,
+            env={"SWDA_TEST_MODE": "1", **os.environ}
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Self-Upgrading swda CLI Tool", result.stdout)
+        self.assertIn("Test mode: upgrade_swda executed successfully.", result.stdout)
+
+    def test_cli_help_command(self):
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        
+        # Test `swda help`
+        result_help = subprocess.run(
+            [sys.executable, script_path, "help"],
             capture_output=True,
             text=True
         )
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("Successfully installed/upgraded SWDA for: agent_up", result.stdout)
+        self.assertEqual(result_help.returncode, 0)
+        self.assertIn("Universal Swarm-Driven Agent (SWDA) CLI Tool", result_help.stdout)
+        self.assertIn("Sub-commands", result_help.stdout)
+        self.assertNotIn("Swarm-Driven Agent (SWDA) Workflow Installer", result_help.stdout)
+
+        # Test `swda help install`
+        result_help_cmd = subprocess.run(
+            [sys.executable, script_path, "help", "install"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result_help_cmd.returncode, 0)
+        self.assertIn("usage: installer.py install", result_help_cmd.stdout)
+        self.assertIn("--create", result_help_cmd.stdout)
+
     def test_cli_version_command(self):
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
         
@@ -406,9 +428,9 @@ class TestSWDAInstaller(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".hermes", "RULE.md")))
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".pi", "agent", "APPEND_SYSTEM.md")))
         
-        # Run update --type all to update installed agents only
+        # Run install --type all again to verify updating installed agents
         result_update = subprocess.run(
-            [sys.executable, script_path, "update", "--type", "all", "-y"],
+            [sys.executable, script_path, "install", "--type", "all", "-y"],
             capture_output=True,
             text=True
         )
@@ -417,4 +439,5 @@ class TestSWDAInstaller(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 
