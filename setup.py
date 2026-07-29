@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="swda",
-    version="1.4.8",
+    version="1.4.9",
     py_modules=["installer"],
     entry_points={
         "console_scripts": [

@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.4.8"
+CLI_VERSION = "1.4.9"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -556,7 +556,7 @@ def get_agent_status(agent, template_versions):
     
     is_installed = os.path.exists(rule_path) and os.path.exists(skill_path)
     
-    t_soul_ver = template_versions.get("SOUL.md")
+    t_soul_ver = template_versions.get("ALL_IN_RULE.md") if (agent.get('type') == "Pi" or os.path.basename(soul_path) == "APPEND_SYSTEM.md") else template_versions.get("SOUL.md")
     t_rule_ver = template_versions.get("RULE.md")
     t_skill_ver = template_versions.get("SKILL.md")
     
@@ -1312,7 +1312,8 @@ def main():
     template_versions = {
         "SOUL.md": extract_version(SOUL_TEMPLATE),
         "RULE.md": extract_version(RULE_SOURCE),
-        "SKILL.md": extract_version(SKILL_SOURCE)
+        "SKILL.md": extract_version(SKILL_SOURCE),
+        "ALL_IN_RULE.md": extract_version(ALL_IN_RULE_TEMPLATE)
     }
     
     if args.create:
