@@ -395,6 +395,22 @@ class TestSWDAInstaller(unittest.TestCase):
             self.assertIn("Codebase topology:", content)
             self.assertIn("my_mock_project", content)
 
+    def test_scan_skill_security_detects_malicious_content(self):
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        
+        # Test learn command with malicious topic in SWDA_TEST_MODE
+        result = subprocess.run(
+            [sys.executable, script_path, "learn", "malicious-topic", "-y"],
+            cwd=self.mock_home,
+            capture_output=True,
+            text=True,
+            env={"SWDA_TEST_MODE": "1", **os.environ}
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SECURITY ALERT", result.stdout)
+        self.assertIn("Prompt Injection", result.stdout)
+        self.assertIn("High-Risk Shell Command", result.stdout)
+
     def test_pi_agent_scanning_and_installation(self):
         # Create a mock Pi Agent directory
         pi_dir = os.path.join(self.mock_home, ".pi", "agent")
