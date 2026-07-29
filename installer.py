@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.4.9"
+CLI_VERSION = "1.5.0"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -556,7 +556,7 @@ def get_agent_status(agent, template_versions):
     
     is_installed = os.path.exists(rule_path) and os.path.exists(skill_path)
     
-    t_soul_ver = template_versions.get("ALL_IN_RULE.md") if (agent.get('type') == "Pi" or os.path.basename(soul_path) == "APPEND_SYSTEM.md") else template_versions.get("SOUL.md")
+    t_soul_ver = template_versions.get("SOUL.md")
     t_rule_ver = template_versions.get("RULE.md")
     t_skill_ver = template_versions.get("SKILL.md")
     
@@ -1660,23 +1660,6 @@ def main():
                 continue
                 
             print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
-            if agent['type'] == "Pi" or os.path.basename(agent['soul_path']) == "APPEND_SYSTEM.md":
-                append_path = os.path.join(agent['dir_path'], "APPEND_SYSTEM.md")
-                if os.path.exists(ALL_IN_RULE_TEMPLATE):
-                    print(" -> Updating APPEND_SYSTEM.md...")
-                    try:
-                        existing_append = ""
-                        if os.path.exists(append_path):
-                            with open(append_path, 'r', encoding='utf-8') as f:
-                                existing_append = f.read()
-                        with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
-                            all_in_tpl = f.read()
-                        merged_append = merge_soul_content(existing_append, all_in_tpl)
-                        with open(append_path, 'w', encoding='utf-8') as f:
-                            f.write(merged_append)
-                        print("    APPEND_SYSTEM.md updated.")
-                    except Exception as e:
-                        print(f"    Failed to update APPEND_SYSTEM.md: {e}")
             record_agent_installed(agent['dir_path'])
             
     print("\nAll done!")
