@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.4.3"
+CLI_VERSION = "1.4.4"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -1217,33 +1217,62 @@ def main():
         if not agents:
             print("No installed agents tracked. Run 'swda install' to install on an agent.")
             sys.exit(0)
-    elif args.command == "install" and getattr(args, "type", None) == "all":
-        args.agents = ["all"]
-        # Ensure default agent structures exist for all 3 supported agent types
+    elif args.command == "install" and getattr(args, "type", None):
+        target_type = args.type.lower()
         home_dir = os.path.expanduser("~")
         types_detected = {a['type'].lower() for a in agents}
-        if "openclaw" not in types_detected:
-            openclaw_def = os.path.join(home_dir, ".openclaw", "workspace")
-            os.makedirs(openclaw_def, exist_ok=True)
-            soul_path = os.path.join(openclaw_def, "SOUL.md")
-            if not os.path.exists(soul_path):
-                with open(soul_path, "w", encoding="utf-8") as f:
-                    f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
-        if "hermes" not in types_detected:
-            hermes_def = os.path.join(home_dir, ".hermes")
-            os.makedirs(hermes_def, exist_ok=True)
-            soul_path = os.path.join(hermes_def, "SOUL.md")
-            if not os.path.exists(soul_path):
-                with open(soul_path, "w", encoding="utf-8") as f:
-                    f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
-        if "pi" not in types_detected:
-            pi_def = os.path.join(home_dir, ".pi", "agent")
-            os.makedirs(pi_def, exist_ok=True)
-            append_path = os.path.join(pi_def, "APPEND_SYSTEM.md")
-            if not os.path.exists(append_path):
-                with open(append_path, "w", encoding="utf-8") as f:
-                    f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
-        agents = scan_agents()
+        
+        if target_type == "all":
+            args.agents = ["all"]
+            if "openclaw" not in types_detected:
+                openclaw_def = os.path.join(home_dir, ".openclaw", "workspace")
+                os.makedirs(openclaw_def, exist_ok=True)
+                soul_path = os.path.join(openclaw_def, "SOUL.md")
+                if not os.path.exists(soul_path):
+                    with open(soul_path, "w", encoding="utf-8") as f:
+                        f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+            if "hermes" not in types_detected:
+                hermes_def = os.path.join(home_dir, ".hermes")
+                os.makedirs(hermes_def, exist_ok=True)
+                soul_path = os.path.join(hermes_def, "SOUL.md")
+                if not os.path.exists(soul_path):
+                    with open(soul_path, "w", encoding="utf-8") as f:
+                        f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+            if "pi" not in types_detected:
+                pi_def = os.path.join(home_dir, ".pi", "agent")
+                os.makedirs(pi_def, exist_ok=True)
+                append_path = os.path.join(pi_def, "APPEND_SYSTEM.md")
+                if not os.path.exists(append_path):
+                    with open(append_path, "w", encoding="utf-8") as f:
+                        f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+            agents = scan_agents()
+        else:
+            if target_type not in types_detected:
+                if target_type == "pi":
+                    pi_def = os.path.join(home_dir, ".pi", "agent")
+                    os.makedirs(pi_def, exist_ok=True)
+                    append_path = os.path.join(pi_def, "APPEND_SYSTEM.md")
+                    if not os.path.exists(append_path):
+                        with open(append_path, "w", encoding="utf-8") as f:
+                            f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+                elif target_type == "openclaw":
+                    openclaw_def = os.path.join(home_dir, ".openclaw", "workspace")
+                    os.makedirs(openclaw_def, exist_ok=True)
+                    soul_path = os.path.join(openclaw_def, "SOUL.md")
+                    if not os.path.exists(soul_path):
+                        with open(soul_path, "w", encoding="utf-8") as f:
+                            f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+                elif target_type == "hermes":
+                    hermes_def = os.path.join(home_dir, ".hermes")
+                    os.makedirs(hermes_def, exist_ok=True)
+                    soul_path = os.path.join(hermes_def, "SOUL.md")
+                    if not os.path.exists(soul_path):
+                        with open(soul_path, "w", encoding="utf-8") as f:
+                            f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+                agents = scan_agents()
+            agents = [a for a in agents if a['type'].lower() == target_type]
+            if not args.agents:
+                args.agents = ["all"]
     elif not agents:
         print("No openclaw, hermes, or pi agents found on the local machine.")
         sys.exit(0)
