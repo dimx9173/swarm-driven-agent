@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.4.6"
+CLI_VERSION = "1.4.7"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -663,8 +663,9 @@ def scan_agents():
     pi_path = os.path.join(home_dir, ".pi", "agent")
     
     detected = []
+    seen_dirs = set()
     
-    # Helper to scan a directory
+    # Helper to scan a directory for agent targets
     def scan_dir(root_path):
         if not os.path.isdir(root_path):
             return []
@@ -677,12 +678,20 @@ def scan_agents():
                 continue
             if "SOUL.md" in files:
                 full_path = os.path.join(root, "SOUL.md")
-                norm_path = os.path.abspath(full_path).replace("\\", "/")
+                norm_path = os.path.normpath(full_path).replace("\\", "/")
                 found_paths.append(norm_path)
             elif "APPEND_SYSTEM.md" in files:
                 full_path = os.path.join(root, "APPEND_SYSTEM.md")
-                norm_path = os.path.abspath(full_path).replace("\\", "/")
+                norm_path = os.path.normpath(full_path).replace("\\", "/")
                 found_paths.append(norm_path)
+            else:
+                # If directory is a profile/workspace sub-folder, include its default SOUL.md target
+                if "/profiles/" in norm_root or "/workspaces/" in norm_root:
+                    # Check if it's a direct profile directory (e.g. .hermes/profiles/xxx)
+                    parts = norm_root.split("/")
+                    if len(parts) >= 2 and parts[-2] in ("profiles", "workspaces"):
+                        soul_p = os.path.join(root, "SOUL.md")
+                        found_paths.append(os.path.normpath(soul_p).replace("\\", "/"))
         return found_paths
 
     all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path) + scan_dir(pi_path)
@@ -698,7 +707,6 @@ def scan_agents():
         rf"^{escaped_home}/\.pi/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$"
     ]
     
-    seen_dirs = set()
     for path in all_paths:
         matched = False
         agent_type = ""
@@ -743,7 +751,24 @@ def scan_agents():
                     "soul_path": path,
                     "dir_path": agent_dir
                 })
-            
+                
+    # Also check default agent directories if they exist on disk and no sub-profiles are present
+    default_dirs = [
+        (os.path.join(home_dir, ".openclaw", "workspace"), "OpenClaw", "workspace", os.path.join(home_dir, ".openclaw", "workspace", "SOUL.md")),
+        (os.path.join(home_dir, ".hermes"), "Hermes", "default (speculari)", os.path.join(home_dir, ".hermes", "SOUL.md")),
+        (os.path.join(home_dir, ".pi", "agent"), "Pi", "default", os.path.join(home_dir, ".pi", "agent", "APPEND_SYSTEM.md")),
+    ]
+    for d_path, a_type, a_name, s_path in default_dirs:
+        norm_d = d_path.replace("\\", "/")
+        if os.path.isdir(d_path) and d_path not in seen_dirs and not any(s.replace("\\", "/").startswith(norm_d + "/") for s in seen_dirs):
+            seen_dirs.add(d_path)
+            detected.append({
+                "type": a_type,
+                "name": a_name,
+                "soul_path": s_path,
+                "dir_path": d_path
+            })
+
     return detected
 
 def merge_soul_content(target_content, template_content):
@@ -1546,14 +1571,14 @@ def main():
         else:
             print(f"\nInstalling/Upgrading SWDA for: {agent['name']} ({agent['type']})")
             
-            # 1. Back up target SOUL.md
-            print(" -> Backing up SOUL.md...")
-            soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
-            try:
-                shutil.copy2(agent['soul_path'], soul_bak_path)
-            except Exception as e:
-                print(f"    Failed to backup SOUL.md: {e}")
-                continue
+            # 1. Back up target SOUL.md if it exists
+            if os.path.exists(agent['soul_path']):
+                print(" -> Backing up SOUL.md...")
+                soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
+                try:
+                    shutil.copy2(agent['soul_path'], soul_bak_path)
+                except Exception as e:
+                    print(f"    Failed to backup SOUL.md: {e}")
                 
             # 2. Back up target RULE.md if it exists
             rule_dest_path = os.path.join(agent['dir_path'], "RULE.md")
@@ -1567,12 +1592,16 @@ def main():
                 
             # 3. Merge SOUL.md
             print(" -> Preparing SOUL.md...")
-            try:
-                with open(agent['soul_path'], 'r', encoding='utf-8') as f:
-                    target_content = f.read()
-            except Exception as e:
-                print(f"    Failed to read target SOUL.md: {e}, skipping.")
-                continue
+            os.makedirs(agent['dir_path'], exist_ok=True)
+            if os.path.exists(agent['soul_path']):
+                try:
+                    with open(agent['soul_path'], 'r', encoding='utf-8') as f:
+                        target_content = f.read()
+                except Exception as e:
+                    print(f"    Failed to read target SOUL.md: {e}, skipping.")
+                    continue
+            else:
+                target_content = "# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n"
                 
             try:
                 with open(SOUL_TEMPLATE, 'r', encoding='utf-8') as f:
