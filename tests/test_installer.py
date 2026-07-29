@@ -435,7 +435,6 @@ class TestSWDAInstaller(unittest.TestCase):
         
         custom_pi_dir = os.path.join(self.mock_home, ".pi", "agent", "profiles", "custom_pi")
         self.assertTrue(os.path.exists(os.path.join(custom_pi_dir, "APPEND_SYSTEM.md")))
-        self.assertTrue(os.path.exists(os.path.join(custom_pi_dir, "skills", "swarm", "SKILL.md")))
 
     def test_cli_type_all_install_and_update(self):
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")

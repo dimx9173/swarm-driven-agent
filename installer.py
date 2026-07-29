@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.5.0"
+CLI_VERSION = "1.5.1"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -549,36 +549,37 @@ def get_agent_status(agent, template_versions):
     rule_path = os.path.join(agent['dir_path'], "RULE.md")
     skill_path = os.path.join(agent['dir_path'], "skills", "swarm", "SKILL.md")
     soul_path = agent['soul_path']
+    is_integrated = (agent.get('type') == "Pi" or os.path.basename(soul_path) == "APPEND_SYSTEM.md")
     
     soul_ver = extract_version(soul_path)
     rule_ver = extract_version(rule_path) if os.path.exists(rule_path) else None
     skill_ver = extract_version(skill_path) if os.path.exists(skill_path) else None
     
-    is_installed = os.path.exists(rule_path) and os.path.exists(skill_path)
-    
-    t_soul_ver = template_versions.get("SOUL.md")
-    t_rule_ver = template_versions.get("RULE.md")
-    t_skill_ver = template_versions.get("SKILL.md")
-    
-    p_t_soul = parse_semver(t_soul_ver)
-    p_t_rule = parse_semver(t_rule_ver)
-    p_t_skill = parse_semver(t_skill_ver)
-    
-    p_soul = parse_semver(soul_ver)
-    p_rule = parse_semver(rule_ver)
-    p_skill = parse_semver(skill_ver)
-    
-    soul_status = "ok" if p_soul >= p_t_soul else "update"
-    
-    if not os.path.exists(rule_path):
-        rule_status = "missing"
+    if is_integrated:
+        is_installed = os.path.exists(soul_path)
+        t_soul_ver = template_versions.get("ALL_IN_RULE.md")
+        p_t_soul = parse_semver(t_soul_ver)
+        p_soul = parse_semver(soul_ver)
+        soul_status = "ok" if (soul_ver and p_soul >= p_t_soul) else ("update" if soul_ver else "missing")
+        rule_status = "ok"
+        skill_status = "ok"
     else:
-        rule_status = "ok" if p_rule >= p_t_rule else "update"
+        is_installed = os.path.exists(rule_path) and os.path.exists(skill_path)
+        t_soul_ver = template_versions.get("SOUL.md")
+        t_rule_ver = template_versions.get("RULE.md")
+        t_skill_ver = template_versions.get("SKILL.md")
         
-    if not os.path.exists(skill_path):
-        skill_status = "missing"
-    else:
-        skill_status = "ok" if p_skill >= p_t_skill else "update"
+        p_t_soul = parse_semver(t_soul_ver)
+        p_t_rule = parse_semver(t_rule_ver)
+        p_t_skill = parse_semver(t_skill_ver)
+        
+        p_soul = parse_semver(soul_ver)
+        p_rule = parse_semver(rule_ver)
+        p_skill = parse_semver(skill_ver)
+        
+        soul_status = "ok" if (soul_ver and p_soul >= p_t_soul) else ("update" if soul_ver else "missing")
+        rule_status = "missing" if not os.path.exists(rule_path) else ("ok" if p_rule >= p_t_rule else "update")
+        skill_status = "missing" if not os.path.exists(skill_path) else ("ok" if p_skill >= p_t_skill else "update")
         
     if not is_installed:
         status = "Not Installed"
@@ -992,6 +993,41 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     else:
         dest_dir = os.path.join(home_dir, ".openclaw", "workspaces", name)
         
+    if agent_type.lower() == "pi":
+        append_system_dest_path = os.path.join(dest_dir, "APPEND_SYSTEM.md")
+        if os.path.exists(append_system_dest_path):
+            print(f"Error: Agent workspace '{name}' already exists at: {dest_dir} (found APPEND_SYSTEM.md)", file=sys.stderr)
+            sys.exit(1)
+            
+        print(f"\nCreating new {agent_type} agent:")
+        print(f"  Name: {name}")
+        print(f"  Path: {dest_dir}")
+        print(f"  System Identity: {identity}")
+        
+        if not yes_bypass:
+            confirm = input("\nProceed with creation? (y/n): ").strip().lower()
+            if confirm != 'y':
+                print("Cancelled.")
+                sys.exit(0)
+                
+        print(f"\n -> Initializing directory: {dest_dir}...")
+        os.makedirs(dest_dir, exist_ok=True)
+        print(" -> Creating APPEND_SYSTEM.md (Integrated ALL_IN_RULE)...")
+        try:
+            with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
+                all_in_content = f.read()
+            initial_identity = f"# 1. 系統定位 (System Identity)\n{identity}\n"
+            merged_append = merge_soul_content(initial_identity, all_in_content)
+            with open(append_system_dest_path, 'w', encoding='utf-8') as f:
+                f.write(merged_append)
+            print(f"    Created APPEND_SYSTEM.md (v{template_versions['ALL_IN_RULE.md']})")
+        except Exception as e:
+            print(f"Error: Failed to write APPEND_SYSTEM.md: {e}", file=sys.stderr)
+            sys.exit(1)
+            
+        print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
+        return
+
     soul_dest_path = os.path.join(dest_dir, "SOUL.md")
     rule_dest_path = os.path.join(dest_dir, "RULE.md")
     skill_dir_path = os.path.join(dest_dir, "skills", "swarm")
@@ -1004,15 +1040,6 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     print(f"\nCreating new {agent_type} agent:")
     print(f"  Name: {name}")
     print(f"  Path: {dest_dir}")
-    
-    if not identity:
-        if yes_bypass:
-            identity = "你是一個全能的智慧 Agent，旨在協同執行軟體工程任務與狀態運作。"
-        else:
-            print("\nEnter System Identity / 定位 for the new agent (press Enter for default):")
-            input_identity = input("> ").strip()
-            identity = input_identity if input_identity else "你是一個全能的智慧 Agent，旨在協同執行軟體工程任務與狀態運作。"
-            
     print(f"  System Identity: {identity}")
     
     if not yes_bypass:
@@ -1062,19 +1089,6 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     except Exception as e:
         print(f"Error: Failed to copy SKILL.md: {e}", file=sys.stderr)
         sys.exit(1)
-
-    if agent_type.lower() == "pi" and os.path.exists(ALL_IN_RULE_TEMPLATE):
-        append_system_dest_path = os.path.join(dest_dir, "APPEND_SYSTEM.md")
-        print(" -> Creating APPEND_SYSTEM.md...")
-        try:
-            with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
-                all_in_content = f.read()
-            merged_append = merge_soul_content("", all_in_content)
-            with open(append_system_dest_path, 'w', encoding='utf-8') as f:
-                f.write(merged_append)
-            print(f"    Created APPEND_SYSTEM.md (Integrated ALL_IN_RULE)")
-        except Exception as e:
-            print(f"Warning: Failed to write APPEND_SYSTEM.md: {e}", file=sys.stderr)
         
     print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
     record_agent_installed(dest_dir)
@@ -1571,96 +1585,134 @@ def main():
             
         else:
             print(f"\nInstalling/Upgrading SWDA for: {agent['name']} ({agent['type']})")
+            is_integrated = (agent['type'] == "Pi" or os.path.basename(agent['soul_path']) == "APPEND_SYSTEM.md")
             
-            # 1. Back up target SOUL.md if it exists
-            if os.path.exists(agent['soul_path']):
-                print(" -> Backing up SOUL.md...")
-                soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
+            if is_integrated:
+                if os.path.exists(agent['soul_path']):
+                    print(" -> Backing up APPEND_SYSTEM.md...")
+                    soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
+                    try:
+                        shutil.copy2(agent['soul_path'], soul_bak_path)
+                    except Exception as e:
+                        print(f"    Failed to backup APPEND_SYSTEM.md: {e}")
+                        
+                print(" -> Preparing APPEND_SYSTEM.md (Integrated ALL_IN_RULE)...")
+                os.makedirs(agent['dir_path'], exist_ok=True)
+                existing_append = ""
+                if os.path.exists(agent['soul_path']):
+                    try:
+                        with open(agent['soul_path'], 'r', encoding='utf-8') as f:
+                            existing_append = f.read()
+                    except Exception:
+                        pass
+                else:
+                    existing_append = "# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n"
+                    
                 try:
-                    shutil.copy2(agent['soul_path'], soul_bak_path)
+                    with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
+                        all_in_tpl = f.read()
+                    merged_append = merge_soul_content(existing_append, all_in_tpl)
+                    with open(agent['soul_path'], 'w', encoding='utf-8') as f:
+                        f.write(merged_append)
+                    old_ver = status_info['soul_ver'] or "missing"
+                    new_ver = template_versions['ALL_IN_RULE.md']
+                    print(f"    APPEND_SYSTEM.md: {old_ver} -> {new_ver}")
                 except Exception as e:
-                    print(f"    Failed to backup SOUL.md: {e}")
-                
-            # 2. Back up target RULE.md if it exists
-            rule_dest_path = os.path.join(agent['dir_path'], "RULE.md")
-            if os.path.exists(rule_dest_path):
-                print(" -> Backing up RULE.md...")
-                rule_bak_path = f"{rule_dest_path}.{timestamp}.bak"
-                try:
-                    shutil.copy2(rule_dest_path, rule_bak_path)
-                except Exception as e:
-                    print(f"    Failed to backup RULE.md: {e}")
-                
-            # 3. Merge SOUL.md
-            print(" -> Preparing SOUL.md...")
-            os.makedirs(agent['dir_path'], exist_ok=True)
-            if os.path.exists(agent['soul_path']):
-                try:
-                    with open(agent['soul_path'], 'r', encoding='utf-8') as f:
-                        target_content = f.read()
-                except Exception as e:
-                    print(f"    Failed to read target SOUL.md: {e}, skipping.")
+                    print(f"    Failed to write APPEND_SYSTEM.md: {e}")
                     continue
+                    
+                print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
+                record_agent_installed(agent['dir_path'])
             else:
-                target_content = "# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n"
+                # 1. Back up target SOUL.md if it exists
+                if os.path.exists(agent['soul_path']):
+                    print(" -> Backing up SOUL.md...")
+                    soul_bak_path = f"{agent['soul_path']}.{timestamp}.bak"
+                    try:
+                        shutil.copy2(agent['soul_path'], soul_bak_path)
+                    except Exception as e:
+                        print(f"    Failed to backup SOUL.md: {e}")
+                    
+                # 2. Back up target RULE.md if it exists
+                rule_dest_path = os.path.join(agent['dir_path'], "RULE.md")
+                if os.path.exists(rule_dest_path):
+                    print(" -> Backing up RULE.md...")
+                    rule_bak_path = f"{rule_dest_path}.{timestamp}.bak"
+                    try:
+                        shutil.copy2(rule_dest_path, rule_bak_path)
+                    except Exception as e:
+                        print(f"    Failed to backup RULE.md: {e}")
+                    
+                # 3. Merge SOUL.md
+                print(" -> Preparing SOUL.md...")
+                os.makedirs(agent['dir_path'], exist_ok=True)
+                if os.path.exists(agent['soul_path']):
+                    try:
+                        with open(agent['soul_path'], 'r', encoding='utf-8') as f:
+                            target_content = f.read()
+                    except Exception as e:
+                        print(f"    Failed to read target SOUL.md: {e}, skipping.")
+                        continue
+                else:
+                    target_content = "# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n"
+                    
+                try:
+                    with open(SOUL_TEMPLATE, 'r', encoding='utf-8') as f:
+                        template_content = f.read()
+                except Exception as e:
+                    print(f"    Failed to read SOUL.md template: {e}, skipping.")
+                    continue
+                    
+                merged_content = merge_soul_content(target_content, template_content)
                 
-            try:
-                with open(SOUL_TEMPLATE, 'r', encoding='utf-8') as f:
-                    template_content = f.read()
-            except Exception as e:
-                print(f"    Failed to read SOUL.md template: {e}, skipping.")
-                continue
+                # Write merged SOUL.md
+                print(" -> Writing new SOUL.md...")
+                try:
+                    with open(agent['soul_path'], 'w', encoding='utf-8') as f:
+                        f.write(merged_content)
+                    # Log version upgrade
+                    old_ver = status_info['soul_ver'] or "missing"
+                    new_ver = template_versions['SOUL.md']
+                    print(f"    SOUL.md: {old_ver} -> {new_ver}")
+                except Exception as e:
+                    print(f"    Failed to write SOUL.md: {e}")
+                    continue
                 
-            merged_content = merge_soul_content(target_content, template_content)
-            
-            # Write merged SOUL.md
-            print(" -> Writing new SOUL.md...")
-            try:
-                with open(agent['soul_path'], 'w', encoding='utf-8') as f:
-                    f.write(merged_content)
-                # Log version upgrade
-                old_ver = status_info['soul_ver'] or "missing"
-                new_ver = template_versions['SOUL.md']
-                print(f"    SOUL.md: {old_ver} -> {new_ver}")
-            except Exception as e:
-                print(f"    Failed to write SOUL.md: {e}")
-                continue
-            
-            # 4. Copy RULE.md
-            print(" -> Copying RULE.md...")
-            try:
-                with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
-                    rule_content = f.read()
-                rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
-                with open(rule_dest_path, 'w', encoding='utf-8') as f:
-                    f.write(rule_content)
-                # Log version upgrade
-                old_ver = status_info['rule_ver'] or "missing"
-                new_ver = template_versions['RULE.md']
-                print(f"    RULE.md: {old_ver} -> {new_ver}")
-            except Exception as e:
-                print(f"    Failed to write RULE.md: {e}")
-                continue
-            
-            # 5. Copy Swarm Meta-skill (SKILL.md)
-            print(" -> Creating skills/swarm directory...")
-            skill_dir_path = os.path.join(agent['dir_path'], "skills", "swarm")
-            os.makedirs(skill_dir_path, exist_ok=True)
-            
-            print(" -> Copying SKILL.md...")
-            skill_dest_path = os.path.join(skill_dir_path, "SKILL.md")
-            try:
-                shutil.copy2(SKILL_SOURCE, skill_dest_path)
-                # Log version upgrade
-                old_ver = status_info['skill_ver'] or "missing"
-                new_ver = template_versions['SKILL.md']
-                print(f"    SKILL.md: {old_ver} -> {new_ver}")
-            except Exception as e:
-                print(f"    Failed to copy SKILL.md: {e}")
-                continue
+                # 4. Copy RULE.md
+                print(" -> Copying RULE.md...")
+                try:
+                    with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
+                        rule_content = f.read()
+                    rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
+                    with open(rule_dest_path, 'w', encoding='utf-8') as f:
+                        f.write(rule_content)
+                    # Log version upgrade
+                    old_ver = status_info['rule_ver'] or "missing"
+                    new_ver = template_versions['RULE.md']
+                    print(f"    RULE.md: {old_ver} -> {new_ver}")
+                except Exception as e:
+                    print(f"    Failed to write RULE.md: {e}")
+                    continue
                 
-            print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
-            record_agent_installed(agent['dir_path'])
+                # 5. Copy Swarm Meta-skill (SKILL.md)
+                print(" -> Creating skills/swarm directory...")
+                skill_dir_path = os.path.join(agent['dir_path'], "skills", "swarm")
+                os.makedirs(skill_dir_path, exist_ok=True)
+                
+                print(" -> Copying SKILL.md...")
+                skill_dest_path = os.path.join(skill_dir_path, "SKILL.md")
+                try:
+                    shutil.copy2(SKILL_SOURCE, skill_dest_path)
+                    # Log version upgrade
+                    old_ver = status_info['skill_ver'] or "missing"
+                    new_ver = template_versions['SKILL.md']
+                    print(f"    SKILL.md: {old_ver} -> {new_ver}")
+                except Exception as e:
+                    print(f"    Failed to copy SKILL.md: {e}")
+                    continue
+                    
+                print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
+                record_agent_installed(agent['dir_path'])
             
     print("\nAll done!")
 
