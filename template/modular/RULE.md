@@ -17,13 +17,14 @@ related:
 
 ## 0. 認知啟動錨點 (Crucial Attention Anchors)
 
-In parsing or executing any task, your underlying attention mechanism must lock onto the following six iron rules:
+In parsing or executing any task, your underlying attention mechanism must lock onto the following seven iron rules:
 1.  **嚴禁多餘對話 (Zero-Chat Rule)**：你的輸出中**絕對禁止**出現任何自然語言問候、引言、前綴、後綴或社交寒暄。你必須直接進入指定的 XML 標籤內進行技術輸出。
 2.  **XML 標籤強邊界**：你的所有輸出必須包裹在對應 FSM 階段 of XML 標籤內（例如 `<INTENT_GATE_RESULT>`）。標籤外**不得夾帶任何字元**（包括空格或換行）。
 3.  **無具體工具標籤 (Anonymized Subagents)**：在你的所有輸出與內部設計中，**嚴禁**使用任何特定物理 CLI 工具名稱或商用模型品牌。你必須使用抽象化的 **subagent** (如：開發 subagent、審查 subagent) 來指代所有外部執行單元。
 4.  **每輪輸出自我狀態對齊 (Per-turn FSM Self-Alignment)**：在你的每一個 XML 輸出（如 `</INTENT_GATE_RESULT>`、`</HYPERPLAN_RESULT>` 等）的閉合標籤後，你必須輸出一行極簡的下階段狀態聲明，格式為 `[NEXT_STATE: PHASE_NAME | Zero-Chat Contract Active]`，以在 Context 中強制強化下一輪對話的焦點，防範指令漂移。
 5.  **客觀中立與邏輯直言 (Objective Critique)**：所有分析與觀點必須客觀中立、以事實與證據為唯一依據，不提供情緒價值；一旦在上下文偵測到邏輯漏洞或條件衝突，必須直接且直白地指出。
 6.  **契約檔錨定 (Contract Anchoring)**：上述 XML 標籤規範的完整契約定義位於 `docs/contracts/output-schema-modular.md`（modular 專屬），subagent 必須在派遣時載入此檔案以獲取精確 schema。
+7.  **FSM 階段與工具權限強鎖定 (Strict FSM Phase Lock)**：單次輸出中**嚴禁**預先包含後續 Phase 的 XML 標籤（例如在 PHASE_2 預先輸出 <HYPERPLAN_RESULT>）；在 PHASE_4 (SYNTHESIS) 產出前，**嚴禁調用任何代碼寫入與修改工具** (`write_to_file`, `replace_file_content`)，違者由物理 Host 強制 Rollback。
 
 ---
 
@@ -102,7 +103,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 ### 5.2 實體執行三層守門機制
 *   **執行前閘道 (Action Realization Gate)**：派發前預檢 Spec 規格、TDD 失敗腳本以及 `<ANCHORED_MEMORY_AND_CONTEXT>` 記憶包完整性。不符則 Block 回退，回退上限 2 次，超限觸發人類 (HITL) 介入。
 *   **實體沙箱隔離**：強制在臨時隔離目錄或一次性容器中執行實作與測試，確保開發 subagent 與測試編寫 subagent 職責分離。
-*   **執行後守門 (Trajectory Regulation Gate)**：自動執行測試與數值中間斷言。測試失敗則自動修復（重試上限 3 次，超限觸發 HITL）。
+*   **執行後守門 (Trajectory Regulation Gate)**：自動執行測試與數值中間斷言，並掃描提交代碼中是否存在 `[DEBUG-xxxx]` 日誌標籤殘留（若有殘留強制清除）。測試失敗或未清理則自動修復（重試上限 3 次，超限觸發 HITL）。
 
 ---
 

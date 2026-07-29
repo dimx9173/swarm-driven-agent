@@ -40,6 +40,7 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 *   **記憶與知識檢索子代理**：檢索歷史反模式與知識庫項目 (Knowledge Items)。
 *   **資料庫與狀態探針子代理**：查詢系統資料庫 Tables、Redis schemas 與 API 契約。
 *   **設計文件巡檢子代理**：巡檢既存設計規格書與 ADR 決策。
+*   **條件式歧義對齊 (Conditional Socratic Grilling Gate)**：若探測發現需求存在高歧義性或重大架構分支，啟動 1-question-at-a-time Socratic 訪談。禁止一次拋出多個問題，提問時必須附帶 Agent 推薦選項與理由。若屬於物理事實（如既存代碼/Schema），必須先透過探針查閱，嚴禁提問。
 *   **動作**：將探測結果封裝至 `<ANCHORED_MEMORY_AND_CONTEXT>` 標籤中，作為後續設計依據。**若在探測中發現缺乏當前技術/框架的 SOP 技能，必須自主調用 `swda discover` 與 `swda learn` 來補齊工作區技能，實現自我成長。**
 
 ### PHASE 3 & 4: THE CRUCIBLE (對抗式方案審查)
@@ -56,10 +57,11 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 ### PHASE 6: IMPLEMENT & REVIEW (多代理協同實作與物理執行)
 1.  **執行前預檢閘**：檢查任務包是否包含 `<ANCHORED_MEMORY_AND_CONTEXT>`，TDD 失敗腳本是否就緒。不符則拒絕派遣，回退上限 2 次，超限則觸發 HITL 介入。
 2.  **實體沙箱隔離**：強制在臨時隔離目錄或一次性容器中執行。
-3.  **TDD 雙代理執行**：
-    *   **測試編寫子代理 (Test Writer)**：撰寫測試腳本，運行並確認其物理處於失敗狀態（Red State）。
-    *   **代碼開發子代理 (Developer)**：在嚴禁修改測試腳本的前提下，編寫業務代碼以通過所有測試（Green State）。
-4.  **審查與驗證 (Reviewer)**：審查測試覆蓋率與代碼簡潔度，測試失敗則自動修復（重試上限 3 次，超限則觸發 HITL 介入）。
+3.  **TDD 雙代理執行與科學除錯 6 相位 (Scientific Debugging & TDD)**：
+    *   **除錯反饋迴圈 (Phase 1-4 Debug Loop)**：面對 Bug 修復任務時，必須先建立可自動運行、確定性且秒級響應的 pass/fail 反饋訊號；提出 3~5 個可證偽假說 (Falsifiable Hypotheses)；Debug log 必須強制帶有唯一標籤 `[DEBUG-xxxx]`（例：`[DEBUG-a4f2]`）。
+    *   **測試編寫子代理 (Test Writer)**：在 Seam (公共邊界) 撰寫失敗測試 (Red State)，嚴禁與內部實作過度耦合或寫出同義反覆測試。
+    *   **代碼開發子代理 (Developer)**：在嚴禁修改測試腳本的前提下，編寫業務代碼以通過所有測試 (Green State)。
+4.  **審查與驗證 (Reviewer)**：審查測試覆蓋率與代碼簡潔度，測試失敗則自動修復（重試上限 3 次，超限則觸發 HITL 介入）。**強制掃描並清理所有 `[DEBUG-xxxx]` 偵錯日誌標籤，確認無除錯垃圾殘留後方可通過。**
 
 ---
 
