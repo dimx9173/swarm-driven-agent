@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.4.2"
+CLI_VERSION = "1.4.3"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -1056,7 +1056,7 @@ def main():
     # Pre-process arguments for subcommand mapping & backward compatibility
     if len(sys.argv) > 1:
         first_arg = sys.argv[1]
-        known_commands = {"install", "doctor", "update", "version", "discover", "learn", "help", "-h", "--help"}
+        known_commands = {"install", "doctor", "update", "self-update", "version", "discover", "learn", "help", "-h", "--help"}
         if first_arg not in known_commands:
             if first_arg in {"-c", "--check"}:
                 # Map old --check or -c to doctor command
@@ -1068,7 +1068,7 @@ def main():
                 sys.argv.insert(1, "install")
 
     if len(sys.argv) > 1 and sys.argv[1] == "help":
-        if len(sys.argv) > 2 and sys.argv[2] in {"install", "doctor", "update", "version", "discover", "learn"}:
+        if len(sys.argv) > 2 and sys.argv[2] in {"install", "doctor", "update", "self-update", "version", "discover", "learn"}:
             sys.argv = [sys.argv[0], sys.argv[2], "--help"]
         else:
             sys.argv = [sys.argv[0], "--help"]
@@ -1077,7 +1077,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
 
     # Install sub-command
-    install_parser = subparsers.add_parser("install", help="Install or update SWDA workflow on agents.")
+    install_parser = subparsers.add_parser("install", help="Install SWDA workflow on agents.")
     install_parser.add_argument("agents", nargs="?", help="Comma-separated list of agent names (e.g. xuandao,finance). Runs in interactive mode if omitted.")
     install_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
@@ -1085,12 +1085,20 @@ def main():
     install_parser.add_argument("--type", choices=["hermes", "openclaw", "pi", "all"], default="openclaw", help="The type of agent to create or install (default: openclaw).")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
-    # Update sub-command (Self-upgrade swda CLI tool)
-    update_parser = subparsers.add_parser("update", help="Self-upgrade swda CLI tool.")
+    # Update sub-command (GitHub CLI style: Update installed agents)
+    update_parser = subparsers.add_parser("update", help="Update SWDA rules on installed agents (or CLI tool with --cli).")
+    update_parser.add_argument("agents", nargs="?", help="Comma-separated list of installed agent names to update. Updates all installed agents if omitted.")
+    update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when updating.")
+    update_parser.add_argument("--cli", action="store_true", help="Self-upgrade the swda CLI tool itself by pulling from remote repository.")
+    update_parser.add_argument("--type", choices=["hermes", "openclaw", "pi", "all"], help="Filter installed agents by type to update.")
+
+    # Self-update sub-command (GitHub CLI / rustup alias)
+    self_update_parser = subparsers.add_parser("self-update", help="Self-upgrade the swda CLI tool itself.")
 
     # Doctor sub-command
     doctor_parser = subparsers.add_parser("doctor", help="Check agent status and optionally fix mismatches.")
     doctor_parser.add_argument("--fix", action="store_true", help="Automatically fix/upgrade agent rules and schemas.")
+    doctor_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when fixing.")
 
     # Version sub-command
     version_parser = subparsers.add_parser("version", help="Show current and latest version of swda.")
@@ -1105,7 +1113,6 @@ def main():
     learn_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when overwriting.")
     learn_parser.add_argument("--global", dest="is_global", action="store_true", help="Install to global customizations root (~/.gemini/config) instead of local workspace (.agents).")
     learn_parser.add_argument("--from-codebase", dest="from_codebase", nargs="?", const=".", help="Scan a target codebase conventions (default path: '.') and create a localized skill.")
-    doctor_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when fixing.")
 
     args = parser.parse_args()
 
@@ -1119,9 +1126,13 @@ def main():
         args.type = "openclaw"
         args.identity = None
 
-    if args.command == "update":
+    if args.command == "self-update" or (args.command == "update" and getattr(args, "cli", False)):
         upgrade_swda()
         sys.exit(0)
+
+    if args.command == "update":
+        args.command = "doctor"
+        args.fix = True
 
     if args.command == "version":
         local_ver = CLI_VERSION
@@ -1134,7 +1145,7 @@ def main():
         if remote_ver:
             print(f"Latest version:  {remote_ver}")
             if parse_semver(local_ver) < parse_semver(remote_ver):
-                print("\nStatus:          [UPDATE AVAILABLE] Run 'swda update' to upgrade.")
+                print("\nStatus:          [UPDATE AVAILABLE] Run 'swda update --cli' or 'swda self-update' to upgrade.")
             else:
                 print("\nStatus:          [UP TO DATE] You are running the latest version.")
         else:

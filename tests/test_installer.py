@@ -237,9 +237,9 @@ class TestSWDAInstaller(unittest.TestCase):
     def test_cli_update_command(self):
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
         
-        # Run update subcommand (self-upgrade of swda CLI)
+        # Run self-update subcommand (self-upgrade of swda CLI)
         result = subprocess.run(
-            [sys.executable, script_path, "update"],
+            [sys.executable, script_path, "self-update"],
             capture_output=True,
             text=True,
             env={"SWDA_TEST_MODE": "1", **os.environ}
@@ -247,6 +247,16 @@ class TestSWDAInstaller(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("Self-Upgrading swda CLI Tool", result.stdout)
         self.assertIn("Test mode: upgrade_swda executed successfully.", result.stdout)
+
+        # Run update --cli subcommand
+        result_cli = subprocess.run(
+            [sys.executable, script_path, "update", "--cli"],
+            capture_output=True,
+            text=True,
+            env={"SWDA_TEST_MODE": "1", **os.environ}
+        )
+        self.assertEqual(result_cli.returncode, 0)
+        self.assertIn("Self-Upgrading swda CLI Tool", result_cli.stdout)
 
     def test_cli_help_command(self):
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
