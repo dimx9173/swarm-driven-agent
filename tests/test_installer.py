@@ -360,9 +360,61 @@ class TestSWDAInstaller(unittest.TestCase):
         self.assertTrue(os.path.exists(skill_file))
         with open(skill_file, "r") as f:
             content = f.read()
-            # The mock learn implementation adds codebase topology to the file in test mode
             self.assertIn("Codebase topology:", content)
             self.assertIn("my_mock_project", content)
 
+    def test_pi_agent_scanning_and_installation(self):
+        # Create a mock Pi Agent directory
+        pi_dir = os.path.join(self.mock_home, ".pi", "agent")
+        os.makedirs(pi_dir, exist_ok=True)
+        append_system_path = os.path.join(pi_dir, "APPEND_SYSTEM.md")
+        with open(append_system_path, "w", encoding="utf-8") as f:
+            f.write("# User custom system prompt\nPreserve this instruction.\n")
+            
+        agents = installer.scan_agents()
+        names_types = [(a['name'], a['type']) for a in agents]
+        self.assertIn(("default", "Pi"), names_types)
+        
+        # Test CLI create pi agent
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        result = subprocess.run(
+            [sys.executable, script_path, "--create", "custom_pi", "--type", "pi", "--identity", "Pi agent testing.", "-y"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Successfully created and installed SWDA workflow for new agent: custom_pi", result.stdout)
+        
+        custom_pi_dir = os.path.join(self.mock_home, ".pi", "agent", "profiles", "custom_pi")
+        self.assertTrue(os.path.exists(os.path.join(custom_pi_dir, "APPEND_SYSTEM.md")))
+        self.assertTrue(os.path.exists(os.path.join(custom_pi_dir, "skills", "swarm", "SKILL.md")))
+
+    def test_cli_type_all_install_and_update(self):
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        
+        # Run install --type all to initialize and install SWDA across all supported agent types
+        result = subprocess.run(
+            [sys.executable, script_path, "install", "--type", "all", "-y"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Successfully installed/upgraded", result.stdout)
+        
+        # Verify OpenClaw, Hermes, and Pi agents exist and have SWDA files installed
+        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspace", "RULE.md")))
+        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".hermes", "RULE.md")))
+        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".pi", "agent", "APPEND_SYSTEM.md")))
+        
+        # Run update --type all to update installed agents only
+        result_update = subprocess.run(
+            [sys.executable, script_path, "update", "--type", "all", "-y"],
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result_update.returncode, 0)
+        self.assertIn("Successfully installed/upgraded", result_update.stdout)
+
 if __name__ == '__main__':
     unittest.main()
+

@@ -26,7 +26,7 @@ template/
 |---|---|---|
 | **檔案數** | 1 個（ALL_IN_RULE.md） | 3 個（SOUL + RULE + SKILL） |
 | **設計哲學** | 單檔全部載入，便於一次性 prompt ingestion | 分檔組合，彈性高但需 subagent 自行載入 |
-| **適用場景** | **其他通用 LLM 工具**（Kilo / Claude Code / Cursor / OpenCode 等）| **openclaw / hermes agent runtime**（經 `installer.py` 部署） |
+| **適用場景** | **其他通用 LLM 工具**（Kilo / Claude Code / Cursor / OpenCode 等）| **openclaw / hermes / pi agent runtime**（經 `installer.py` 部署） |
 | **版本獨立性** | v1.8.0 自有版本號 | 各自獨立版本號（13.1.3 / 2.8.0 / 2.6.0） |
 | **被 installer.py 引用** | ❌ 否 | ✅ 是（見 `installer.py` 第 11-13 行） |
 | **中英文支援** | 提供中文版 (`ALL_IN_RULE.md`) 與英文版 (`ALL_IN_RULE.en.md`) | 提供中文審查版 (`SOUL.md`/`RULE.md`/`SKILL.md`) 與英文安裝版 (`SOUL.en.md`/`RULE.en.md`/`SKILL.en.md`) |
@@ -40,7 +40,7 @@ template/
 | **部署方式** | **手動安裝**——使用者自行將檔案放到目標 LLM 工具的 prompt / system message 目錄 | **腳本安裝**——透過 `installer.py` 自動寫入既有 agent workspace |
 | **更新流程** | 重新複製檔案覆蓋，無 merge 邏輯 | installer.py 內建 `merge_soul_content` 等增量合併機制 |
 | **失敗恢復** | 手動 rollback（git checkout + 重新覆蓋） | installer.py 內建 backup / revert 流程（見 `installer.py` `~615` 行） |
-| **適用客群** | 用戶自有的通用 LLM 工具（Kilo / Claude Code / Cursor / OpenCode 等） | **openclaw / hermes agent runtime** 的使用者（由 `installer.py` 部署到 `~/.openclaw/` 或 `~/.hermes/`） |
+| **適用客群** | 用戶自有的通用 LLM 工具（Kilo / Claude Code / Cursor / OpenCode 等） | **openclaw / hermes / pi agent runtime** 的使用者（由 `installer.py` 部署到 `~/.openclaw/`, `~/.hermes/` 或 `~/.pi/`） |
 
 → **這是兩套餐的關鍵差異**：integrated 是「檔案即產品」（手動複製給通用 LLM 用），modular 是「以腳本為產品的發佈工具鏈」（自動部署到 openclaw/hermes agent）。
 

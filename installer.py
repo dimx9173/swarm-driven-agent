@@ -8,11 +8,12 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.3.3"
+CLI_VERSION = "1.4.0"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
 SKILL_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "SKILL.en.md")
+ALL_IN_RULE_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "integrated", "ALL_IN_RULE.en.md")
 
 def get_on_disk_version():
     setup_py_path = os.path.join(SCRIPT_DIR, "setup.py")
@@ -568,12 +569,13 @@ def record_agent_uninstalled(agent_dir_path):
         save_installed_agents(installed)
 
 def scan_agents():
-    """Scans the local system for openclaw and hermes agents by searching for SOUL.md."""
+    """Scans the local system for openclaw, hermes, and pi agents."""
     home_dir = os.path.expanduser("~")
     print("Scanning local system for agents...")
     
     hermes_path = os.path.join(home_dir, ".hermes")
     openclaw_path = os.path.join(home_dir, ".openclaw")
+    pi_path = os.path.join(home_dir, ".pi", "agent")
     
     detected = []
     
@@ -583,10 +585,6 @@ def scan_agents():
             return []
         found_paths = []
         for root, dirs, files in os.walk(root_path):
-            # Skip nested directories under workspaces/xxxx/home/ or profiles/xxxx/home/
-            # to avoid picking up temp workspaces of agents.
-            # To avoid matching the user's real home directory path on Linux (e.g. /home/carlos),
-            # we strip the real home prefix before checking for "/home/".
             norm_root = root.replace("\\", "/")
             norm_home = home_dir.replace("\\", "/")
             relative_part = norm_root[len(norm_home):] if norm_root.startswith(norm_home) else norm_root
@@ -596,9 +594,13 @@ def scan_agents():
                 full_path = os.path.join(root, "SOUL.md")
                 norm_path = os.path.abspath(full_path).replace("\\", "/")
                 found_paths.append(norm_path)
+            elif "APPEND_SYSTEM.md" in files:
+                full_path = os.path.join(root, "APPEND_SYSTEM.md")
+                norm_path = os.path.abspath(full_path).replace("\\", "/")
+                found_paths.append(norm_path)
         return found_paths
 
-    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path)
+    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path) + scan_dir(pi_path)
     
     escaped_home = re.escape(home_dir.replace("\\", "/"))
     patterns = [
@@ -606,15 +608,17 @@ def scan_agents():
         rf"^{escaped_home}/\.hermes/profiles/([^/]+)/SOUL\.md$",
         rf"^{escaped_home}/\.openclaw/workspace/SOUL\.md$",
         rf"^{escaped_home}/\.openclaw/workspace\-front\-end/SOUL\.md$",
-        rf"^{escaped_home}/\.openclaw/workspaces/([^/]+)/SOUL\.md$"
+        rf"^{escaped_home}/\.openclaw/workspaces/([^/]+)/SOUL\.md$",
+        rf"^{escaped_home}/\.pi/agent/(SOUL\.md|APPEND_SYSTEM\.md)$",
+        rf"^{escaped_home}/\.pi/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$"
     ]
     
+    seen_dirs = set()
     for path in all_paths:
         matched = False
         agent_type = ""
         agent_name = ""
         
-        # Check against patterns
         if re.match(patterns[0], path):
             matched = True
             agent_type = "Hermes"
@@ -635,15 +639,25 @@ def scan_agents():
             matched = True
             agent_type = "OpenClaw"
             agent_name = m.group(1)
+        elif re.match(patterns[5], path):
+            matched = True
+            agent_type = "Pi"
+            agent_name = "default"
+        elif m := re.match(patterns[6], path):
+            matched = True
+            agent_type = "Pi"
+            agent_name = m.group(1)
             
         if matched:
             agent_dir = os.path.dirname(path)
-            detected.append({
-                "type": agent_type,
-                "name": agent_name,
-                "soul_path": path,
-                "dir_path": agent_dir
-            })
+            if agent_dir not in seen_dirs:
+                seen_dirs.add(agent_dir)
+                detected.append({
+                    "type": agent_type,
+                    "name": agent_name,
+                    "soul_path": path,
+                    "dir_path": agent_dir
+                })
             
     return detected
 
@@ -860,6 +874,11 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     
     if agent_type.lower() == "hermes":
         dest_dir = os.path.join(home_dir, ".hermes", "profiles", name)
+    elif agent_type.lower() == "pi":
+        if name in ("default", "agent"):
+            dest_dir = os.path.join(home_dir, ".pi", "agent")
+        else:
+            dest_dir = os.path.join(home_dir, ".pi", "agent", "profiles", name)
     else:
         dest_dir = os.path.join(home_dir, ".openclaw", "workspaces", name)
         
@@ -933,6 +952,19 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     except Exception as e:
         print(f"Error: Failed to copy SKILL.md: {e}", file=sys.stderr)
         sys.exit(1)
+
+    if agent_type.lower() == "pi" and os.path.exists(ALL_IN_RULE_TEMPLATE):
+        append_system_dest_path = os.path.join(dest_dir, "APPEND_SYSTEM.md")
+        print(" -> Creating APPEND_SYSTEM.md...")
+        try:
+            with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
+                all_in_content = f.read()
+            merged_append = merge_soul_content("", all_in_content)
+            with open(append_system_dest_path, 'w', encoding='utf-8') as f:
+                f.write(merged_append)
+            print(f"    Created APPEND_SYSTEM.md (Integrated ALL_IN_RULE)")
+        except Exception as e:
+            print(f"Warning: Failed to write APPEND_SYSTEM.md: {e}", file=sys.stderr)
         
     print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
     record_agent_installed(dest_dir)
@@ -1040,12 +1072,13 @@ def main():
     install_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
     install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SWDA workflow.")
-    install_parser.add_argument("--type", choices=["hermes", "openclaw"], default="openclaw", help="The type of agent to create (default: openclaw).")
+    install_parser.add_argument("--type", choices=["hermes", "openclaw", "pi", "all"], default="openclaw", help="The type of agent to create or install (default: openclaw).")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
     # Update sub-command (Self-upgrade or update agents)
     update_parser = subparsers.add_parser("update", help="Self-upgrade swda or update specific agents.")
     update_parser.add_argument("--agents", nargs="?", const="_interactive_", help="Update specified agents (comma-separated) or prompt for interactive selection if no agents are specified.")
+    update_parser.add_argument("--type", choices=["hermes", "openclaw", "pi", "all"], default="all", help="The type of agents to update (default: all).")
     update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     update_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
 
@@ -1117,16 +1150,16 @@ def main():
             args.agents = []
             args.uninstall = False
             args.yes = False
-    elif args.command == "update" and args.agents is None:
-        # Self-upgrade swda itself
+    elif args.command == "update" and args.agents is None and "--type" not in sys.argv:
+        # Self-upgrade swda itself when invoked as 'swda update' without flags
         upgrade_swda()
     else:
-        # install command, or update command with --agents specified
+        # install command, or update command with --agents or --type specified
         args.check = False
         if args.agents and args.agents != "_interactive_":
             args.agents = [t.strip() for t in args.agents.split(",") if t.strip()]
         else:
-            args.agents = []
+            args.agents = None
 
     # Safe default fallback for attributes not defined by the active subparser
     if not hasattr(args, "create"):
@@ -1161,14 +1194,54 @@ def main():
     agents = scan_agents()
     if args.command == "doctor":
         installed_paths = load_installed_agents(agents)
-        # Normalize installed paths to absolute paths with forward slashes for matching
         installed_paths = [os.path.abspath(p).replace("\\", "/") for p in installed_paths]
         agents = [a for a in agents if os.path.abspath(a['dir_path']).replace("\\", "/") in installed_paths]
         if not agents:
             print("No installed agents tracked. Run 'swda install' to install on an agent.")
             sys.exit(0)
+    elif args.command == "update":
+        if args.agents is None or (len(args.agents) == 1 and args.agents[0].lower() == "all"):
+            installed_paths = load_installed_agents(agents)
+            installed_paths = [os.path.abspath(p).replace("\\", "/") for p in installed_paths]
+            agents = [a for a in agents if os.path.abspath(a['dir_path']).replace("\\", "/") in installed_paths or get_agent_status(a, template_versions)['status'] != 'Not Installed']
+            if getattr(args, "type", None) and args.type != "all":
+                agents = [a for a in agents if a['type'].lower() == args.type.lower()]
+            if not agents:
+                print("No installed agents found matching update criteria.")
+                sys.exit(0)
+            args.agents = ["all"]
+        else:
+            if getattr(args, "type", None) and args.type != "all":
+                agents = [a for a in agents if a['type'].lower() == args.type.lower()]
+    elif args.command == "install" and getattr(args, "type", None) == "all":
+        args.agents = ["all"]
+        # Ensure default agent structures exist for all 3 supported agent types
+        home_dir = os.path.expanduser("~")
+        types_detected = {a['type'].lower() for a in agents}
+        if "openclaw" not in types_detected:
+            openclaw_def = os.path.join(home_dir, ".openclaw", "workspace")
+            os.makedirs(openclaw_def, exist_ok=True)
+            soul_path = os.path.join(openclaw_def, "SOUL.md")
+            if not os.path.exists(soul_path):
+                with open(soul_path, "w", encoding="utf-8") as f:
+                    f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+        if "hermes" not in types_detected:
+            hermes_def = os.path.join(home_dir, ".hermes")
+            os.makedirs(hermes_def, exist_ok=True)
+            soul_path = os.path.join(hermes_def, "SOUL.md")
+            if not os.path.exists(soul_path):
+                with open(soul_path, "w", encoding="utf-8") as f:
+                    f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+        if "pi" not in types_detected:
+            pi_def = os.path.join(home_dir, ".pi", "agent")
+            os.makedirs(pi_def, exist_ok=True)
+            append_path = os.path.join(pi_def, "APPEND_SYSTEM.md")
+            if not os.path.exists(append_path):
+                with open(append_path, "w", encoding="utf-8") as f:
+                    f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
+        agents = scan_agents()
     elif not agents:
-        print("No openclaw or hermes agents found on the local machine.")
+        print("No openclaw, hermes, or pi agents found on the local machine.")
         sys.exit(0)
         
     # Get status for all agents
@@ -1439,6 +1512,23 @@ def main():
                 continue
                 
             print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
+            if agent['type'] == "Pi" or os.path.basename(agent['soul_path']) == "APPEND_SYSTEM.md":
+                append_path = os.path.join(agent['dir_path'], "APPEND_SYSTEM.md")
+                if os.path.exists(ALL_IN_RULE_TEMPLATE):
+                    print(" -> Updating APPEND_SYSTEM.md...")
+                    try:
+                        existing_append = ""
+                        if os.path.exists(append_path):
+                            with open(append_path, 'r', encoding='utf-8') as f:
+                                existing_append = f.read()
+                        with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
+                            all_in_tpl = f.read()
+                        merged_append = merge_soul_content(existing_append, all_in_tpl)
+                        with open(append_path, 'w', encoding='utf-8') as f:
+                            f.write(merged_append)
+                        print("    APPEND_SYSTEM.md updated.")
+                    except Exception as e:
+                        print(f"    Failed to update APPEND_SYSTEM.md: {e}")
             record_agent_installed(agent['dir_path'])
             
     print("\nAll done!")
