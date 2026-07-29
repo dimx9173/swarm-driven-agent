@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "1.4.4"
+CLI_VERSION = "1.4.5"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -1082,7 +1082,7 @@ def main():
     install_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
     install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SWDA workflow.")
-    install_parser.add_argument("--type", choices=["hermes", "openclaw", "pi", "all"], default="openclaw", help="The type of agent to create or install (default: openclaw).")
+    install_parser.add_argument("--type", choices=["hermes", "openclaw", "pi", "all"], default=None, help="The type of agent to create or install.")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
     # Update sub-command (GitHub CLI style: Update installed agents)
@@ -1123,7 +1123,7 @@ def main():
         args.yes = False
         args.uninstall = False
         args.create = None
-        args.type = "openclaw"
+        args.type = None
         args.identity = None
 
     if args.command == "self-update" or (args.command == "update" and getattr(args, "cli", False)):
