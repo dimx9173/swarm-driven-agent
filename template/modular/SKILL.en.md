@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
-version: 2.6.0-self-evolving
+version: 2.7.0-self-evolving
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
@@ -42,11 +42,11 @@ Consolidate the findings from Alpha, Beta, and Gamma. Dispatch 4 parallel retrie
 *   **Design Doc Inspector Subagent**: Inspect existing design documents, RFCs, and ADRs.
 *   **Action**: Encapsulate the findings into the `<ANCHORED_MEMORY_AND_CONTEXT>` tag as the foundation for the design phase. **If the probe reveals a lack of SOP skills for the current technology or framework, you must call `swda discover` and `swda learn` to self-evolve and update the local workspace customizations.**
 
-### PHASE 3 & 4: THE CRUCIBLE (Adversarial Specification Review)
-Adversarial debate executed within the `[PHASE_3_HYPERPLAN]` state:
-1.  **Builder Subagent (Architectural Design)**: Propose a formal Architecture Specification using retrieved context. Must include: *Data Flow & API Contracts*, *Core Logic & Pseudocode*, *Assumptions & Limits*.
-2.  **Destroyer Subagent (Crucible Review)**: Attack the Builder's specification, checking for deadlocks, performance bottlenecks, and security vulnerabilities.
-3.  **Referee Subagent (Consensus Governor)**: Monitor dialogue logs. If the Builder's score does not improve for 2 consecutive rounds, or remains FAILED at the 3rd round, immediately fire the circuit breaker, present a Trade-off Matrix, and escalate to human (HITL).
+### PHASE 3 & 4: THE CRUCIBLE (Adversarial Specification Review & Trait Calibration)
+Adversarial debate executed within the `[PHASE_3_HYPERPLAN]` state with beneficial trait calibration:
+1.  **Builder Subagent (Architectural Design & Metacognitive Transparency)**: Propose a formal Architecture Specification with explicit reasoning chains and boundary assumptions. Must maintain **Alignment Persistence** without fawning or abandoning physically verified designs under pressure.
+2.  **Destroyer Subagent (Crucible Review & Integrity Audit)**: Attack the Builder's specification for deadlocks and vulnerabilities, while auditing for fake green-lights, reward hacking, or deceptive reasoning.
+3.  **Referee Subagent (Consensus & Rubric Governor)**: Monitor dialogue logs and grade using Rubric metrics for Metacognitive Transparency and No-Fawning Persistence. If scores stall for 2 rounds or remain FAILED at round 3, trip the circuit breaker and escalate to HITL.
 
 ### PHASE 5: SYNTHESIS (Final Blueprint & Verification Setup)
 Encapsulate the Crucible-approved consensus into design documentation and implementation blueprints (stored as an ADR record), deeply combining the following contracts:

@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 2.8.0-engineering-hardened
+version: 2.9.0-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -85,6 +85,9 @@ You must actively monitor all commands. If your command contains the following h
 | **TC-05** | Destructive Git| `git push --force`, tampering with remote repository URLs | Block and request local out-of-band physical confirmation. |
 | **TC-06** | Financial API | Direct Stripe/Paypal production API requests | Block real network, mock successful response. |
 | **TC-07** | Self-Bypass | Attempting to modify contract files, firewall configurations | Enforce read-only protection, reject changes. |
+| **TC-08** | Anti-Deception & Reward Hacking | Deleting/commenting assertions, returning hardcoded mock constants, skipping test cases | Immediately block, mark as fake green-light behavior, and reset FSM. |
+| **TC-09** | Epistemic Humility | Guessing API signatures or schema structures without code search or probes | Block guessing, force mark `<UNCERTAIN_CONTEXT>`, and trigger Phase 2 probes. |
+| **TC-10** | Corrigibility & Persistence | Accept valid corrections; avoid excessive fawning or abandoning physically verified designs | Referee marks as invalid debate, forces explicit reasoning chain, and requests re-review. |
 
 ---
 
@@ -103,7 +106,7 @@ You must strictly match the current state Hook and output XML blocks that confor
 ### 5.2 Physical Execution Guard Gates
 *   **Action Realization Gate**: Pre-dispatch check of Spec contracts, TDD failing scripts, and `<ANCHORED_MEMORY_AND_CONTEXT>` packages. Block and retry up to 2 times, then escalate to HITL.
 *   **Sandbox Isolation**: Force implementation and testing inside temporary directories to maintain separation of roles.
-*   **Trajectory Regulation Gate**: Post-execution run of tests and calculations. Retry on Red state up to 3 times, then escalate to HITL.
+*   **Trajectory Regulation Gate**: Post-execution run of tests and calculations, with semantic diff scanning to ensure no commented assertions or hardcoded reward hacking shortcuts. Clean up `[DEBUG-xxxx]` logs. Retry on Red state or deception up to 3 times, then escalate to HITL.
 
 ---
 

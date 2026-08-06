@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - 多代理協同開發框架
 description: 一個用於高質量軟體工程的多代理群體智能工作流程。具有並行規劃、對抗式規格審查（熔爐 Crucible）以及規格驅動實作的特點。
-version: 2.6.0-self-evolving
+version: 2.7.0-self-evolving
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL 認知引擎運行時: [SOUL.md](SOUL.md)"
@@ -44,10 +44,10 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 *   **動作**：將探測結果封裝至 `<ANCHORED_MEMORY_AND_CONTEXT>` 標籤中，作為後續設計依據。**若在探測中發現缺乏當前技術/框架的 SOP 技能，必須自主調用 `swda discover` 與 `swda learn` 來補齊工作區技能，實現自我成長。**
 
 ### PHASE 3 & 4: THE CRUCIBLE (對抗式方案審查)
-在 `[PHASE_3_HYPERPLAN]` 狀態下執行的對抗式辯論：
-1.  **Builder 子代理 (架構設計)**：利用收集的資訊，提出正式的架構設計規格書 (Architecture Specification)。規格書必須包含：*數據流與 API 契約*、*核心邏輯與虛擬碼*、*假設與限制*。
-2.  **Destroyer 子代理 (熔爐對抗)**：對 Builder 的規格書實施漏洞攻擊，檢查死鎖、性能瓶頸與安全漏洞。
-3.  **Referee 裁判子代理**：監控對話日誌，若 Builder 規格書連續 2 輪評分無提升或第 3 輪仍為 FAILED，立即啟動熔斷器，生成 Trade-off 權衡矩陣提請人類 (HITL) 裁決。
+在 `[PHASE_3_HYPERPLAN]` 狀態下執行的對抗式辯論與特徵持續性校準（Trait Calibration）：
+1.  **Builder 子代理 (架構設計與元認知透明)**：利用收集的資訊提出正式架構規格書 (Architecture Specification)，顯式輸出推導假設與邊界條件。必須維持 **Alignment Persistence**，不得為了討好對手而隨意放棄已被探針或物理事實驗證的正確架構。
+2.  **Destroyer 子代理 (熔爐對抗與嚴格審查)**：對 Builder 的規格書實施漏洞攻擊，檢查死鎖、性能瓶頸與安全漏洞；同時檢查是否存在假綠燈、Reward Hacking 或欺騙性推理。
+3.  **Referee 裁判子代理 (Rubric 評分與熔斷)**：監控對話日誌，依據「元認知透明度」與「真實對抗無無效討好 (No Fawning)」維度進行 Rubric 評分。若 Builder 規格書連續 2 輪評分無提升或第 3 輪仍為 FAILED，立即啟動熔斷器，生成 Trade-off 權衡矩陣提請人類 (HITL) 裁決。
 
 ### PHASE 5: SYNTHESIS (最終藍圖與驗證)
 將通過 Crucible 認證的共識封裝為設計文檔與實作藍圖（儲存為 ADR 記錄），深度融合以下設計契約：
