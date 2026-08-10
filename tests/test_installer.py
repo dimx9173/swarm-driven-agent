@@ -411,30 +411,30 @@ class TestSWDAInstaller(unittest.TestCase):
         self.assertIn("Prompt Injection", result.stdout)
         self.assertIn("High-Risk Shell Command", result.stdout)
 
-    def test_pi_agent_scanning_and_installation(self):
-        # Create a mock Pi Agent directory
-        pi_dir = os.path.join(self.mock_home, ".pi", "agent")
-        os.makedirs(pi_dir, exist_ok=True)
-        append_system_path = os.path.join(pi_dir, "APPEND_SYSTEM.md")
+    def test_omp_agent_scanning_and_installation(self):
+        # Create a mock OMP (Oh My Pi) Agent directory
+        omp_dir = os.path.join(self.mock_home, ".omp", "agent")
+        os.makedirs(omp_dir, exist_ok=True)
+        append_system_path = os.path.join(omp_dir, "APPEND_SYSTEM.md")
         with open(append_system_path, "w", encoding="utf-8") as f:
             f.write("# User custom system prompt\nPreserve this instruction.\n")
             
         agents = installer.scan_agents()
         names_types = [(a['name'], a['type']) for a in agents]
-        self.assertIn(("default", "Pi"), names_types)
+        self.assertIn(("default", "OMP"), names_types)
         
-        # Test CLI create pi agent
+        # Test CLI create omp agent
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
         result = subprocess.run(
-            [sys.executable, script_path, "--create", "custom_pi", "--type", "pi", "--identity", "Pi agent testing.", "-y"],
+            [sys.executable, script_path, "--create", "custom_omp", "--type", "omp", "--identity", "OMP agent testing.", "-y"],
             capture_output=True,
             text=True
         )
         self.assertEqual(result.returncode, 0)
-        self.assertIn("Successfully created and installed SWDA workflow for new agent: custom_pi", result.stdout)
+        self.assertIn("Successfully created and installed SWDA workflow for new agent: custom_omp", result.stdout)
         
-        custom_pi_dir = os.path.join(self.mock_home, ".pi", "agent", "profiles", "custom_pi")
-        self.assertTrue(os.path.exists(os.path.join(custom_pi_dir, "APPEND_SYSTEM.md")))
+        custom_omp_dir = os.path.join(self.mock_home, ".omp", "agent", "profiles", "custom_omp")
+        self.assertTrue(os.path.exists(os.path.join(custom_omp_dir, "APPEND_SYSTEM.md")))
 
     def test_cli_type_all_install_and_update(self):
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
@@ -449,10 +449,10 @@ class TestSWDAInstaller(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("Successfully installed/upgraded", result.stdout)
         
-        # Verify OpenClaw, Hermes, and Pi agents exist and have SWDA files installed
+        # Verify OpenClaw, Hermes, and OMP agents exist and have SWDA files installed
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "test_openclaw", "RULE.md")))
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".hermes", "profiles", "test_hermes", "RULE.md")))
-        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".pi", "agent", "APPEND_SYSTEM.md")))
+        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".omp", "agent", "APPEND_SYSTEM.md")))
         
         # Run install --type all again to verify updating installed agents
         result_update = subprocess.run(
