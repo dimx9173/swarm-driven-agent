@@ -12,6 +12,9 @@
 | **Integrated Contract** | `template/integrated/ALL_IN_RULE.md` | `X.Y.Z-deterministic` | 對外一致性版本 |
 | **Integrated Contract (EN)** | `template/integrated/ALL_IN_RULE.en.md` | `X.Y.Z-deterministic` | 英文版 |
 | **Output Schema** | `docs/contracts/output-schema.md` | `vX.Y.Z` | 同步版本 |
+| **Modular Contract** | `template/modular/RULE.md` | `X.Y.Z-engineering-hardened` | Modular 模板版本 |
+| **Modular Contract (EN)** | `template/modular/RULE.en.md` | `X.Y.Z-engineering-hardened` | Modular 英文版 |
+| **Modular Output Schema** | `docs/contracts/output-schema-modular.md` | `vX.Y.Z` | 同步版本 |
 
 ---
 
@@ -29,22 +32,28 @@ git describe --tags --exact-match
 git status
 ```
 
-### Step 1: 版本文件全量檢查
+### Step 1: 版本文件全量檢查（強制步驟）
 
-每次 release 前，必須搜尋並更新**所有**含有版本號的檔案：
+每次 release 前，**必須**搜尋並檢查**所有**含有版本號的檔案。嚴禁只修改單一檔案而忽略其餘。
 
 ```bash
-# 搜尋所有版本標記
+# 搜尋所有版本標記（勿省略任何一個）
 grep -rn "v[0-9]\.[0-9]" --include="*.md" .
 grep -rn "version:" --include="*.md" .
 grep -rn "version=" --include="*.py" .
 ```
 
-常見版本標記位置（每次檢查）：
-- `setup.py` → `version="X.Y.Z"`
-- `docs/contracts/output-schema.md` → 抬頭 `vX.Y.Z` + 內文 `vX.Y.Z`
-- `template/integrated/ALL_IN_RULE.md` → YAML frontmatter `version: X.Y.Z-deterministic`
-- `template/integrated/ALL_IN_RULE.en.md` → YAML frontmatter `version: X.Y.Z-deterministic`
+**每次 release 必須檢查的全部版本標記位置：**
+
+| 檔案 | 位置 | 版本格式 |
+|---|---|---|
+| `setup.py` | `version="X.Y.Z"` | `X.Y.Z` |
+| `docs/contracts/output-schema.md` | 抬頭 `vX.Y.Z` + 內文同步標記 | `vX.Y.Z` |
+| `template/integrated/ALL_IN_RULE.md` | YAML frontmatter `version:` | `X.Y.Z-deterministic` |
+| `template/integrated/ALL_IN_RULE.en.md` | YAML frontmatter `version:` | `X.Y.Z-deterministic` |
+| `docs/contracts/output-schema-modular.md` | 抬頭 `vX.Y.Z` + 內文同步標記 | `vX.Y.Z` |
+| `template/modular/RULE.md` | YAML frontmatter `version:` | `X.Y.Z-engineering-hardened` |
+| `template/modular/RULE.en.md` | YAML frontmatter `version:` | `X.Y.Z-engineering-hardened` |
 
 ### Step 2: 決定版本層級
 
@@ -57,22 +66,28 @@ grep -rn "version=" --include="*.py" .
 ### Step 3: 執行 Bump
 
 ```bash
-# 一次性修改所有版本（以 2.4.0 為例）
-NEW_VERSION="2.4.0"
+# 一次性修改所有版本（以 2.5.0 為例）
+NEW_VERSION="2.5.0"
 
 # setup.py
 sed -i '' "s/version=\"[0-9.]*\"/version=\"$NEW_VERSION\"/" setup.py
 
-# output-schema.md（兩處：抬頭 + 內文 vX.Y.Z）
-sed -i '' "s/v[0-9]\.[0-9]\.[0-9]/v$NEW_VERSION/g" docs/contracts/output-schema.md
-sed -i '' "s/v[0-9]\.[0-9]\.[0-9]/v$NEW_VERSION/g" template/integrated/ALL_IN_RULE.md
-sed -i '' "s/v[0-9]\.[0-9]\.[0-9]/v$NEW_VERSION/g" template/integrated/ALL_IN_RULE.en.md
+# output-schema.md / output-schema-modular.md（兩處：抬頭 + 內文 vX.Y.Z）
+sed -i '' "s/v[0-9]\.[0-9]\.[0-9]/v$NEW_VERSION/g" \
+    docs/contracts/output-schema.md \
+    docs/contracts/output-schema-modular.md
 
-# deterministic 版本（major + minor bump）
-NEW_DET_VERSION="14.1.0-deterministic"  # 視專案對應規則調整
+# integrated deterministic 版本
+NEW_DET_VERSION="14.2.0-deterministic"  # 視本次變動範圍調整
 sed -i '' "s/version: [0-9]*\.[0-9]*\.[0-9]*-deterministic/version: $NEW_DET_VERSION/" \
     template/integrated/ALL_IN_RULE.md \
     template/integrated/ALL_IN_RULE.en.md
+
+# modular engineering-hardened 版本
+NEW_MOD_VERSION="2.11.0-engineering-hardened"  # 視本次變動範圍調整
+sed -i '' "s/version: [0-9]*\.[0-9]*\.[0-9]*-engineering-hardened/version: $NEW_MOD_VERSION/" \
+    template/modular/RULE.md \
+    template/modular/RULE.en.md
 ```
 
 ### Step 4: Commit, Tag, Push
@@ -107,15 +122,35 @@ git describe --tags --exact-match
 **預防**：tag push 前先 `git tag -d <tag> && git fetch --tags`，或使用 `git push origin <tag>` 而非 `git push --tags`。
 
 ### 版本號對應關係錯誤
-> output-schema.md 的版本需與 ALL_IN_RULE.md 的 deterministic 版本對應（見上表）。
+> output-schema.md 的版本需與 ALL_IN_RULE.md 的 deterministic 版本對應；output-schema-modular.md 的版本需與 modular/RULE.md 的 engineering-hardened 版本對應。
+
+**版本對應表（Integrated 套餐）：**
+| output-schema.md | ALL_IN_RULE.md |
+|---|---|
+| v1.4.0 | v14.1.0-deterministic |
+| v1.3.2 | v14.0.0-deterministic |
+
+**版本對應表（Modular 套餐）：**
+| output-schema-modular.md | modular/RULE.md |
+|---|---|
+| v1.4.0 | v2.10.0-engineering-hardened |
+| v1.3.2 | v2.9.0-engineering-hardened |
 
 ---
 
-## 範例：v2.4.0 Release
+## 範例對照表
 
+### v2.4.0 Release（Integrated 套餐結構性變更）
 ```
-setup.py:                        1.7.0  →  2.4.0
-docs/contracts/output-schema.md: v1.3.1 → v1.4.0 (sync ALL_IN_RULE.md v14.1.0)
-template/integrated/ALL_IN_RULE.md:    14.0.0-deterministic → 14.1.0-deterministic
+setup.py:                              1.7.0  →  2.4.0
+docs/contracts/output-schema.md:        v1.3.1 → v1.4.0
+template/integrated/ALL_IN_RULE.md:   14.0.0-deterministic → 14.1.0-deterministic
 template/integrated/ALL_IN_RULE.en.md: 14.0.0-deterministic → 14.1.0-deterministic
+```
+
+### v2.4.1 Release（Modular 套餐結構性變更）
+```
+docs/contracts/output-schema-modular.md: v1.3.2 → v1.4.0
+template/modular/RULE.md:               2.9.0-engineering-hardened → 2.10.0-engineering-hardened
+template/modular/RULE.en.md:           2.9.0-engineering-hardened → 2.10.0-engineering-hardened
 ```
