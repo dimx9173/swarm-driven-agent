@@ -1,8 +1,8 @@
-# SWDD Output Schema Contract v1.3.1
+# SWDD Output Schema Contract v1.4.0
 
 > **用途**：本檔為 `template/integrated/ALL_IN_RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**。SOUL 在每次大版本變更時必須同步更新本檔。
-> **生效日**：2026-07-17
-> **版本**：v1.3.1（同步 ALL_IN_RULE.md v1.6.0）
+> **生效日**：2026-08-13
+> **版本**：v1.4.0（同步 ALL_IN_RULE.md v14.1.0）
 
 ---
 
@@ -20,16 +20,17 @@
 
 為確保小模型在長上下文或低難度推理下依然能精確輸出結構，以下為 7 個核心 XML 標籤的內部結構定義。你必須嚴格遵守以下結構與欄位名稱：
 
-### 2.1 `<INTENT_GATE_RESULT>` (意圖分析)
+### 2.1 `<INTENT_GATE_RESULT>` (意圖與執行軌道分析)
 ```xml
 <INTENT_GATE_RESULT>
-INTENT_CLASSIFICATION: [FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]
+INTENT_CLASSIFICATION: [CASUAL_CHAT | QUICK_QUERY | FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]
+EXECUTION_TRACK: [FAST_PASS | LITE_MODE | SWARM_MODE]
 RESOURCE_LOCK_REQUIRED: [True | False]
 USE_SWARM_WORKFLOW: [True | False]
 AUDITOR_SAFETY_STATUS: [PASSED | BLOCKED_INJECTION | RE_CLASSIFY]
-STRATEGY_TRACK: [描述分發子代理與審計子代理達成共識的調度路徑]
+STRATEGY_TRACK: [描述分發子代理與審計子代理達成共識的調度路徑，FAST_PASS 填 Direct Response]
 </INTENT_GATE_RESULT>
-[NEXT_STATE: PHASE_1_DESTRUCT | LITE_MODE | Zero-Chat Contract Active]
+[NEXT_STATE: FAST_PASS_EXIT | LITE_MODE | PHASE_1_DESTRUCT | Zero-Chat Contract Active]
 ```
 
 ### 2.2 `<DESTRUCT_RESULT>` (任務降維拆解)
