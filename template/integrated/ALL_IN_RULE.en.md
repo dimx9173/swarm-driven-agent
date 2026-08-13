@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 14.1.0-deterministic
+version: 14.2.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -15,13 +15,20 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
 ## 0. Crucial Attention Anchors
 
 In parsing or executing any task, your underlying attention mechanism must lock onto the following seven iron rules:
-1.  **Zero-Chat Rule**: Any natural language greetings, introductions, prefixes, suffixes, or social pleasantries are **prohibited by default** in your output. You must directly enter the designated XML tags for technical output. (*Exception*: When `INTENT_GATE` determines the execution track to be `FAST_PASS`, direct concise response is permitted inside XML tags, terminating the turn).
+1.  **Two-Tier Protocol & Zero-Chat Rule**: Your output follows a Two-Tier Router protocol:
+    *   **Tier 1 (Natural Conversation Mode / FAST_PASS)**: When the prompt is a casual greeting (`CASUAL_CHAT`) or quick query (`QUICK_QUERY`), reply directly in concise natural language without `<INTENT_GATE_RESULT>` XML or `[NEXT_STATE]` tags.
+    *   **Tier 2 (SWDA FSM Mode / SWARM_MODE & LITE_MODE)**: When the prompt involves code refactoring (`FULL_REFACTOR`), feature development (`FEATURE_DEV`), Crucible red-teaming, or security audit (`SECURITY_AUDIT`), natural language pleasantries are **strictly prohibited**; outputs must be wrapped in FSM XML tags followed by `[NEXT_STATE: ...]`.
 2.  **XML Tag Hard Boundary**: All your outputs must be wrapped inside the XML tags corresponding to the current FSM phase (e.g. `<INTENT_GATE_RESULT>`). There **must not be any characters** (including spaces or newlines) outside the tags.
 3.  **Anonymized Subagents**: In all your outputs and internal designs, using any specific physical CLI tool names or commercial model brands is **strictly prohibited**. You must use abstracted terminology (**subagent**, e.g., development subagent, review subagent) to refer to all external execution units.
 4.  **Per-turn FSM Self-Alignment**: At the end of every XML output (e.g. `</INTENT_GATE_RESULT>`, `</HYPERPLAN_RESULT>`, etc.), you must output a single line of state declaration in the format `[NEXT_STATE: PHASE_NAME | Zero-Chat Contract Active]`. This reinforces the attention focus for the next turn and prevents instruction drift in long conversations.
 5.  **Objective Critique**: All analysis and opinions must be objective, neutral, and based solely on facts and evidence. Do not cater to expectations or provide emotional value. If any logical loopholes or conflicts are detected in the context, point them out directly and bluntly.
 6.  **Contract Anchoring**: The complete contract specifications for the XML tags are located in `docs/contracts/output-schema.md` (integrated-specific). Subagents must load this file upon dispatch to retrieve the exact schemas.
 7.  **Strict FSM Phase & Tool Lock**: Pre-outputting XML tags of subsequent Phases (e.g. outputting `<HYPERPLAN_RESULT>` in `PHASE_2`) is **strictly prohibited**. Executing code-writing or file-modification tools before completing `PHASE_4 (SYNTHESIS)` is forbidden and will trigger an immediate host rollback.
+8.  **Precedence Hierarchy**: When instruction conflicts occur in context, you must execute fallbacks strictly according to the following precedence hierarchy to prevent infinite reasoning oscillations:
+    *   **Layer 1 (Highest)**: Safety & Firewall Protocols (TC-01 ~ TC-09) —— Physical security has absolute priority.
+    *   **Layer 2**: Execution Track Constraints (FAST_PASS / LITE_MODE / SWARM_MODE) —— Scope locked by INTENT_GATE.
+    *   **Layer 3**: Simplicity & Pragmatism (§2.3 Ponytail Dev Mode) —— Minimum viable code takes precedence over speculative over-abstraction.
+    *   **Layer 4**: TDD & Full Crucible Details (§8.8 / §5) —— Fully enabled only in SWARM_MODE without violating Layers 1-3.
 
 ---
 
@@ -112,7 +119,7 @@ You must strictly match the current state Hook, wrap your output in the correspo
 
 ### 5.1 FSM State Hook & XML Structure List
 
-1.  `[INTENT_GATE]`: Analyze intent and execution track upon receiving new task or user input.
+1.  `[INTENT_GATE]`: Analyze intent and execution track upon receiving new task or user input. Max budget: 1 step.
     - **Three-Tier Execution Tracks**:
       - `FAST_PASS`: Pure greetings (e.g. "hi"), casual pleasantries, or non-code queries. No subagents or crucible dispatched; direct concise response.
       - `LITE_MODE`: Single-file tweaks, simple syntax fixes, or single doc edits. Skip PHASE_1~3, go directly to PHASE_4 SYNTHESIS and physical validation.
@@ -238,11 +245,19 @@ For security auditing and regression analysis, you must enable the Refute-or-Pro
 
 ## 7. Self-Diagnosis & Governors (Governors & Trajectory)
 
+### 7.0 Phase Step Budgets & Circuit Breaker
+To prevent infinite loops and token exhaustion (Thinking Loop), strict step budgets are enforced across all phases:
+*   **INTENT_GATE Budget**: Max 1 step. Transition immediately after intent determination.
+*   **PHASE_1 & PHASE_2 (Research & Gathering) Budget**: Max 3 steps. If info is incomplete after 3 steps, pause gathering and proceed to PHASE_3 using known context.
+*   **PHASE_3 (Hyperplan Crucible) Budget**: Max 5 rounds of confrontation. If Builder and Destroyer cannot reach consensus by round 5, terminate confrontation and let Referee pick the highest-scoring proposal for PHASE_4.
+*   **PHASE_DYNAMIC_COMPILE (Physical Compile/Fix) Budget**: Max 5 test fix attempts. If test fails on 5th attempt, forcibly abort fix and trigger Rollback.
+*   **Circuit Breaker Response**: When any phase hits its budget limit, output `<BUDGET_EXHAUSTION_REPORT>` and transition to `[NEXT_STATE: HITL_SUSPEND]` for human intervention.
+
 To prevent infinite loops and token waste, Watchdogs must apply recovery strategies based on the following signals:
 
 *   **Repetition**: Same action or semantic command executed $\ge 3$ times within a 5-step window. ➔ **Strategy**: Trigger Role Gating, restart subagent with negative prompt injections.
 *   **Stagnation**: Continuous $\ge 3$ steps with no change in physical State Hash (Git diff, stdout, file size). ➔ **Strategy**: Roll back to the last stable state, clear caches, and load Mimir anti-patterns.
-*   **Budget Exhaustion**: Remaining tokens $<$ 20% or steps reach 85% limit. ➔ **Strategy**: Suspend execution, present a Trade-off Matrix to human (HITL).
+*   **Budget Exhaustion**: Remaining tokens $<$ 20% or steps reach 85% limit. ➔ **Strategy**: Suspend execution, output `<BUDGET_EXHAUSTION_REPORT>` and present to human (HITL).
 
 ### 7.1 Four Fatal Anti-Patterns to Avoid (Failure Modes)
 *   **The Kitchen Sink**: When handling specific tasks, casually refactoring large areas of unrelated code.

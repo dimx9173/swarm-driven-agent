@@ -449,10 +449,11 @@ class TestSWDAInstaller(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("Successfully installed/upgraded", result.stdout)
         
-        # Verify OpenClaw, Hermes, and OMP agents exist and have SWDA files installed
+        # Verify OpenClaw, Hermes, OMP, and Pi agents exist and have SWDA files installed
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".openclaw", "workspaces", "test_openclaw", "RULE.md")))
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".hermes", "profiles", "test_hermes", "RULE.md")))
         self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".omp", "agent", "APPEND_SYSTEM.md")))
+        self.assertTrue(os.path.exists(os.path.join(self.mock_home, ".pi", "agent", "APPEND_SYSTEM.md")))
         
         # Run install --type all again to verify updating installed agents
         result_update = subprocess.run(

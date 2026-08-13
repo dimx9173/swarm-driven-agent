@@ -1,8 +1,8 @@
-# SWDD Modular Output Schema Contract v1.4.0
+# SWDD Modular Output Schema Contract v1.5.0
 
 > **用途**：本檔為 `template/modular/RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**，專供 **openclaw / hermes agent runtime** 使用。SOUL 應在每次大版本變更時同步更新本檔，並與 `SOUL.md` 的 swda-begin/end 標記區塊保持版本一致。
 > **生效日**：2026-08-13
-> **版本**：v1.4.0（同步 modular/RULE.md v2.10.0）
+> **版本**：v1.5.0（同步 modular/RULE.md v2.11.0）
 > **與 integrated 套餐的關係**：本檔為 modular 套餐專屬，**不與 `output-schema.md`（integrated）共用**。兩者根標籤名稱與 FSM 轉移定義保持同步。
 
 ---
@@ -121,4 +121,17 @@ required_action: [具體補救指引]
 bypass_allowed: [True | False]  # True 表示 HITL 可覆寫
 </ACTION_REALIZATION_BLOCK>
 [NEXT_STATE: None | Zero-Chat Contract Active]
+```
+
+### 2.8 `<BUDGET_EXHAUSTION_REPORT>` (預算耗盡熔斷報告)
+```xml
+<BUDGET_EXHAUSTION_REPORT>
+EXHAUSTED_PHASE: [INTENT_GATE | GATHER | HYPERPLAN | DYNAMIC_COMPILE]
+STEP_COUNT_REACHED: [1 | 3 | 5]
+REASON: [說明預算耗盡與無法收斂之根因]
+CURRENT_BEST_PROPOSAL: [摘要當前評分最高或最小可用之實作方案]
+REMAINING_RISKS: [條列說明未決死角或未通過之測試斷言]
+HITL_DIRECTIVE: [提請人類工程師決策之具體選擇題與處置建議]
+</BUDGET_EXHAUSTION_REPORT>
+[NEXT_STATE: HITL_SUSPEND | Budget Exhausted]
 ```
