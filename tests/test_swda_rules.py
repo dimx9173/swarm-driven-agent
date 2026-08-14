@@ -129,7 +129,7 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
                 omp_content = f.read()
             with open(self.all_in_en, "r", encoding="utf-8") as f:
                 expected_content = f.read()
-            self.assertIn("version: 14.3.0-deterministic", omp_content)
+            self.assertIn("version: 14.4.0-deterministic", omp_content)
             self.assertIn("Three-Tier Topology Hierarchy", omp_content)
             self.assertIn("find_references", omp_content)
             self.assertIn("State Hygiene Rollback Protocol", omp_content)

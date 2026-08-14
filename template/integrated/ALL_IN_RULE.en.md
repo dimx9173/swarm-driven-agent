@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 14.3.0-deterministic
+version: 14.4.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
