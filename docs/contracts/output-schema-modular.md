@@ -1,8 +1,8 @@
-# SWDD Modular Output Schema Contract v1.5.0
+# SWDD Modular Output Schema Contract v1.6.0
 
 > **用途**：本檔為 `template/modular/RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**，專供 **openclaw / hermes agent runtime** 使用。SOUL 應在每次大版本變更時同步更新本檔，並與 `SOUL.md` 的 swda-begin/end 標記區塊保持版本一致。
-> **生效日**：2026-08-13
-> **版本**：v1.5.0（同步 modular/RULE.md v2.11.0）
+> **生效日**：2026-08-14
+> **版本**：v1.6.0（同步 modular/RULE.md v2.12.0）
 > **與 integrated 套餐的關係**：本檔為 modular 套餐專屬，**不與 `output-schema.md`（integrated）共用**。兩者根標籤名稱與 FSM 轉移定義保持同步。
 
 ---

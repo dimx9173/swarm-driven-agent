@@ -2,14 +2,15 @@
 """
 SWDA Rule & Template Integrity Unit Tests.
 Verifies that SWDA templates contain mandatory Socratic Grilling, Scientific Debugging 6-Phase,
-and Trajectory Regulation Gate [DEBUG-xxxx] log cleanup clauses.
+and Trajectory Regulation Gate [DEBUG-xxxx] log cleanup clauses across both Chinese and English bundles.
 """
 import unittest
 import os
 import re
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATE_DIR = os.path.join(ROOT_DIR, "template", "modular")
+MODULAR_DIR = os.path.join(ROOT_DIR, "template", "modular")
+INTEGRATED_DIR = os.path.join(ROOT_DIR, "template", "integrated")
 
 def scan_for_debug_tags(code_or_log_text: str) -> list[str]:
     """
@@ -21,35 +22,58 @@ def scan_for_debug_tags(code_or_log_text: str) -> list[str]:
 
 class TestSWDARulesAndTemplates(unittest.TestCase):
     def setUp(self):
-        self.skill_path = os.path.join(TEMPLATE_DIR, "SKILL.md")
-        self.rule_path = os.path.join(TEMPLATE_DIR, "RULE.md")
-        self.soul_path = os.path.join(TEMPLATE_DIR, "SOUL.md")
+        self.skill_zh = os.path.join(MODULAR_DIR, "SKILL.md")
+        self.skill_en = os.path.join(MODULAR_DIR, "SKILL.en.md")
+        self.rule_zh = os.path.join(MODULAR_DIR, "RULE.md")
+        self.rule_en = os.path.join(MODULAR_DIR, "RULE.en.md")
+        self.soul_zh = os.path.join(MODULAR_DIR, "SOUL.md")
+        self.soul_en = os.path.join(MODULAR_DIR, "SOUL.en.md")
+        self.all_in_zh = os.path.join(INTEGRATED_DIR, "ALL_IN_RULE.md")
+        self.all_in_en = os.path.join(INTEGRATED_DIR, "ALL_IN_RULE.en.md")
 
     def test_template_files_exist(self):
-        self.assertTrue(os.path.exists(self.skill_path), "SKILL.md template missing")
-        self.assertTrue(os.path.exists(self.rule_path), "RULE.md template missing")
-        self.assertTrue(os.path.exists(self.soul_path), "SOUL.md template missing")
+        for path in [self.skill_zh, self.skill_en, self.rule_zh, self.rule_en,
+                     self.soul_zh, self.soul_en, self.all_in_zh, self.all_in_en]:
+            self.assertTrue(os.path.exists(path), f"Template missing: {path}")
 
     def test_skill_md_has_grilling_gate(self):
-        with open(self.skill_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        self.assertIn("Conditional Socratic Grilling Gate", content)
-        self.assertIn("1-question-at-a-time", content)
-        self.assertIn("推薦選項與理由", content)
+        # Check Chinese version
+        with open(self.skill_zh, "r", encoding="utf-8") as f:
+            content_zh = f.read()
+        self.assertIn("Conditional Socratic Grilling Gate", content_zh)
+        self.assertIn("1-question-at-a-time", content_zh)
+        self.assertIn("推薦選項與理由", content_zh)
+
+        # Check English version
+        with open(self.skill_en, "r", encoding="utf-8") as f:
+            content_en = f.read()
+        self.assertIn("Conditional Socratic Grilling Gate", content_en)
+        self.assertIn("1-question-at-a-time", content_en)
+        self.assertIn("recommended option and rationale", content_en)
 
     def test_skill_md_has_scientific_debugging_and_tag_cleanup(self):
-        with open(self.skill_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        self.assertIn("Scientific Debugging & TDD", content)
-        self.assertIn("可證偽假說", content)
-        self.assertIn("[DEBUG-xxxx]", content)
-        self.assertIn("偵錯日誌標籤", content)
+        # Check Chinese version
+        with open(self.skill_zh, "r", encoding="utf-8") as f:
+            content_zh = f.read()
+        self.assertIn("Scientific Debugging & TDD", content_zh)
+        self.assertIn("可證偽假說", content_zh)
+        self.assertIn("[DEBUG-xxxx]", content_zh)
+        self.assertIn("偵錯日誌標籤", content_zh)
+
+        # Check English version
+        with open(self.skill_en, "r", encoding="utf-8") as f:
+            content_en = f.read()
+        self.assertIn("Scientific Debugging & TDD", content_en)
+        self.assertIn("falsifiable hypotheses", content_en.lower())
+        self.assertIn("[DEBUG-xxxx]", content_en)
+        self.assertIn("debug instrumentation tags", content_en.lower())
 
     def test_rule_md_trajectory_gate_has_debug_scanner(self):
-        with open(self.rule_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        self.assertIn("Trajectory Regulation Gate", content)
-        self.assertIn("[DEBUG-xxxx]", content)
+        for rule_path in [self.rule_zh, self.rule_en, self.all_in_zh, self.all_in_en]:
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("Trajectory Regulation Gate", content, f"Missing Trajectory Gate in {rule_path}")
+            self.assertIn("[DEBUG-xxxx]", content, f"Missing [DEBUG-xxxx] in {rule_path}")
 
     def test_debug_tag_scanner_utility(self):
         clean_code = "def add(a, b):\n    return a + b\n"
@@ -58,19 +82,31 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
         self.assertEqual(scan_for_debug_tags(clean_code), [])
         self.assertEqual(scan_for_debug_tags(dirty_code), ["[DEBUG-a4f2]"])
 
-    def test_soul_and_rule_has_strict_fsm_phase_lock(self):
-        with open(self.soul_path, "r", encoding="utf-8") as f:
-            soul_content = f.read()
-        self.assertIn("FSM 階段與工具權限強鎖定", soul_content)
+    def test_strict_fsm_phase_lock_across_all_templates(self):
+        with open(self.soul_zh, "r", encoding="utf-8") as f:
+            self.assertIn("FSM 階段與工具權限強鎖定", f.read())
 
-        with open(self.rule_path, "r", encoding="utf-8") as f:
-            rule_content = f.read()
-        self.assertIn("Strict FSM Phase Lock", rule_content)
+        with open(self.soul_en, "r", encoding="utf-8") as f:
+            self.assertIn("Strict FSM Phase & Tool Lock", f.read())
 
-        all_in_rule_path = os.path.join(ROOT_DIR, "template", "integrated", "ALL_IN_RULE.md")
-        with open(all_in_rule_path, "r", encoding="utf-8") as f:
-            all_in_content = f.read()
-        self.assertIn("Strict FSM Phase Lock", all_in_content)
+        with open(self.rule_zh, "r", encoding="utf-8") as f:
+            self.assertIn("Strict FSM Phase Lock", f.read())
+
+        with open(self.rule_en, "r", encoding="utf-8") as f:
+            self.assertIn("Strict FSM Phase & Tool Lock", f.read())
+
+        with open(self.all_in_zh, "r", encoding="utf-8") as f:
+            self.assertIn("Strict FSM Phase Lock", f.read())
+
+        with open(self.all_in_en, "r", encoding="utf-8") as f:
+            self.assertIn("Strict FSM Phase & Tool Lock", f.read())
+
+    def test_firewall_precedence_hierarchy_has_full_tc_range(self):
+        for rule_path in [self.rule_zh, self.rule_en, self.all_in_zh, self.all_in_en]:
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("TC-01 ~ TC-10", content, f"Missing TC-01 ~ TC-10 range in {rule_path}")
+            self.assertIn("TC-10", content, f"Missing TC-10 definition in {rule_path}")
 
 if __name__ == "__main__":
     unittest.main()

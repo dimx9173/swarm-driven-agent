@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 2.11.0-engineering-hardened
+version: 2.12.0-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"

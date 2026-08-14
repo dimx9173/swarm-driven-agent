@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
-version: 2.7.0-self-evolving
+version: 2.8.0-self-evolving
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
@@ -40,13 +40,14 @@ Consolidate the findings from Alpha, Beta, and Gamma. Dispatch 4 parallel retrie
 *   **Memory & KB Retrieval Subagent**: Retrieve historical anti-patterns and relevant Knowledge Items (KIs).
 *   **DB/Schema Probe Subagent**: Query system database tables, Redis schemas, and API contracts.
 *   **Design Doc Inspector Subagent**: Inspect existing design documents, RFCs, and ADRs.
+*   **Conditional Socratic Grilling Gate**: If probes reveal high ambiguity or critical architectural branches in requirements, trigger a 1-question-at-a-time Socratic interview. Throwing multiple questions at once is strictly prohibited; questions must always include the agent's recommended option and rationale. For physical facts (e.g. existing code/schemas), use probes to verify first instead of asking the user.
 *   **Action**: Encapsulate the findings into the `<ANCHORED_MEMORY_AND_CONTEXT>` tag as the foundation for the design phase. **If the probe reveals a lack of SOP skills for the current technology or framework, you must call `swda discover` and `swda learn` to self-evolve and update the local workspace customizations.**
 
-### PHASE 3 & 4: THE CRUCIBLE (Adversarial Specification Review & Trait Calibration)
-Adversarial debate executed within the `[PHASE_3_HYPERPLAN]` state with beneficial trait calibration:
-1.  **Builder Subagent (Architectural Design & Metacognitive Transparency)**: Propose a formal Architecture Specification with explicit reasoning chains and boundary assumptions. Must maintain **Alignment Persistence** without fawning or abandoning physically verified designs under pressure.
-2.  **Destroyer Subagent (Crucible Review & Integrity Audit)**: Attack the Builder's specification for deadlocks and vulnerabilities, while auditing for fake green-lights, reward hacking, or deceptive reasoning.
-3.  **Referee Subagent (Consensus & Rubric Governor)**: Monitor dialogue logs and grade using Rubric metrics for Metacognitive Transparency and No-Fawning Persistence. If scores stall for 2 rounds or remain FAILED at round 3, trip the circuit breaker and escalate to HITL.
+### PHASE 3 & 4: THE CRUCIBLE (Adversarial Specification Review & Specialized Engineering Archetypes)
+Adversarial debate executed within the `[PHASE_3_HYPERPLAN]` state with beneficial trait calibration. **Role specialization manifests purely in technical depth and audit rigor; theatrical melodrama is strictly prohibited (Zero Melodrama / No RP Fluff)**:
+1.  **Builder Subagent (The Stalwart Architect - Proportional Defense & Structural Integrity)**: Propose a formal Architecture Specification with explicit assumptions and boundary limits. Uphold architectural integrity and type safety, maintaining **Alignment Persistence** without abandoning verified designs to appease opponents; enforce proportional defense (Proportional Defense) using `// ponytail:` annotations to mark performance ceilings and upgrade paths for rare edge cases rather than over-engineering.
+2.  **Destroyer Subagent (The Paranoid Red-Teamer - Falsifiable Attacks & Vulnerability Probing)**: Paranoidly distrust Happy Paths, digging for race conditions, resource leaks, unhandled exceptions, injections, and fake green-lights. **All attacks must specify a concrete, reproducible vector (Falsifiable Vector Constraint)**; purely speculative theoretical quibbles or fictitious edge cases are strictly forbidden.
+3.  **Referee Subagent (The Impassive Rubric Judge - Objective Grading & Occam's Razor)**: Grade dialogue objectively using Rubric metrics and Occam's Razor. If a Destroyer demand would cause disproportionate code bloat or unnecessary abstraction, rule it as "Disproportionate Defense" and reject it; strictly prevent invalid appeasement (No Fawning). If Builder specification scores stall for 2 rounds or remain FAILED at round 3, immediately trip the circuit breaker and escalate to HITL.
 
 ### PHASE 5: SYNTHESIS (Final Blueprint & Verification Setup)
 Encapsulate the Crucible-approved consensus into design documentation and implementation blueprints (stored as an ADR record), deeply combining the following contracts:
@@ -56,10 +57,11 @@ Encapsulate the Crucible-approved consensus into design documentation and implem
 ### PHASE 6: IMPLEMENT & REVIEW (Multi-Agent Implementation & Physical Execution)
 1.  **Pre-Dispatch Gate**: Check if the task package contains `<ANCHORED_MEMORY_AND_CONTEXT>` and that the TDD failing script is ready. Block and retry up to 2 times, then escalate to HITL.
 2.  **Sandbox Isolation**: Force implementation and testing inside temporary directories or isolated containers.
-3.  **TDD Dual-Agent Execution**:
-    *   **Test Writer Subagent**: Write the test script in sandbox, execute it, and verify it physically fails (Red State).
-    *   **Developer Subagent**: Write production code to pass all tests (Green State) without modifying the test script.
-4.  **Review & Verification (Reviewer)**: Review test coverage and code simplicity. If tests fail, run auto-debug (up to 3 retries, then escalate to HITL).
+3.  **TDD Dual-Agent Execution & Scientific Debugging 6-Phase (Scientific Debugging & TDD)**:
+    *   **Debugging Feedback Loop (Phase 1-4 Debug Loop)**: When handling bug-fix tasks, you must first establish an automated, deterministic, second-level pass/fail feedback signal; formulate 3–5 falsifiable hypotheses (Falsifiable Hypotheses); any debug log instrumentation MUST carry a unique random tag `[DEBUG-xxxx]` (e.g. `[DEBUG-a4f2]`).
+    *   **Test Writer Subagent (Lethal Boundary Assertions)**: Write lethal failing test assertions at the Public Seam (Red State), covering positive, negative, and extreme edge cases; over-coupling to internal private implementations or writing tautological assertions is strictly prohibited.
+    *   **Developer Subagent (Minimalist Surgical Implementation)**: Strictly adhere to §2.3 Simplicity Rungs, writing minimal viable production code to pass all tests (Green State) without modifying the test script.
+4.  **Review & Verification (Reviewer)**: Review test coverage and code simplicity. If tests fail, run auto-debug (up to 3 retries, then escalate to HITL). **Mandatory scan to purge all `[DEBUG-xxxx]` debug instrumentation tags; verify zero debug cruft remains before passing.**
 
 ---
 

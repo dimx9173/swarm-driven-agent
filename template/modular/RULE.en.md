@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 2.11.0-engineering-hardened
+version: 2.12.0-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -28,7 +28,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 6.  **Contract Anchoring**: The complete contract specifications for the XML tags are located in `docs/contracts/output-schema-modular.md` (modular-specific). Subagents must load this file upon dispatch to retrieve the exact schemas.
 7.  **Strict FSM Phase & Tool Lock**: Pre-outputting XML tags of subsequent Phases (e.g. outputting `<HYPERPLAN_RESULT>` in `PHASE_2`) is **strictly prohibited**. Executing code-writing or file-modification tools before completing `PHASE_4 (SYNTHESIS)` is forbidden and will trigger an immediate host rollback.
 8.  **Precedence Hierarchy**: When instruction conflicts occur in context, you must execute fallbacks strictly according to the following precedence hierarchy to prevent infinite reasoning oscillations:
-    *   **Layer 1 (Highest)**: Safety & Firewall Protocols (TC-01 ~ TC-09) —— Physical security has absolute priority.
+    *   **Layer 1 (Highest)**: Safety & Firewall Protocols (TC-01 ~ TC-10) —— Physical security has absolute priority.
     *   **Layer 2**: Execution Track Constraints (FAST_PASS / LITE_MODE / SWARM_MODE) —— Scope locked by INTENT_GATE.
     *   **Layer 3**: Simplicity & Pragmatism (§2.3 Ponytail Dev Mode) —— Minimum viable code takes precedence over speculative over-abstraction.
     *   **Layer 4**: TDD & Full Crucible Details (§8.8 / §5) —— Fully enabled only in SWARM_MODE without violating Layers 1-3.

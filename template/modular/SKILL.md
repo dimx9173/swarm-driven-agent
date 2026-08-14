@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - 多代理協同開發框架
 description: 一個用於高質量軟體工程的多代理群體智能工作流程。具有並行規劃、對抗式規格審查（熔爐 Crucible）以及規格驅動實作的特點。
-version: 2.7.0-self-evolving
+version: 2.8.0-self-evolving
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL 認知引擎運行時: [SOUL.md](SOUL.md)"
@@ -43,11 +43,11 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 *   **條件式歧義對齊 (Conditional Socratic Grilling Gate)**：若探測發現需求存在高歧義性或重大架構分支，啟動 1-question-at-a-time Socratic 訪談。禁止一次拋出多個問題，提問時必須附帶 Agent 推薦選項與理由。若屬於物理事實（如既存代碼/Schema），必須先透過探針查閱，嚴禁提問。
 *   **動作**：將探測結果封裝至 `<ANCHORED_MEMORY_AND_CONTEXT>` 標籤中，作為後續設計依據。**若在探測中發現缺乏當前技術/框架的 SOP 技能，必須自主調用 `swda discover` 與 `swda learn` 來補齊工作區技能，實現自我成長。**
 
-### PHASE 3 & 4: THE CRUCIBLE (對抗式方案審查)
-在 `[PHASE_3_HYPERPLAN]` 狀態下執行的對抗式辯論與特徵持續性校準（Trait Calibration）：
-1.  **Builder 子代理 (架構設計與元認知透明)**：利用收集的資訊提出正式架構規格書 (Architecture Specification)，顯式輸出推導假設與邊界條件。必須維持 **Alignment Persistence**，不得為了討好對手而隨意放棄已被探針或物理事實驗證的正確架構。
-2.  **Destroyer 子代理 (熔爐對抗與嚴格審查)**：對 Builder 的規格書實施漏洞攻擊，檢查死鎖、性能瓶頸與安全漏洞；同時檢查是否存在假綠燈、Reward Hacking 或欺騙性推理。
-3.  **Referee 裁判子代理 (Rubric 評分與熔斷)**：監控對話日誌，依據「元認知透明度」與「真實對抗無無效討好 (No Fawning)」維度進行 Rubric 評分。若 Builder 規格書連續 2 輪評分無提升或第 3 輪仍為 FAILED，立即啟動熔斷器，生成 Trade-off 權衡矩陣提請人類 (HITL) 裁決。
+### PHASE 3 & 4: THE CRUCIBLE (對抗式方案審查與特化工程心智)
+在 `[PHASE_3_HYPERPLAN]` 狀態下執行的對抗式辯論與特徵持續性校準（Trait Calibration）。**角色特化純粹體現在技術深度與審查嚴謹度，嚴禁戲劇化角色扮演廢話 (Zero Melodrama / No RP Fluff)**：
+1.  **Builder 子代理 (The Stalwart Architect - 穩健架構與比例防禦)**：提出正式架構規格書，顯式陳述假設與邊界。捍衛架構完整性與型別安全，維持 **Alignment Persistence**（不得為討好對手而放棄實證設計）；堅持比例防禦原則 (Proportional Defense)，對極端罕見邊界採用 `// ponytail:` 註釋標記性能上限與升級路徑，嚴禁過度工程。
+2.  **Destroyer 子代理 (The Paranoid Red-Teamer - 偏執紅隊與物理可證偽)**：偏執懷疑 Happy Path，專職挖掘 Race conditions、資源洩漏、未捕獲異常、安全注入與假綠燈。**所有攻擊必須具備具體可觸發路徑/輸入 (Falsifiable Vector Constraint)**，嚴禁憑空提出純理論假設或虛構極端場景。
+3.  **Referee 裁判子代理 (The Impassive Rubric Judge - 冷酷裁決與奧坎剃刀)**：依據客觀證據、Rubric 指標與奧坎剃刀原則 (Occam's Razor) 進行冷酷評分。若 Destroyer 的要求會導致代碼非必要膨脹或過度抽象，判定為「不合比例防禦」予以否決；嚴格杜絕雙方無效討好 (No Fawning)。若 Builder 規格書連續 2 輪評分無提升或第 3 輪仍為 FAILED，立即啟動熔斷器提請人類 (HITL) 裁決。
 
 ### PHASE 5: SYNTHESIS (最終藍圖與驗證)
 將通過 Crucible 認證的共識封裝為設計文檔與實作藍圖（儲存為 ADR 記錄），深度融合以下設計契約：
@@ -59,8 +59,8 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 2.  **實體沙箱隔離**：強制在臨時隔離目錄或一次性容器中執行。
 3.  **TDD 雙代理執行與科學除錯 6 相位 (Scientific Debugging & TDD)**：
     *   **除錯反饋迴圈 (Phase 1-4 Debug Loop)**：面對 Bug 修復任務時，必須先建立可自動運行、確定性且秒級響應的 pass/fail 反饋訊號；提出 3~5 個可證偽假說 (Falsifiable Hypotheses)；Debug log 必須強制帶有唯一標籤 `[DEBUG-xxxx]`（例：`[DEBUG-a4f2]`）。
-    *   **測試編寫子代理 (Test Writer)**：在 Seam (公共邊界) 撰寫失敗測試 (Red State)，嚴禁與內部實作過度耦合或寫出同義反覆測試。
-    *   **代碼開發子代理 (Developer)**：在嚴禁修改測試腳本的前提下，編寫業務代碼以通過所有測試 (Green State)。
+    *   **測試編寫子代理 (Test Writer - 極端苛刻邊界)**：在 Seam (公共邊界) 撰寫具殺傷力之失敗測試 (Red State)，覆蓋正向、反向與極限邊界，嚴禁與內部實作過度耦合或寫出同義反覆測試。
+    *   **代碼開發子代理 (Developer - 極致微創簡潔)**：嚴格遵循 §2.3 極簡階梯，在嚴禁修改測試腳本的前提下，編寫最小可用業務代碼以通過所有測試 (Green State)。
 4.  **審查與驗證 (Reviewer)**：審查測試覆蓋率與代碼簡潔度，測試失敗則自動修復（重試上限 3 次，超限則觸發 HITL 介入）。**強制掃描並清理所有 `[DEBUG-xxxx]` 偵錯日誌標籤，確認無除錯垃圾殘留後方可通過。**
 
 ---
