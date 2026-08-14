@@ -97,6 +97,16 @@ STRATEGY_TRACK: Dispatching 3 subagents for casual greeting.
         self.assertEqual(eval_data["model_name"], "swda(pi-agent)")
         self.assertGreaterEqual(eval_data["pass_rate_pct"], 80.0)
 
+    def test_omp_agent_runner_initialization(self):
+        """Verifies HarnessRunner initialization with OMP Agent live driver (offline fallback)."""
+        from tests.benchmark.harness_runner import run_omp_agent_live  # noqa: F401 — verify importable
+        runner = HarnessRunner(tasks_file=DEFAULT_TASKS_FILE, offline=True, agent_driver="omp")
+        self.assertEqual(runner.agent_driver, "omp")
+        
+        eval_data = runner.run_evaluation("swda(omp-agent)")
+        self.assertEqual(eval_data["model_name"], "swda(omp-agent)")
+        self.assertGreaterEqual(eval_data["pass_rate_pct"], 80.0)
+
     @unittest.skipIf(shutil.which("pi") is None, "pi CLI not installed — skipping live Pi Agent integration test")
     def test_pi_agent_live_driver(self):
         """Live integration test: requires the `pi` CLI to be installed and on PATH."""
@@ -105,6 +115,15 @@ STRATEGY_TRACK: Dispatching 3 subagents for casual greeting.
         # Simple greeting must NOT trigger SWARM_MODE or overthinking loops
         self.assertNotIn("SWARM_MODE", output, "Over-thinking loop detected: SWARM_MODE triggered for a simple greeting")
         self.assertNotIn("PHASE_1_DESTRUCT", output, "Over-thinking loop detected: PHASE_1_DESTRUCT triggered for a simple greeting")
+
+    @unittest.skipIf(shutil.which("omp") is None and not os.path.exists("/Users/carlos/.bun/bin/omp"), "omp CLI not installed — skipping live OMP Agent integration test")
+    def test_omp_agent_live_driver(self):
+        """Live integration test: requires the `omp` CLI to be installed."""
+        from tests.benchmark.harness_runner import run_omp_agent_live
+        # Quick ping test to verify omp live driver produces output or error string gracefully
+        output = run_omp_agent_live("hi", timeout=10)
+        self.assertIsInstance(output, str)
+        self.assertTrue(len(output) > 0)
 
 
 if __name__ == "__main__":

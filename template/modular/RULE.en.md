@@ -48,7 +48,10 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 
 ## 2. Global Operating Protocols & Micro Developer Disciplines (Global Protocols & Micro Developer Disciplines)
 
-*   **Dynamic AST Semantic Tracking Restriction**: When you need to collect context or locate bugs, **you are absolutely prohibited** from using plain text regex searches alone. **You must prioritize** calling code graph tools for AST-level semantic navigation (tracking caller/callee and structural dependencies) to establish a mathematically sound context.
+*   **Dynamic AST Semantic Tracking & Three-Tier Topology Hierarchy**: When you need to collect context or locate bugs, **you are absolutely prohibited** from using plain text regex searches alone. **You must prioritize** following the capability hierarchy below to establish a mathematically sound context (grounded in *Life-Harness, arXiv:2605.22166* and *SWE-agent* theory):
+    *   **Tier A (Preferred - LSP Symbol Navigation)**: If the runtime environment provides LSP / compiler symbol tools (e.g. omp native LSP `find_references`, `goto_definition`, `workspace_symbols`), you must prioritize calling them to obtain zero-hallucination symbol references and precise AST call graphs.
+    *   **Tier B (Secondary - AST Code Graph)**: Call `codebase-memory-mcp` or `graphify` structured graph tools to trace caller/callee and module dependency topology.
+    *   **Tier C (Fallback - Exact Lexical Match)**: Only when neither LSP nor code graph tools are available may you use ripgrep for exact string matching and manually assemble call chains.
 *   **Specification Over Code Principle (Specification Over Code)**: Before the architecture or repair specification (SPEC) passes the Crucible (adversarial furnace), **you are strictly prohibited** from assigning any development subagent to write code.
 *   **Micro Developer Five Iron Laws (Micro Developer Rules)**:
   1. **(§2.1) Read Before Write**: **Never write before reading. Copy existing patterns. Read, do not skim.** Read the files you are about to touch and their surrounding dependencies. Prioritize copying existing code styles and architecture designs, check existing imports to understand the project's real dependencies (for example, if the project all uses `fetch`, you are strictly prohibited from introducing `axios`). When existing patterns cannot be found, you should proactively ask rather than blindly guessing. (See §8.1 Source-First Analysis)
@@ -128,7 +131,7 @@ STRATEGY_TRACK: [Scheduling path agreed upon by dispatch/audit subagents; "Direc
 ### 5.2 Physical Execution Guard Gates
 *   **Action Realization Gate**: Pre-dispatch check of Spec contracts, TDD failing scripts, and `<ANCHORED_MEMORY_AND_CONTEXT>` packages. Block and retry up to 2 times, then escalate to HITL.
 *   **Sandbox Isolation**: Force implementation and testing inside temporary directories to maintain separation of roles.
-*   **Trajectory Regulation Gate**: Post-execution run of tests and calculations, with semantic diff scanning to ensure no commented assertions or hardcoded reward hacking shortcuts. Clean up `[DEBUG-xxxx]` logs. Retry on Red state or deception up to 3 times, then escalate to HITL.
+*   **Trajectory Regulation Gate & Zero-TypeError Pre-flight**: Before running business tests, prioritize calling environment Linters / Typecheckers (e.g. `mypy`, `rustc --no-run`, `tsc --noEmit`, `go vet`) for deterministic static syntax and type pre-checks; after pre-checks pass, execute tests and intermediate assertions. Scan for and clean up `[DEBUG-xxxx]` logs, and verify no commented assertions or reward hacking shortcuts exist. Retry on Red state or deception up to 3 times, then escalate to HITL.
 
 ---
 
@@ -157,7 +160,7 @@ To prevent infinite loops and token exhaustion (Thinking Loop), strict step budg
 To prevent infinite loops and token waste, Watchdogs must apply recovery strategies based on the following signals:
 
 *   **Repetition**: Same action or semantic command executed $\ge 3$ times within a 5-step window. ➔ **Strategy**: Trigger Role Gating, restart subagent with negative prompt injections.
-*   **Stagnation**: Continuous $\ge 3$ steps with no change in physical State Hash (Git diff, stdout, file size). ➔ **Strategy**: Roll back to the last stable state, clear caches, and load Mimir anti-patterns.
+*   **Stagnation & State Hygiene Rollback Protocol**: Continuous $\ge 3$ steps with no change in physical State Hash (Git diff, stdout, file size), or when Crucible confrontation is rejected. ➔ **Strategy**: If the environment supports session tree branching (e.g. omp Session Rollback) or Git clean, proactively roll back to the last stable clean state, purge context contaminated by false assumptions, and load Mimir anti-patterns to restart exploration.
 *   **Budget Exhaustion**: Remaining tokens $<$ 20% or steps reach 85% limit. ➔ **Strategy**: Suspend execution, output `<BUDGET_EXHAUSTION_REPORT>` and present to human (HITL).
 
 ---

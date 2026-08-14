@@ -86,6 +86,27 @@ def run_pi_agent_live(prompt: str, model: str = None, timeout: int = 30) -> str:
         return f"<INTENT_GATE_RESULT>\nINTENT_CLASSIFICATION: ERROR\nEXECUTION_TRACK: FAST_PASS\n</INTENT_GATE_RESULT>\n[NEXT_STATE: HITL_SUSPEND | {str(e)}]"
 
 
+def run_omp_agent_live(prompt: str, model: str = None, timeout: int = 30) -> str:
+    """
+    Executes live evaluation against OMP (oh-my-pi CLI) in non-interactive mode.
+    """
+    import shutil
+    import subprocess
+    omp_bin = shutil.which("omp") or "/Users/carlos/.bun/bin/omp"
+    if not os.path.exists(omp_bin):
+        return "<INTENT_GATE_RESULT>\nINTENT_CLASSIFICATION: ERROR\nEXECUTION_TRACK: FAST_PASS\n</INTENT_GATE_RESULT>\n[NEXT_STATE: HITL_SUSPEND | omp binary not found]"
+    cmd = [omp_bin, "--no-session", "-p", prompt]
+    if model:
+        cmd.extend(["--model", model])
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return res.stdout if res.returncode == 0 else res.stderr
+    except subprocess.TimeoutExpired:
+        return "<INTENT_GATE_RESULT>\nINTENT_CLASSIFICATION: TIMEOUT\nEXECUTION_TRACK: FAST_PASS\n</INTENT_GATE_RESULT>\n[NEXT_STATE: HITL_SUSPEND | Timeout]"
+    except Exception as e:
+        return f"<INTENT_GATE_RESULT>\nINTENT_CLASSIFICATION: ERROR\nEXECUTION_TRACK: FAST_PASS\n</INTENT_GATE_RESULT>\n[NEXT_STATE: HITL_SUSPEND | {str(e)}]"
+
+
 class HarnessRunner:
     def __init__(self, tasks_file: str = DEFAULT_TASKS_FILE, offline: bool = True, agent_driver: str = "mock"):
         self.tasks_file = tasks_file
@@ -105,6 +126,8 @@ class HarnessRunner:
                 output = mock_model_offline_response(task["prompt"])
             elif self.agent_driver == "pi":
                 output = run_pi_agent_live(task["prompt"])
+            elif self.agent_driver == "omp":
+                output = run_omp_agent_live(task["prompt"])
             else:
                 output = mock_model_offline_response(task["prompt"])
 

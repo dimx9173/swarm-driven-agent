@@ -108,5 +108,32 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
             self.assertIn("TC-01 ~ TC-10", content, f"Missing TC-01 ~ TC-10 range in {rule_path}")
             self.assertIn("TC-10", content, f"Missing TC-10 definition in {rule_path}")
 
+    def test_omp_topology_hierarchy_and_academic_protocols(self):
+        """Verifies Three-Tier Topology Hierarchy, Zero-TypeError Pre-flight, and State Hygiene Rollback."""
+        for rule_path in [self.rule_zh, self.rule_en, self.all_in_zh, self.all_in_en]:
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("Three-Tier Topology Hierarchy", content, f"Missing Three-Tier Topology in {rule_path}")
+            self.assertIn("find_references", content, f"Missing LSP find_references in {rule_path}")
+            self.assertIn("goto_definition", content, f"Missing LSP goto_definition in {rule_path}")
+            self.assertIn("Zero-TypeError Pre-flight", content, f"Missing Zero-TypeError Pre-flight in {rule_path}")
+            self.assertIn("State Hygiene Rollback Protocol", content, f"Missing State Hygiene Rollback in {rule_path}")
+            self.assertIn("arXiv:2605.22166", content, f"Missing Life-Harness citation in {rule_path}")
+
+    def test_installed_local_omp_agent_integrity(self):
+        """Verifies that if ~/.omp/agent/APPEND_SYSTEM.md exists, it matches the latest template version."""
+        home_dir = os.path.expanduser("~")
+        local_omp_append = os.path.join(home_dir, ".omp", "agent", "APPEND_SYSTEM.md")
+        if os.path.exists(local_omp_append):
+            with open(local_omp_append, "r", encoding="utf-8") as f:
+                omp_content = f.read()
+            with open(self.all_in_en, "r", encoding="utf-8") as f:
+                expected_content = f.read()
+            self.assertIn("version: 14.3.0-deterministic", omp_content)
+            self.assertIn("Three-Tier Topology Hierarchy", omp_content)
+            self.assertIn("find_references", omp_content)
+            self.assertIn("State Hygiene Rollback Protocol", omp_content)
+
+
 if __name__ == "__main__":
     unittest.main()

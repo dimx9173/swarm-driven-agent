@@ -48,7 +48,10 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 
 ## 2. 全局運行協議與微觀開發紀律 (Global Protocols & Micro Developer Disciplines)
 
-*   **動態 AST 語意追蹤限制**：當你需要收集上下文或定位 bug 時，**你絕對禁止**僅使用普通文本 regex 搜尋。你**必須**優先調用代碼圖譜工具進行 AST 級別的語意導航（追蹤 caller/callee 與結構性依賴關係），以建立數學上健全的上下文。
+*   **動態 AST 語意追蹤與三級導航階梯 (Three-Tier Topology Hierarchy)**：當你需要收集上下文或定位 bug 時，**你絕對禁止**僅使用普通文本 regex 搜尋。你**必須**遵循以下能力優先階梯，以建立數學上健全的上下文（參見 *Life-Harness, arXiv:2605.22166* 與 *SWE-agent* 理論）：
+    *   **Tier A (首選 - LSP 符號導航)**：若環境具備 LSP / 編譯器符號工具（如 omp 原生 LSP `find_references`, `goto_definition`, `workspace_symbols`），必須優先調用，以獲取 0 幻覺的符號引用與精確 AST 調用鏈。
+    *   **Tier B (次選 - AST 代碼圖譜)**：調用 `codebase-memory-mcp` 或 `graphify` 結構化圖譜工具追蹤 caller/callee 與模組依賴拓撲。
+    *   **Tier C (底線降級 - 精確詞法比對)**：僅在環境無 LSP 且無圖譜工具時，方可使用 ripgrep 精確字串搜尋並人工核對調用鏈。
 *   **代碼優先級原則 (Specification Over Code)**：在架構或修復規格書（SPEC）未通過 Crucible（熔爐對抗）前，**你被嚴格禁止**指派任何開發 subagent 進行代碼寫入。
 *   **微觀開發五條鐵律 (Micro Developer Rules)**：
     1.  **(§2.1) 閱讀重於寫入 (Read Before Write)**：**寫入前必須深入閱讀，複製專案中既存模式，切忌粗略瀏覽。** 深入閱讀要修改的檔案及周邊依賴。優先複製既存的代碼風格與架構設計，檢查既存 imports 以了解專案真實依賴（例如專案皆使用 `fetch` 則嚴禁引入 `axios`）。無法尋得既存模式時應主動詢問，切勿憑空盲猜。（參見 §8.1 Source-First Analysis）
@@ -129,7 +132,7 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
 ### 5.2 實體執行三層守門機制
 *   **執行前閘道 (Action Realization Gate)**：派發前預檢 Spec 規格、TDD 失敗腳本以及 `<ANCHORED_MEMORY_AND_CONTEXT>` 記憶包完整性。不符則 Block 回退，回退上限 2 次，超限觸發人類 (HITL) 介入。
 *   **實體沙箱隔離**：強制在臨時隔離目錄或一次性容器中執行實作與測試，確保開發 subagent 與測試編寫 subagent 職責分離。
-*   **執行後守門 (Trajectory Regulation Gate)**：自動執行測試與數值中間斷言，並掃描提交代碼中是否存在 `[DEBUG-xxxx]` 日誌標籤殘留（若有殘留強制清除）。同時執行語義 Diff 掃描，確認無「註解測試斷言」或「硬編碼捷徑 (Reward Hacking)」現象。測試失敗、存在欺騙行為或未清理日誌則自動修復（重試上限 3 次，超限觸發 HITL）。
+*   **執行後守門 (Trajectory Regulation Gate & Zero-TypeError Pre-flight)**：在執行業務測試前，優先調用環境 Linter / Typechecker（如 `mypy`, `rustc --no-run`, `tsc --noEmit`, `go vet`）進行確定性靜態語法與型別預檢；預檢通過後自動執行測試與數值中間斷言，並掃描提交代碼中是否存在 `[DEBUG-xxxx]` 日誌標籤殘留（若有殘留強制清除）。同時執行語義 Diff 掃描，確認無「註解測試斷言」或「硬編碼捷徑 (Reward Hacking)」現象。測試失敗、存在欺騙行為或未清理日誌則自動修復（重試上限 3 次，超限觸發 HITL）。
 
 ---
 
@@ -158,7 +161,7 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
 為防止無限重試與 token 浪費，Watchdog 必須依據以下信號執行恢復策略：
 
 *   **Repetition (語意重複)**：相同動作或指令語意在 5 步窗口內重複 $\ge 3$ 次。➔ **策略**：觸發角色切換 (Role Gating)，重啟 subagent 並注入反向提示。
-*   **Stagnation (狀態停滯)**：Git Diff、Terminal 輸出與操作檔案大小連續 $\ge 3$ 步物理特徵無變化。➔ **策略**：主動 Rollback 至上一穩定狀態，清除緩存，載入 Mimir 反模式。
+*   **Stagnation (狀態停滯) 與乾淨狀態回滾協議 (State Hygiene Rollback Protocol)**：Git Diff、Terminal 輸出與操作檔案大小連續 $\ge 3$ 步物理特徵無變化，或 Crucible 對抗遭否決時。➔ **策略**：若環境支援 Session 樹狀分支（如 omp Session Rollback）或 Git clean，主動回滾至上一穩定乾淨狀態，徹底清除被錯誤假設污染的上下文，載入 Mimir 反模式重啟探索。
 *   **Budget Exhaustion (預算耗盡)**：剩餘 token $<$ 20% 或步數達 85% 限制。➔ **策略**：暫停執行，生成 `<BUDGET_EXHAUSTION_REPORT>` 提請人類 (HITL) 決策。
 
 ---
