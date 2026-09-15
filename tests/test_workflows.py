@@ -10,7 +10,7 @@ from swda.core.blackboard import Blackboard
 from swda.core.circuit_breaker import StepCounter
 from swda.core.firewall import SecurityFirewallException
 from swda.prime.repl import PrimeREPL
-from swda.prime.rlm import RLMDispatcher
+from swda.prime.rlm import RLMDispatcher, load_dotenv
 from swda.prime.harness import ContinualHarness
 from swda.workflows.crucible import CrucibleWorkflow
 from swda.workflows.reconcile import ReverseReconciliation
@@ -170,6 +170,33 @@ class TestWorkflows(unittest.TestCase):
         self.assertTrue(any("fake_fn_xyz" in err for err in res["errors"]))
         self.assertFalse(any("real_fn" in err for err in res["errors"]))
 
+    def test_dotenv_loader_does_not_override_env(self):
+        env_file = os.path.join(self.temp_dir, ".env")
+        with open(env_file, "w", encoding="utf-8") as f:
+            f.write('SWDA_TEST_KEY="from-file"\nSWDA_TEST_OTHER=plain\n# comment\n\n')
+        os.environ["SWDA_TEST_KEY"] = "from-env"
+        try:
+            loaded = load_dotenv(search_paths=[env_file])
+            self.assertEqual(loaded, env_file)
+            self.assertEqual(os.environ["SWDA_TEST_KEY"], "from-env")
+            self.assertEqual(os.environ["SWDA_TEST_OTHER"], "plain")
+        finally:
+            del os.environ["SWDA_TEST_KEY"]
+            del os.environ["SWDA_TEST_OTHER"]
+
+    def test_rlm_fallback_chain_always_ends_with_auto_free(self):
+        saved = os.environ.get("SWDA_FALLBACK_MODELS")
+        os.environ["SWDA_FALLBACK_MODELS"] = ""
+        try:
+            rlm = RLMDispatcher(default_model="x", fallback_models=["a", "b"])
+            self.assertEqual(rlm.fallback_models, ["a", "b", RLMDispatcher.AUTO_FREE_MODEL])
+            rlm2 = RLMDispatcher(default_model="x", fallback_models=[])
+            self.assertEqual(rlm2.fallback_models, [RLMDispatcher.AUTO_FREE_MODEL])
+        finally:
+            if saved is None:
+                del os.environ["SWDA_FALLBACK_MODELS"]
+            else:
+                os.environ["SWDA_FALLBACK_MODELS"] = saved
 
 if __name__ == "__main__":
     unittest.main()

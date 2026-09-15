@@ -69,6 +69,21 @@ def cmd_reconcile(args):
         sys.exit(1)
 
 
+def cmd_models(args):
+    """Lists live model ids from the configured OpenAI-compatible endpoint."""
+    rlm = RLMDispatcher(default_model=getattr(args, "model", None))
+    try:
+        models = rlm.list_models()
+    except RuntimeError as err:
+        print(f"Error: {err}")
+        sys.exit(1)
+    print(f"Endpoint: {rlm.api_base}")
+    print(f"Default model: {rlm.default_model}")
+    for mid in models:
+        mark = " (default)" if mid == rlm.default_model else ""
+        print(f"  - {mid}{mark}")
+
+
 def cmd_stats(args):
     """Displays telemetry metrics dashboard."""
     telemetry = TelemetryLogger()
@@ -153,6 +168,9 @@ def main():
     rec_p = subparsers.add_parser("reconcile", help="Check for hallucinated symbols in generated code")
     rec_p.add_argument("file", type=str, help="Python source file to verify")
 
+    models_p = subparsers.add_parser("models", help="List live model ids from the LLM endpoint")
+    models_p.add_argument("--model", type=str, default=None, help="Show which id is the active default")
+
     subparsers.add_parser("stats", help="Display execution telemetry and metrics dashboard")
 
     # Check if first arg is an installer command (scan, install, update, check, version, discover, learn, remove)
@@ -171,6 +189,8 @@ def main():
         cmd_refine(args)
     elif args.subcommand == "reconcile":
         cmd_reconcile(args)
+    elif args.subcommand == "models":
+        cmd_models(args)
     elif args.subcommand == "stats":
         cmd_stats(args)
     else:
