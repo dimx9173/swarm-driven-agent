@@ -4,6 +4,8 @@ version: 14.4.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
+<!-- swda-begin -->
+
 # Swarm-Driven Agent (SWDA) Integrated Cognitive & Operating Contract
 
 > [!IMPORTANT]
@@ -207,6 +209,7 @@ REQUIRED_FIXES: [Bullet points explaining the specific technical fixes Builder m
 </SYSTEM_SPECIFICATION>
 [NEXT_STATE: PHASE_DYNAMIC_COMPILE | Zero-Chat Contract Active]
 ```
+*   **Delivery-Gate Tool Binding**: before leaving SYNTHESIS, call the `swda_reconcile` MCP tool on every modified Python file; a `valid:false` result returns the task to CRUCIBLE. Optionally pre-screen shell/code with `swda_firewall_audit`.
 
 6.  `[PHASE_DYNAMIC_COMPILE]`: Sandboxed implementation and TDD verification. Outputs on success:
 ```xml
@@ -293,3 +296,5 @@ To prevent infinite loops and token waste, Watchdogs must apply recovery strateg
     *   **Seam (Public Interface Boundary)**: TDD test assertions must lock onto public seams of the system. **Over-mocking internal private implementation details is strictly prohibited** (Implementation-Coupling anti-pattern).
     *   **No Tautological Assertions**: Test assertion logic must NEVER mirror or duplicate business code algorithms (e.g. copying identical algorithmic logic into assertion), preventing tests from self-validating without catching bugs.
     *   **Vertical Slicing (Tracer Bullets)**: Writing large batches of tests at once (Horizontal Slicing) is strictly prohibited. You must use Tracer Bullets: **Write 1 failing test (Red) $\rightarrow$ Write minimal code to pass (Green) $\rightarrow$ Refactor**.
+
+<!-- swda-end -->

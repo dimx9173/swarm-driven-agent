@@ -829,7 +829,8 @@ def merge_soul_content(target_content, template_content):
             # Legacy fallback for target content
             cleaned_target_body = []
             for line in target_body.splitlines():
-                if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
+                stripped = line.strip()
+                if stripped.startswith('# 2. 核心運作原則') or stripped.startswith('# 2. 認知合約') or stripped.startswith('# Swarm-Driven Agent'):
                     break
                 cleaned_target_body.append(line)
             # Remove trailing separators/empty lines
@@ -888,7 +889,8 @@ def merge_soul_content(target_content, template_content):
         cleaned_target_body = []
         if has_system_identity:
             for line in target_body_lines:
-                if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
+                stripped = line.strip()
+                if stripped.startswith('# 2. 核心運作原則') or stripped.startswith('# 2. 認知合約') or stripped.startswith('# Swarm-Driven Agent'):
                     break
                 cleaned_target_body.append(line)
             preserved_identity = '\n'.join(cleaned_target_body).strip()
@@ -984,7 +986,8 @@ def uninstall_soul_content(soul_content):
             
         body_lines = body_str.splitlines()
         for line in body_lines:
-            if line.strip().startswith('# 2. 核心運作原則') or line.strip().startswith('# 2. 認知合約'):
+            stripped = line.strip()
+            if stripped.startswith('# 2. 核心運作原則') or stripped.startswith('# 2. 認知合約') or stripped.startswith('# Swarm-Driven Agent'):
                 break
             cleaned_lines.append(line)
             

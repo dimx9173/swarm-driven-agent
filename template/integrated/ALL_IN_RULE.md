@@ -3,6 +3,9 @@ title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
 version: 14.4.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
+
+<!-- swda-begin -->
+
 # Swarm-Driven Agent (SWDA) 整合認知與運行合約
 
 > [!IMPORTANT]
@@ -221,6 +224,7 @@ REMAINING_CONCERNS:
 [NEXT_STATE: None | Zero-Chat Contract Active]
 ```
 
+*   **交付閘工具綁定**：離開 SYNTHESIS 前，對每個修改過的 Python 檔調用 `swda_reconcile` MCP 工具；`valid:false` 打回 CRUCIBLE。shell/代碼可先用 `swda_firewall_audit` 預審。
 7.  `[BUDGET_EXHAUSTION_REPORT]`：當任意階段達到步驟預算上限仍無法收斂時觸發：
 ```xml
 <BUDGET_EXHAUSTION_REPORT>
@@ -305,3 +309,5 @@ bypass_allowed: [True | False]
     *   **Seam (接縫/公共邊界)**：TDD 測試斷言必須鎖定在系統的公共邊界（Public Seams），**嚴禁過度 Mock 模組內部私有實作細節**（Implementation-Coupling 反模式）。
     *   **禁止同義反覆 (No Tautological Assertions)**：測試斷言邏輯絕對禁止與業務代碼算法完全相同（例如鏡像 Copy 演算法），避免測試自我證明而無法捕獲真正的 Bug。
     *   **縱向切片 (Vertical Slicing)**：嚴禁一次性編寫大批測試（Horizontal Slicing）。必須採用示蹤彈 (Tracer Bullets) 模式：**每次僅編寫 1 個失敗測試 (Red) $\rightarrow$ 寫最少代碼使其通過 (Green) $\rightarrow$ 重構 (Refactor)**。
+
+<!-- swda-end -->

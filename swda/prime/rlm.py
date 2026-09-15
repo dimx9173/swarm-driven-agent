@@ -191,6 +191,8 @@ class RLMDispatcher:
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
+        except TimeoutError as err:
+            raise RuntimeError(f"RLM Timeout listing models at {url} after {timeout}s: {err}")
         except urllib.error.URLError as err:
             raise RuntimeError(f"RLM Network error listing models at {url}: {err}")
         models = data.get("data", []) if isinstance(data, dict) else []
@@ -212,6 +214,8 @@ class RLMDispatcher:
             with urllib.request.urlopen(req, timeout=120) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return data["choices"][0]["message"]["content"]
+        except TimeoutError as err:
+            raise RuntimeError(f"RLM Timeout connecting to {url} after 120s: {err}")
         except urllib.error.URLError as err:
             raise RuntimeError(f"RLM Network error connecting to {url}: {err}")
 

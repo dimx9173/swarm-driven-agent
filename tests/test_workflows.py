@@ -197,6 +197,15 @@ class TestWorkflows(unittest.TestCase):
                 del os.environ["SWDA_FALLBACK_MODELS"]
             else:
                 os.environ["SWDA_FALLBACK_MODELS"] = saved
+    def test_rlm_socket_timeout_wrapped_as_runtime_error(self):
+        import socket
+        from unittest import mock
+        rlm = RLMDispatcher(default_model="x")
+        with mock.patch("urllib.request.urlopen", side_effect=socket.timeout("timed out")):
+            with self.assertRaisesRegex(RuntimeError, "RLM Timeout"):
+                rlm._call_endpoint({"model": "x", "messages": []})
+            with self.assertRaisesRegex(RuntimeError, "RLM Timeout"):
+                rlm.list_models(timeout=1)
 
 if __name__ == "__main__":
     unittest.main()

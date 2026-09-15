@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swda-mcp"
+version = "1.0.0"
+description = "SWDA MCP server: stateless quality-gate tools (reconcile, firewall audit, stats, models)"
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.0.0"]
+
+[project.entry-points."console_scripts"]
+swda-mcp = "swda_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["swda_mcp*"]
