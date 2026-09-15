@@ -69,6 +69,17 @@ def cmd_reconcile(args):
         sys.exit(1)
 
 
+def cmd_scan(args):
+    """Scans local agents read-only (no writes)."""
+    agents = installer.scan_agents()
+    if not agents:
+        print("No agents detected.")
+        return
+    print(f"\nDetected {len(agents)} agent(s):")
+    for i, a in enumerate(agents, 1):
+        print(f" [{i}] Type: {a['type']:8s} | Name: {a['name']} | Path: {a['dir_path']}")
+
+
 def cmd_models(args):
     """Lists live model ids from the configured OpenAI-compatible endpoint."""
     rlm = RLMDispatcher(default_model=getattr(args, "model", None))
@@ -172,9 +183,10 @@ def main():
     models_p.add_argument("--model", type=str, default=None, help="Show which id is the active default")
 
     subparsers.add_parser("stats", help="Display execution telemetry and metrics dashboard")
+    subparsers.add_parser("scan", help="Scan local agents (read-only, no writes)")
 
-    # Check if first arg is an installer command (scan, install, update, check, version, discover, learn, remove)
-    installer_subcommands = {"scan", "install", "update", "check", "version", "discover", "learn", "remove"}
+    # Check if first arg is an installer command (install, update, check, version, discover, learn, remove)
+    installer_subcommands = {"install", "update", "check", "version", "discover", "learn", "remove"}
     if len(sys.argv) > 1 and sys.argv[1] in installer_subcommands:
         # Delegate directly to installer.main()
         installer.main()
@@ -193,6 +205,8 @@ def main():
         cmd_models(args)
     elif args.subcommand == "stats":
         cmd_stats(args)
+    elif args.subcommand == "scan":
+        cmd_scan(args)
     else:
         # Fallback to installer if no specific prime-swda command matched
         installer.main()
