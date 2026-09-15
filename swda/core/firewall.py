@@ -1,6 +1,9 @@
 """
 SWDA AI Firewall Guard: Physical AST and Command-Line Interception.
-Enforces TC-01 through TC-10 safety rules and strict FSM Phase mutation locks.
+Enforces TC-01/02/03/04/05/07 code-interceptable rules plus RULE-0.7 FSM
+Phase mutation locks. TC-06 (live financial API), TC-08 (reward hacking),
+TC-09 (epistemic humility), TC-10 (corrigibility) are procedural governance
+rules with no code interception surface and are enforced by workflow, not here.
 """
 
 import ast

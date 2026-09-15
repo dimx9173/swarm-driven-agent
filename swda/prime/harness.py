@@ -49,6 +49,25 @@ class ContinualHarness:
 
         return target_path
 
+    # Keyword-driven rule derivation: map failure evidence to a concrete guard.
+    # First match wins; unknown signals fall back to the surgical-AST default.
+    RULE_DERIVATIONS: tuple = (
+        (("leak", "pool", "connection", "timeout", "resource"), "Enforce resource lifecycle guards: pool timeouts, explicit release, and soak verification before merge."),
+        (("hallucinat", "phantom", "unresolved", "no such", "undefined"), "Run reverse reconciliation on the diff and ground every new symbol in workspace AST before commit."),
+        (("race", "deadlock", "concurrent", "thread"), "Serialize shared-state access and add a deterministic concurrency regression test."),
+        (("permission", "rbac", "unauthorized", "forbidden"), "Recheck Blackboard WRITE_PERMISSIONS for the failing role before widening access."),
+        (("test failed", "assertion", "red state", "tdd"), "Keep the failing test untouched; shrink the fix to minimal production code until green."),
+    )
+
+    @classmethod
+    def derive_rule(cls, trajectory_summary: str, failure_signal: str) -> str:
+        """Derives a corrective rule from failure evidence; never returns a blank rule."""
+        evidence = f"{trajectory_summary}\n{failure_signal}".lower()
+        for keywords, rule in cls.RULE_DERIVATIONS:
+            if any(k in evidence for k in keywords):
+                return rule
+        return "Prioritize surgical AST verification before modifying dependent call sites."
+
     def refine(self, trajectory_summary: str, failure_signal: str) -> Optional[Dict[str, str]]:
         """
         Reviews a failed trajectory and synthesizes an evidence-backed anti-pattern record.
@@ -58,7 +77,7 @@ class ContinualHarness:
             name=pattern_name,
             trigger_vector=trajectory_summary[:300],
             failure_reason=failure_signal[:300],
-            corrective_rule="Prioritize surgical AST verification before modifying dependent call sites.",
+            corrective_rule=self.derive_rule(trajectory_summary, failure_signal),
             tags=["auto-refine", "crucible-failure"]
         )
         return {"name": pattern_name, "path": path}

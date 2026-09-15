@@ -30,7 +30,7 @@ class StepCounter:
         "PHASE_1_DESTRUCT": 3,
         "PHASE_2_GATHER": 3,
         "PHASE_3_HYPERPLAN": 5,
-        "PHASE_4_CRUCIBLE": 5,
+        "PHASE_4_CRUCIBLE": 3,
         "PHASE_5_SYNTHESIS": 2,
         "PHASE_6_IMPLEMENT": 5,
         "DYNAMIC_COMPILE": 5,

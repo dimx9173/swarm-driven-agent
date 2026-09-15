@@ -54,6 +54,20 @@ class TestWorkflows(unittest.TestCase):
         patterns = harness.list_anti_patterns()
         self.assertEqual(len(patterns), 1)
 
+    def test_harness_derive_rule_from_failure_signal(self):
+        self.assertIn(
+            "resource",
+            ContinualHarness.derive_rule("Builder missed pool handling", "ResourceLeakError on timeout").lower(),
+        )
+        self.assertIn(
+            "reconciliation",
+            ContinualHarness.derive_rule("spec added new API", "hallucinated symbol json.nope").lower(),
+        )
+        # Unknown signal keeps the surgical-AST default instead of blank
+        self.assertIn(
+            "surgical ast",
+            ContinualHarness.derive_rule("something odd", "mysterious wobble").lower(),
+        )
     def test_crucible_workflow_approval(self):
         bb = Blackboard()
 

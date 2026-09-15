@@ -21,7 +21,11 @@ class TestCircuitBreaker(unittest.TestCase):
         with self.assertRaises(CircuitBreakerException) as ctx:
             counter.record_step("PHASE_4_CRUCIBLE")
         self.assertEqual(ctx.exception.phase, "PHASE_4_CRUCIBLE")
-
+    def test_default_crucible_budget_matches_workflow_max_rounds(self):
+        from swda.workflows.crucible import CrucibleWorkflow
+        import inspect
+        default_rounds = inspect.signature(CrucibleWorkflow.__init__).parameters["max_rounds"].default
+        self.assertEqual(StepCounter.DEFAULT_BUDGETS["PHASE_4_CRUCIBLE"], default_rounds)
     def test_global_step_limit_trips(self):
         counter = StepCounter(total_step_limit=3)
         counter.record_step("PHASE_1_DESTRUCT")
