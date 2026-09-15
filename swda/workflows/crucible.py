@@ -3,6 +3,8 @@ SWDA Programmatic Crucible: Asymmetric Adversarial Specification Hardening.
 Executes Builder vs. Destroyer vs. Referee inside an RLM loop, bounded by circuit breakers.
 """
 
+import json
+import re
 from typing import Dict, Any, Optional, List
 from swda.core.blackboard import Blackboard, AgentRole
 from swda.core.circuit_breaker import StepCounter, CircuitBreakerException
@@ -94,7 +96,7 @@ class CrucibleWorkflow:
                 prompt=referee_prompt,
                 context=context,
             )
-            verdict = raw_verdict if isinstance(raw_verdict, dict) else {"passed": True, "score": 8, "reason": "Approved"}
+            verdict = self._parse_verdict(raw_verdict, round_idx)
             self.blackboard.write(AgentRole.REFEREE, "crucible_verdict", verdict)
 
             if verdict.get("passed", False):
@@ -113,3 +115,34 @@ class CrucibleWorkflow:
             max_limit=self.max_rounds,
             reason="Crucible deadlock: Builder and Destroyer failed to reach consensus. Suspending to HITL."
         )
+
+    @staticmethod
+    def _parse_verdict(raw_verdict: Any, round_idx: int) -> Dict[str, Any]:
+        """Parses a referee verdict; unparseable output fails closed, never auto-passes."""
+        if isinstance(raw_verdict, dict):
+            return {
+                "passed": bool(raw_verdict.get("passed", False)),
+                "score": raw_verdict.get("score", 0),
+                "reason": str(raw_verdict.get("reason", "")),
+                "round": round_idx,
+            }
+        if isinstance(raw_verdict, str):
+            match = re.search(r"\{.*\}", raw_verdict, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                    if isinstance(data, dict):
+                        return {
+                            "passed": bool(data.get("passed", False)),
+                            "score": data.get("score", 0),
+                            "reason": str(data.get("reason", raw_verdict[:200])),
+                            "round": round_idx,
+                        }
+                except Exception:
+                    pass
+        return {
+            "passed": False,
+            "score": 0,
+            "reason": f"Unparseable referee output in round {round_idx}; failing closed for re-review.",
+            "round": round_idx,
+        }

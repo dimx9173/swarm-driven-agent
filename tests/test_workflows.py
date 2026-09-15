@@ -88,6 +88,29 @@ class TestWorkflows(unittest.TestCase):
         self.assertEqual(res.rounds_executed, 1)
         self.assertEqual(bb.read("active_proposal")["spec"], "Add cache layer")
 
+    def test_crucible_string_verdict_parsed_not_auto_passed(self):
+        from swda.workflows.crucible import CrucibleWorkflow
+        verdict = CrucibleWorkflow._parse_verdict('{"passed": true, "score": 9, "reason": "ok"}', 1)
+        self.assertTrue(verdict["passed"])
+        self.assertEqual(verdict["score"], 9)
+
+    def test_crucible_garbage_verdict_fails_closed(self):
+        from swda.workflows.crucible import CrucibleWorkflow
+        from swda.core.circuit_breaker import CircuitBreakerException
+        from swda.core.blackboard import Blackboard
+        from swda.prime.rlm import RLMDispatcher
+
+        def mock_garbage(role: str, prompt: str):
+            if role == "referee":
+                return "Some rambling prose without any JSON verdict"
+            return {"content": "proposal"}
+
+        bb = Blackboard()
+        bb.write(bb.WRITE_PERMISSIONS["active_proposal"][0], "active_proposal", {"spec": "x", "draft": True})
+        rlm = RLMDispatcher(mock_handler=mock_garbage)
+        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=2)
+        with self.assertRaises(CircuitBreakerException):
+            crucible.run_crucible("task needing review")
     def test_reverse_reconciliation(self):
         # Create a valid python file
         valid_file = os.path.join(self.temp_dir, "valid_sample.py")

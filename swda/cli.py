@@ -101,7 +101,10 @@ def cmd_run(args):
 
     blackboard = Blackboard()
     fsm = FSMEngine(blackboard)
-    rlm = RLMDispatcher(mock_handler=_mock_rlm_handler if getattr(args, "mock", False) else None)
+    rlm = RLMDispatcher(
+        default_model=getattr(args, "model", None),
+        mock_handler=_mock_rlm_handler if getattr(args, "mock", False) else None,
+    )
     crucible = CrucibleWorkflow(rlm=rlm, blackboard=blackboard)
 
     # 1. Advance to GATHER
@@ -141,6 +144,7 @@ def main():
     run_p = subparsers.add_parser("run", help="Run a task through SWDD lifecycle with Crucible")
     run_p.add_argument("task", type=str, help="Task description or specification")
     run_p.add_argument("--mock", action="store_true", help="Use deterministic mock subagents (offline e2e smoke)")
+    run_p.add_argument("--model", type=str, default=None, help="Override RLM model id (or SWDA_MODEL env)")
 
     refine_p = subparsers.add_parser("refine", help="Refine a failure trajectory into an anti-pattern")
     refine_p.add_argument("--summary", type=str, required=True, help="Summary of failed execution trajectory")

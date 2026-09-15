@@ -21,12 +21,12 @@ class RLMDispatcher:
 
     def __init__(
         self,
-        default_model: str = "deepseek-chat",
+        default_model: Optional[str] = None,
         api_base: Optional[str] = None,
         api_key: Optional[str] = None,
         mock_handler: Optional[Callable[[str, str], Any]] = None,
     ):
-        self.default_model = default_model
+        self.default_model = default_model or os.getenv("SWDA_MODEL", "deepseek-chat")
         self.api_base = api_base or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         self.api_key = api_key or os.getenv("OPENAI_API_KEY", "mock-key")
         self.mock_handler = mock_handler
