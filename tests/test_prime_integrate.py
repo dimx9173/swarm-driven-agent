@@ -105,6 +105,29 @@ class TestHarnessStore(unittest.TestCase):
         self.assertEqual(len(h.state.refinements), 1)
         self.assertTrue(h.format_focal_context())
 
+    def test_scoped_harness_local_global_layers(self):
+        import tempfile as _t
+        other = _t.mkdtemp()
+        fake_home = _t.mkdtemp()
+        try:
+            gpath = os.path.join(fake_home, "harness_state.json")
+            h1 = ContinualHarness(workspace_root=self.tmp, global_path=gpath)
+            h2 = ContinualHarness(workspace_root=other, global_path=gpath)
+            h1.scoped.upsert(kind="memory", id_="m", title="t1", content="c1")
+            self.assertIsNone(h2.scoped.get("memory", "m"))
+            h1.scoped.upsert(kind="memory", id_="g", title="gt", content="gc", scope="global")
+            self.assertEqual(h2.scoped.get("memory", "g")["title"], "gt")
+            h1.scoped.upsert(kind="memory", id_="g", title="local-override", content="x")
+            self.assertEqual(h1.scoped.get("memory", "g")["title"], "local-override")
+            h1.scoped.delete("memory", "g", scope="local")
+            self.assertEqual(h1.scoped.get("memory", "g")["title"], "gt")
+            with self.assertRaises(ValueError):
+                h1.scoped.upsert(kind="memory", id_="x", title="t", content="c", scope="nope")
+        finally:
+            import shutil as _s
+            _s.rmtree(other, ignore_errors=True)
+            _s.rmtree(fake_home, ignore_errors=True)
+
 
 class TestCompact(unittest.TestCase):
     def test_summarize_and_render(self):

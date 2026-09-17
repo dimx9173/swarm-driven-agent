@@ -104,6 +104,6 @@ Pocock 將 Agent 的客製化技能 (Skills) 依據**主控權**劃分為兩大�
 | Matt Pocock Skills | SWDA 運行時對應 (FSM & Subagents) |
 |---|---|
 | `/grilling` ➔ `/to-spec` | **`[PHASE_3_HYPERPLAN]` (對抗熔爐)**：由 Builder 與 Destroyer 對抗設計，並由 Referee (裁判) 指標評分與熔斷。 |
-| `/to-tickets` | **`[PHASE_4_SYNTHESIS]` (共識昇華)**：將 Spec-Driven (介面與副作用) 與 Test-Driven (TDD 測試腳本) 封裝為實作藍圖。 |
-| `/implement` (TDD + Review) | **`[PHASE_DYNAMIC_COMPILE]` (雙代理執行)**：在物理隔離沙箱中，由 Test Writer 撰寫失敗測試，Developer 編寫代碼使其通過，Reviewer 審查合併。 |
+| `/to-tickets` | **`[PHASE_5_SYNTHESIS]` (共識昇華)**：將 Spec-Driven (介面與副作用) 與 Test-Driven (TDD 測試腳本) 封裝為實作藍圖。 |
+| `/implement` (TDD + Review) | **`[PHASE_6_IMPLEMENT]` (雙代理執行)**：在物理隔離沙箱中，由 Test Writer 撰寫失敗測試，Developer 編寫代碼使其通過，Reviewer 審查合併。 |
 | `[DEBUG-...]` Tag | **`[Trajectory Regulation Gate]` (執行後守門)**：自動校驗 XML 標籤外雜質，防範退化，執行 cleanup 確保 master 分支乾淨。 |

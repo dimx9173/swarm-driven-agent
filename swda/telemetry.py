@@ -51,9 +51,11 @@ class TelemetryLogger:
             "tokens_used": tokens_used,
             "metadata": meta,
         }
-
-        with open(self.log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        try:
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except OSError:
+            record["metadata"] = {**meta, "persisted": False}
 
         return record
 

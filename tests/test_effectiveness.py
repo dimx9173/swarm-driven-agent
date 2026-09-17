@@ -104,8 +104,7 @@ class TestEngineMockE2E(unittest.TestCase):
         self.assertTrue(bb.read("crucible_verdict")["passed"])
 
         fsm.advance_to(FSMPhase.PHASE_5_SYNTHESIS)
-        bb.write(bb.WRITE_PERMISSIONS["synthesis_blueprint"][0],
-                 "synthesis_blueprint", res.proposal)
+        bb.as_role(AgentRole.BUILDER).write("synthesis_blueprint", res.proposal)
         self.assertEqual(fsm.current_phase, FSMPhase.PHASE_5_SYNTHESIS)
         self.assertIn("spec", bb.read("synthesis_blueprint"))
 

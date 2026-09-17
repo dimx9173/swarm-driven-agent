@@ -66,7 +66,7 @@ FULL_TRACE = [
     _start("edit", {"path": "swda/x.py"}, "c1"),
     _assistant_text(
         "<SYSTEM_SPECIFICATION>\n1. Architecture Decision Record (ADR)\n"
-        "</SYSTEM_SPECIFICATION>\n[NEXT_STATE: PHASE_DYNAMIC_COMPILE | Zero-Chat Contract Active]"
+        "</SYSTEM_SPECIFICATION>\n[NEXT_STATE: PHASE_6_IMPLEMENT | Zero-Chat Contract Active]"
     ),
     _start("swda_reconcile", {"file": "swda/x.py", "workspace_root": "."}, "c2"),
     _result("swda_reconcile", "c2", '{"valid": true, "imported_modules": [], "errors": []}'),
@@ -209,7 +209,7 @@ class TestHarnessWalkLevels(unittest.TestCase):
         self.assertTrue(any("x.py" in u for u in res["unverified"]))
         self.assertIn("unverified", " ".join(res["missing"]))
 
-    def test_per_file_verdict_fail_first_wins_over_later_pass(self):
+    def test_per_file_verdict_cross_file_fail_blocks_delivery(self):
         lines = [
             _start("edit", {"path": "swda/a.py"}, "c0"),
             _start("swda_reconcile", {"file": "swda/a.py"}, "c1"),
@@ -221,6 +221,18 @@ class TestHarnessWalkLevels(unittest.TestCase):
         self.assertFalse(res["passed"])
         self.assertEqual(res["level"], "none")
         self.assertTrue(any("a.py" in m for m in res["missing"]))
+
+    def test_same_file_fix_then_reverify_passes(self):
+        lines = [
+            _start("edit", {"path": "swda/a.py"}, "c0"),
+            _start("swda_reconcile", {"file": "swda/a.py"}, "c1"),
+            _result("swda_reconcile", "c1", '{"valid": false, "errors": ["x"]}'),
+            _start("swda_reconcile", {"file": "swda/a.py"}, "c2"),
+            _result("swda_reconcile", "c2", '{"valid": true, "errors": []}'),
+        ]
+        res = scan_lines(lines)
+        self.assertTrue(res["passed"])
+        self.assertEqual(res["gate_verdicts_by_file"].get("a.py"), [False, True])
 
     def test_bash_redirect_py_counts_as_modification(self):
         lines = [_start("bash", {"command": "cat > swda/gen.py <<'EOF'\nx = 1\nEOF"}, "c1")]
@@ -267,6 +279,32 @@ class TestHarnessWalkLevels(unittest.TestCase):
         self.assertEqual(res["py_modifications"], 1)
         self.assertFalse(res["passed"])
         self.assertNotEqual(res["level"], "fast_pass")
+
+    def test_sed_inplace_counts_as_modification(self):
+        lines = [_start("bash", {"command": "sed -i 's/a/b/' swda/x.py"}, "c1")]
+        res = scan_lines(lines)
+        self.assertEqual(res["py_modifications"], 1)
+        self.assertIn("x.py", res["modified_files"])
+        self.assertFalse(res["passed"])
+
+    def test_git_apply_never_fast_pass(self):
+        lines = [_start("bash", {"command": "git apply fix.patch"}, "c1")]
+        res = scan_lines(lines)
+        self.assertEqual(res["py_modifications"], 1)
+        self.assertFalse(res["passed"])
+
+    def test_spec_less_walk_caps_at_gate(self):
+        lines = [
+            _assistant_text("<INTENT_GATE_RESULT>\nA\n</INTENT_GATE_RESULT>\n[NEXT_STATE: PHASE_1_DESTRUCT]"),
+            _start("edit", {"path": "x.py"}, "c1"),
+            _start("swda_reconcile", {"file": "swda/x.py"}, "c2"),
+            _result("swda_reconcile", "c2", '{"valid": true, "verdict": "valid", "errors": []}'),
+            _assistant_text("<HYPERPLAN_RESULT>\nH\n</HYPERPLAN_RESULT>\n[NEXT_STATE: Y]\n<TASK_SUMMARY_REPORT>\nQ\n</TASK_SUMMARY_REPORT>\n[NEXT_STATE: None]"),
+        ]
+        res = scan_lines(lines)
+        self.assertTrue(res["passed"])
+        self.assertEqual(res["level"], "gate")
+        self.assertTrue(any("SYSTEM_SPECIFICATION" in m for m in res["missing"]))
 
     def test_live_baseline_zero_mcp_deliveries(self):
         if not os.path.isdir(SESSIONS_DIR):

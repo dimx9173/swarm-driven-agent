@@ -115,6 +115,9 @@ class Blackboard:
         if self._state_file:
             self.save(self._state_file)
 
+    def as_role(self, role: AgentRole) -> "RoleHandle":
+        """Returns a role-bound handle; no role argument to forget or index."""
+        return RoleHandle(self, role)
     def append_list(self, role: AgentRole, key: str, item: Any) -> None:
         """Appends an item to a list attribute with RBAC validation."""
         current_list = self.read(key)
@@ -140,3 +143,20 @@ class Blackboard:
                 self._state = BlackboardState.from_dict(data)
         except FileNotFoundError:
             pass
+
+
+class RoleHandle:
+    """Role-bound Blackboard writer: the role is fixed at construction."""
+
+    def __init__(self, board: Blackboard, role: AgentRole):
+        self._board = board
+        self.role = role
+
+    def write(self, key: str, value: Any) -> None:
+        self._board.write(self.role, key, value)
+
+    def append_list(self, key: str, item: Any) -> None:
+        self._board.append_list(self.role, key, item)
+
+    def read(self, key: str) -> Any:
+        return self._board.read(key)

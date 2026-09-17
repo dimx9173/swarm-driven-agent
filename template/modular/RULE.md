@@ -26,7 +26,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 4.  **每輪輸出自我狀態對齊 (Per-turn FSM Self-Alignment)**：在你的每一個 XML 輸出（如 `</INTENT_GATE_RESULT>`、`</HYPERPLAN_RESULT>` 等）的閉合標籤後，你必須輸出一行極簡的下階段狀態聲明，格式為 `[NEXT_STATE: PHASE_NAME | Zero-Chat Contract Active]`，以在 Context 中強制強化下一輪對話的焦點，防範指令漂移。
 5.  **客觀中立與邏輯直言 (Objective Critique)**：所有分析與觀點必須客觀中立、以事實與證據為唯一依據，不提供情緒價值；一旦在上下文偵測到邏輯漏洞或條件衝突，必須直接且直白地指出。
 6.  **契約檔錨定 (Contract Anchoring)**：上述 XML 標籤規範的完整契約定義位於 `docs/contracts/output-schema-modular.md`（modular 專屬），subagent 必須在派遣時載入此檔案以獲取精確 schema。
-7.  **FSM 階段與工具權限強鎖定 (Strict FSM Phase Lock)**：單次輸出中**嚴禁**預先包含後續 Phase 的 XML 標籤（例如在 PHASE_2 預先輸出 <HYPERPLAN_RESULT>）；在 PHASE_4 (SYNTHESIS) 產出前，**嚴禁調用任何代碼寫入與修改工具** (`write_to_file`, `replace_file_content`)，違者由物理 Host 強制 Rollback。
+7.  **FSM 階段與工具權限強鎖定 (Strict FSM Phase Lock)**：單次輸出中**嚴禁**預先包含後續 Phase 的 XML 標籤（例如在 PHASE_2 預先輸出 <HYPERPLAN_RESULT>）；在 PHASE_5 (SYNTHESIS) 產出前，**嚴禁調用任何代碼寫入與修改工具** (`write_to_file`, `replace_file_content`)，違者由物理 Host 強制 Rollback。
 8.  **四階規則優先級 (Precedence Hierarchy)**：當上下文發生指令衝突時，你必須依據以下階梯執行降維相容，嚴禁於衝突條件間無窮震盪：
     *   **Layer 1 (最高)**：安全防火牆協議 (TC-01 ~ TC-10) —— 物理安全與認識論誠實絕對優先。
     *   **Layer 2**：執行軌道範疇約束 (FAST_PASS / LITE_MODE / SWARM_MODE) —— 依據 INTENT_GATE 鎖定處理範圍。
@@ -109,7 +109,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 1.  `[INTENT_GATE]`：接收到全新任務或使用者輸入時，進行意圖與執行軌道分析。預算上限 1 步。
     - **三層級執行軌道 (Execution Tracks)**：
       - `FAST_PASS`：純問候（如 "hi"）、社交寒暄或無代碼變更之諮詢。不調度子代理與對抗熔爐，直接精確回覆。
-      - `LITE_MODE`：單檔微調、簡單語法修復或單一文件編輯。跳過 PHASE_1~3，直接進入 PHASE_4 SYNTHESIS 與實體驗證。
+      - `LITE_MODE`：單檔微調、簡單語法修復或單一文件編輯。跳過 PHASE_1~3，直接進入 PHASE_5 SYNTHESIS 與實體驗證。
       - `SWARM_MODE`：複雜重構、新功能開發、安全性審計。觸發完整 5-Phase SWDD 狀態機與 Builder/Destroyer 熔爐對抗。
 ```xml
 <INTENT_GATE_RESULT>
@@ -124,9 +124,9 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
 ```
 2.  `[PHASE_1_DESTRUCT]` & `[PHASE_2_GATHER]`：降維拆解與資訊探測。預算上限 3 步。若達 3 步仍未收集完畢，強制使用既存資訊進入 PHASE_3。
 3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**【自適應技能學習閘】你必須主動比對當前任務技術特徵與 `.agents/skills/` 下既存技能，若缺乏則調用 discover/learn，最多嘗試 1 次。**
-4.  `[PHASE_3_HYPERPLAN]`：方案對抗熔爐 (Builder vs. Destroyer)，由 Referee 進行 Rubric 評分與熔斷判定。對抗預算上限 5 輪。第 5 輪若無共識強制由 Referee 取最高分方案進 Phase 4。
-5.  `[PHASE_4_SYNTHESIS]`：共識昇華，輸出規格驅動與測試驅動 (TDD) 的實作藍圖合約。
-6.  `[PHASE_DYNAMIC_COMPILE]`：物理執行閘道，依據 TDD 契約進行雙代理沙箱實作與驗證。測試與自我修復預算上限 5 次。
+4.  `[PHASE_3_HYPERPLAN]`：方案對抗熔爐 (Builder vs. Destroyer)，由 Referee 進行 Rubric 評分與熔斷判定。對抗預算上限 3 輪。第 3 輪若無共識強制由 Referee 取最高分方案進 Phase 5。
+5.  `[PHASE_5_SYNTHESIS]`：共識昇華，輸出規格驅動與測試驅動 (TDD) 的實作藍圖合約。
+6.  `[PHASE_6_IMPLEMENT]`：物理執行閘道，依據 TDD 契約進行雙代理沙箱實作與驗證。測試與自我修復預算上限 5 次。
 7.  `[BUDGET_EXHAUSTION_REPORT]`：預算耗盡報告標籤，當任意階段達步驟上限無法收斂時輸出並轉移至 `[NEXT_STATE: HITL_SUSPEND]`。
 
 ### 5.2 實體執行三層守門機制
@@ -154,8 +154,8 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
 為防範無限重試與 Token 耗盡（Thinking Loop），各階段實施嚴格的步驟預算：
 *   **INTENT_GATE 預算**：最多 1 步。判定後立即轉移。
 *   **PHASE_1 & PHASE_2 預算**：最多 3 步。若 3 步內資訊未收集完整，強制暫停探測，使用已知資訊轉移至 PHASE_3。
-*   **PHASE_3 預算**：對抗上限 5 輪。若第 5 輪 Builder 與 Destroyer 仍無法達成一致，強制終止對抗，由 Referee 取最高分方案推進至 PHASE_4。
-*   **PHASE_DYNAMIC_COMPILE 預算**：測試修復上限 5 次。若第 5 次測試仍失敗，強制終止修復並觸發 Rollback。
+*   **PHASE_3 預算**：對抗上限 5 輪。若第 3 輪 Builder 與 Destroyer 仍無法達成一致，強制終止對抗，由 Referee 取最高分方案推進至 PHASE_5。
+*   **PHASE_6_IMPLEMENT 預算**：測試修復上限 5 次。若第 5 次測試仍失敗，強制終止修復並觸發 Rollback。
 *   **熔斷回應**：任何階段達到預算上限時，必須輸出 `<BUDGET_EXHAUSTION_REPORT>` 並轉移至 `[NEXT_STATE: HITL_SUSPEND]` 提請人類工程師接管。
 
 為防止無限重試與 token 浪費，Watchdog 必須依據以下信號執行恢復策略：

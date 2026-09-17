@@ -12,11 +12,10 @@ setup(
     },
     install_requires=[],
     extras_require={
+        # Only deps actually imported by swda/ code (repl.py has an
+        # IPython-to-stdlib fallback; pydantic is duck-typed optional).
         "prime": [
-            "pydantic>=2.0.0",
             "ipython>=8.0.0",
-            "litellm>=1.0.0",
-            "pyyaml>=6.0",
-        ]
+        ],
     },
 )

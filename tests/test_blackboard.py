@@ -47,6 +47,17 @@ class TestBlackboard(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.bb.write(AgentRole.SYSTEM, "non_existent_key", 123)
 
+    def test_role_handle_binds_role(self):
+        handle = self.bb.as_role(AgentRole.BUILDER)
+        handle.write("active_proposal", {"spec": "x"})
+        self.assertEqual(self.bb.read("active_proposal"), {"spec": "x"})
+        with self.assertRaises(PermissionError):
+            handle.write("crucible_verdict", {"passed": True})
+
+    def test_role_handle_append_and_read(self):
+        handle = self.bb.as_role(AgentRole.DESTROYER)
+        handle.append_list("crucible_critiques", {"vector": "v"})
+        self.assertEqual(handle.read("crucible_critiques"), [{"vector": "v"}])
 
 if __name__ == "__main__":
     unittest.main()

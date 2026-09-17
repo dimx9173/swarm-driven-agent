@@ -87,16 +87,26 @@ TEE_PY_RE = re.compile(r"\btee\b[^\n|&;]*?([^\s;|&'\"]+\.py)\b")
 # Inline interpreters whose -c source can write .py files out of band.
 INLINE_PY_RE = re.compile(r"\b(?:python3?|perl|node|ruby)\b[^\n|&;]*?-c\b")
 PY_WRITE_CALL_RE = re.compile(r"open\s*\([^)]*['\"]\s*w['\"]|write_text|write_bytes|\.py['\"]?\s*\)?\s*,?\s*['\"]\s*w")
-
+# Unmodeled file-write channels: sed -i, git apply, mv/cp/install onto .py.
+SED_PY_RE = re.compile(r"\bsed\b[^\n|&;]*?-i[^\n|&;]*?([^\s;|&'\"]+\.py)\b")
+GIT_APPLY_RE = re.compile(r"\bgit\b[^\n|&;]*?\bapply\b")
+MVCP_PY_RE = re.compile(r"\b(?:mv|cp|install)\b[^\n|&;]*?([^\s;|&'\"]+\.py)\b")
 
 def _bash_py_targets(command: str) -> Set[str]:
-    """Collects .py targets of redirect/tee writes (basenames)."""
+    """Collects .py targets of redirect/tee/sed/mv/cp writes (basenames)."""
     found: Set[str] = set()
     for seg in SHELL_SEP_RE.split(command):
         for m in REDIRECT_PY_RE.finditer(seg):
             found.add(os.path.basename(m.group(1)))
         for m in TEE_PY_RE.finditer(seg):
             found.add(os.path.basename(m.group(1)))
+        for m in SED_PY_RE.finditer(seg):
+            found.add(os.path.basename(m.group(1)))
+        for m in MVCP_PY_RE.finditer(seg):
+            found.add(os.path.basename(m.group(1)))
+        if GIT_APPLY_RE.search(seg):
+            # A patch may touch any file: opaque marker, never fast_pass.
+            found.add("<patch-apply>")
     return found
 
 
@@ -443,6 +453,7 @@ def scan_lines(lines: Iterable[str]) -> Dict[str, Any]:
         and next_state_count > 0
         and any(fsm_tags[t] > 0 for t in DOWNSTREAM_TAGS)
     )
+    has_spec = fsm_tags["SYSTEM_SPECIFICATION"] > 0
     first_spec = min(spec_idxs) if spec_idxs else None
     order_ok = True
     if first_spec is not None and reconcile_idxs:
@@ -494,10 +505,14 @@ def scan_lines(lines: Iterable[str]) -> Dict[str, Any]:
         # cap at `gate` and surface the unverified entries.
         level = "gate"
         passed = True
-        missing.append("unverified: reconcile called but no verdict observed (needs human confirmation)")
     elif fsm_ok:
-        level = "full"
-        passed = True
+        if not has_spec:
+            level = "gate"
+            passed = True
+            missing.append("order: no <SYSTEM_SPECIFICATION> observed (gate walked, spec evidence missing)")
+        else:
+            level = "full"
+            passed = True
     elif py_modifications > 0 or reconcile_count > 0:
         level = "gate"
         passed = True
@@ -511,11 +526,11 @@ def scan_lines(lines: Iterable[str]) -> Dict[str, Any]:
         "swda_tool_calls": swda_tool_calls,
         "cli_harness_calls": cli_harness_calls,
         "fsm_tags": fsm_tags,
+        "next_state_count": next_state_count,
         "py_modifications": py_modifications,
         "modified_files": sorted(modified_files),
         "uncovered_files": uncovered,
         "reconcile_count": reconcile_count,
-        "firewall_count": firewall_count,
         "gate_verdicts": gate_verdicts,
         "gate_verdicts_by_file": gate_verdicts_by_file,
         "firewall_verdicts": firewall_verdicts,

@@ -182,6 +182,54 @@ def uuid4_hex12() -> str:
     return uuid.uuid4().hex[:12]
 
 
+class ScopedHarness:
+    """Dual-layer view: workspace-local store overlaid on the global store.
+
+    Read rule: local wins on (kind, id) collision; both layers merge.
+    Write rule: default target is local; pass ``scope="global"`` to share
+    across workspaces. Delete removes from the named layer only.
+    """
+
+    def __init__(self, local: HarnessState, global_: Optional[HarnessState] = None):
+        self.local = local
+        self.global_ = global_ if global_ is not None else HarnessState(in_memory=True)
+
+    def _target(self, scope: str) -> HarnessState:
+        if scope == "global":
+            return self.global_
+        return self.local
+
+    def upsert(self, kind: str, id_: str, title: str, content: str,
+               scope: str = "local", **extra: Any) -> Dict[str, Any]:
+        if scope not in ("local", "global"):
+            raise ValueError(f"Unknown scope: {scope!r} (want 'local' or 'global')")
+        return self._target(scope).upsert(kind, id_, title, content,
+                                          scope=scope, **extra)
+
+    def get(self, kind: str, id_: str) -> Optional[Dict[str, Any]]:
+        hit = self.local.get(kind, id_)
+        return hit if hit is not None else self.global_.get(kind, id_)
+
+    def delete(self, kind: str, id_: str, scope: str = "local") -> bool:
+        return self._target(scope).delete(kind, id_)
+
+    def list(self, kind: Optional[str] = None, scope: str = "both") -> List[Dict[str, Any]]:
+        if scope == "local":
+            return self.local.list(kind)
+        if scope == "global":
+            return self.global_.list(kind)
+        merged: Dict[str, Dict[str, Any]] = {}
+        for row in self.global_.list(kind):
+            merged[f"{row.get('kind')}:{row.get('id')}"] = row
+        for row in self.local.list(kind):
+            merged[f"{row.get('kind')}:{row.get('id')}"] = row
+        return list(merged.values())
+
+    def record_refinement(self, trigger: str, changes: List[str],
+                          evidence: str = "", outcome: str = "",
+                          scope: str = "local") -> Dict[str, Any]:
+        return self._target(scope).record_refinement(trigger, changes, evidence, outcome)
+
 class ContinualHarness:
     """
     Maintains durable harness state across sessions (versioned supplemental
@@ -189,7 +237,8 @@ class ContinualHarness:
     """
 
     def __init__(self, workspace_root: Optional[str] = None,
-                 state_path: Optional[str] = None, scope: str = "local"):
+                 state_path: Optional[str] = None, scope: str = "local",
+                 global_path: Optional[str] = None):
         self.workspace_root = workspace_root or os.getcwd()
         self.anti_patterns_dir = os.path.join(self.workspace_root, "docs", "anti-patterns")
         os.makedirs(self.anti_patterns_dir, exist_ok=True)
@@ -198,6 +247,12 @@ class ContinualHarness:
         elif os.path.isdir(state_path):
             state_path = os.path.join(state_path, "harness_state.json")
         self.state = HarnessState(state_path=state_path, scope=scope)
+        if global_path is None:
+            global_path = HarnessState._default_path("global")
+        self.scoped = ScopedHarness(
+            local=self.state,
+            global_=HarnessState(state_path=global_path, scope="global"),
+        )
 
     def record_anti_pattern(
         self,

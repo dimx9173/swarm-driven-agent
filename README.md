@@ -18,12 +18,12 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 
 ## 🚀 Key Features
 
-* 🔒 **Strictly Local & Offline**: Operates 100% locally on your file system using `os.walk` to find agent profiles under `~/.hermes` and `~/.openclaw`.
-* 🔄 **Smart FSM Merging**: Upgrades agent configurations while preserving customized system positioning (`# 1. 系統定位` such as specific Quant profiles), merging only the updated FSM rules and contracts.
-* 📊 **Version Tracking & Status check**: Uses semantic version parsing to compare installed files against templates, reporting `Not Installed`, `Update Available`, or `Up-to-date` statuses.
-* ➕ **Agent Creation**: Spin up brand new Hermes or OpenClaw agents from scratch with auto-configured workflows using a single command.
-* 🛡️ **Auto-Backup System**: Creates timestamped backups (e.g. `SOUL.md.20260624_150000.bak`) automatically before editing any file.
-
+* 🔒 **Local-first installer**: operates on your file system, merges FSM rules into agent profiles while preserving `# 1. 系統定位`, with timestamped backups and idempotent reinstalls.
+* 🧠 **Swarm gates with proof**: FSM + Builder/Destroyer/Referee Crucible + tristate delivery gate (`valid`/`unverifiable`/`invalid`) + session scanner proving the harness was walked (`swda verify-session`).
+* 📊 **Version tracking & status check**: semantic version parsing comparing installed files against templates (`Not Installed` / `Update Available` / `Up-to-date`); tracking file corrupt-loud with atomic writes.
+* ➕ **Agent creation**: spin up new Hermes/OpenClaw/OMP/Pi agents from scratch with a single command.
+* 🛡️ **Auto-backup system**: timestamped backups (e.g. `SOUL.md.20260624_150000.bak`) before editing any file.
+* 🧩 **Prime-agent merges (stdlib, no daemon)**: admission-handle subagents, versioned harness store (local/global), compaction summaries, persistent goals — single process, host orchestrates, SWDA guards.
 ---
 
 ## 📂 Repository Layout
@@ -32,26 +32,23 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 swarm-driven-agent/
 ├── installer.py     # CLI installer engine & helper functions
 ├── setup.py         # Installer packaging for the swda CLI command
+├── swda/
+│   ├── core/        # fsm, blackboard+RBAC handles, firewall allowlist, circuit breaker, hooks
+│   ├── prime/       # rlm dispatcher, repl (+hooks), harness (versioned store, local/global)
+│   ├── workflows/   # crucible, reconcile (tristate), harness_walk (session scanner),
+│   │                 # tdd_runner (+sandbox), compact, goal
+│   ├── agents/      # spawn (admission-handle subagents + inbox)
+│   └── telemetry.py # mock/real split metrics
+├── swda-mcp/        # thin MCP bridge (only non-stdlib package): 4 stateless tools
 ├── template/
-│   ├── integrated/
-│   │   ├── ALL_IN_RULE.md         # Single-file bundle (Chinese, for general LLM tools)
-│   │   └── ALL_IN_RULE.en.md      # Single-file bundle (English, for general LLM tools)
-│   └── modular/
-│       ├── SOUL.md                # SWDA System Identity template (openclaw/hermes)
-│       ├── RULE.md                # SWDA System Instruction Contract (openclaw/hermes)
-│       └── SKILL.md               # SWDD Swarm meta-skill workflow (openclaw/hermes)
+│   ├── integrated/  # ALL_IN_RULE.{md,en.md} — single-file bundle (contract v14.4.0)
+│   └── modular/     # SOUL/RULE/SKILL (+ .en) — script-installed bundle
 ├── docs/
-│   ├── contracts/
-│   │   ├── output-schema.md          # Integrated output schema contract
-│   │   └── output-schema-modular.md  # Modular output schema contract
-│   ├── papers/
-│   │   └── 2605.22166-life-harness.md  # Notes on the Life-Harness paper
-│   └── research/
-│       └── life-harness-adaptation-plan.md  # SWDD optimization & adaptation plan
-├── images/          # Visualizations of the SWDD architecture & FSM
-├── tests/
-│   └── test_installer.py # Automated test suite for the installer
-└── .gitignore       # Standard git ignore definitions
+│   ├── contracts/   # output-schema{,-modular}.md
+│   ├── architecture/# circuit-breaker-spec, refactor plan/walkthrough
+│   └── papers/      # life-harness notes
+├── tests/           # 174 tests (unittest discover -s tests)
+└── .gitignore
 ```
 
 ---
@@ -155,12 +152,30 @@ swda install -u -y all              # 移除全部已掃描 agents
 swda scan                        # 唯讀掃描本機 agents（不寫檔、不看登記名單）
 swda stats                       # telemetry 儀表板（.swda/metrics.jsonl 聚合，mock/real 分桶）
 swda reconcile [--json] <file.py> # 交 gates：valid(0)/unverifiable(2)/invalid(1)，invalid 打回 Crucible
-swda verify-session <session.jsonl> [--mcp-json ...] [--contract ...]  # 證明某 OMP session 真走過 harness
-swda run --mock "task desc"       # 離線 e2e smoke（GATHER→HYPERPLAN→CRUCIBLE→SYNTHESIS）
-swda run "task desc"              # 真 LLM（需 .env：OPENAI_BASE_URL/KEY、SWDA_MODEL）
-swda models                      # 列出 gateway  live model ids
-python3 -m unittest discover -s tests  # 全套迴歸（目前 129 tests）
+swda verify-session <session.jsonl> [--mcp-json ...] [--contract ...] [--strict]  # 證明某 OMP session 真走過 harness（--strict：unverified 即失敗）
+swda run [--mock] [--json] "task desc"  # 走 GATHER→HYPERPLAN→CRUCIBLE→SYNTHESIS（真 LLM 需 .env；--json 给 CI）
+swda models                      # 列出 gateway live model ids
+python3 -m unittest discover -s tests  # 全套迴歸（目前 174 tests）
 ```
+
+### 7c. 記憶 scope（local/global）
+`ContinualHarness.scoped` 雙層：workspace `.swda/harness/`（local，預設）+ `~/.swda/harness/`（global，需 `scope="global"` 顯式寫入）。讀合併、local 優先；goal/telemetry 保持 workspace-local。
+
+### 7b. OMP 接 swda-mcp（Delivery-Gate 工具）
+`swda-mcp` 是獨立 thin MCP 包（`swda-mcp/`，唯一破零依賴處），暴露 4 個無狀態工具：
+`swda_reconcile`（SYNTHESIS 交付門，mandatory）、`swda_firewall_audit`（optional）、
+`swda_stats`、`swda_models`。`run`/`refine` 故意不暴露。
+在 `~/.omp/agent/mcp.json` 註冊：
+```json
+"swda-mcp": {
+  "command": "/Users/carlos/miniconda3/bin/python3",
+  "args": ["-m", "swda_mcp.server"],
+  "cwd": "/Users/carlos/pywork/swarm-driven-agent/swda-mcp",
+  "env": {"PYTHONPATH": "/Users/carlos/pywork/swarm-driven-agent",
+          "SWDA_REPO": "/Users/carlos/pywork/swarm-driven-agent"}
+}
+```
+驗證：`swda verify-session <session.jsonl> --mcp-json ~/.omp/agent/mcp.json --contract ~/.omp/agent/APPEND_SYSTEM.md`
 
 ### 8. 常見問題
 - `swda: command not found` → 重跑 `pip install -e .`（本節 §0）。

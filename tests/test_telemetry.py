@@ -40,13 +40,25 @@ class TestTelemetrySplits(unittest.TestCase):
         self.assertIn("mock", summary)
         self.assertIn("real", summary)
 
+    def test_end_span_survives_unwritable_log(self):
+        log = TelemetryLogger(workspace_root=self.temp_dir)
+        log.log_file = os.path.join(self.temp_dir, "no-such-dir", "metrics.jsonl")
+        log.start_span("full_run")
+        rec = log.end_span("full_run", success=False)
+        self.assertFalse(rec["success"])
+        self.assertFalse(rec["metadata"].get("persisted", True))
+
     def test_repo_root_resolution_prefers_env(self):
+        saved = os.environ.pop("SWDA_REPO", None)
         os.environ["SWDA_REPO"] = self.temp_dir
         try:
             log = TelemetryLogger()
             self.assertEqual(log.workspace_root, self.temp_dir)
         finally:
-            del os.environ["SWDA_REPO"]
+            if saved is None:
+                del os.environ["SWDA_REPO"]
+            else:
+                os.environ["SWDA_REPO"] = saved
 
 
 if __name__ == "__main__":

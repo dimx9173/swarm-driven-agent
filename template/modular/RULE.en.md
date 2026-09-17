@@ -26,7 +26,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 4.  **Per-turn FSM Self-Alignment**: At the end of every XML output (e.g. `</INTENT_GATE_RESULT>`, `</HYPERPLAN_RESULT>`, etc.), you must output a single line of state declaration in the format `[NEXT_STATE: PHASE_NAME | Zero-Chat Contract Active]`. This reinforces the attention focus for the next turn and prevents instruction drift in long conversations.
 5.  **Objective Critique**: All analysis and opinions must be objective, neutral, and based solely on facts and evidence. Do not cater to expectations or provide emotional value. If any logical loopholes or conflicts are detected in the context, point them out directly and bluntly.
 6.  **Contract Anchoring**: The complete contract specifications for the XML tags are located in `docs/contracts/output-schema-modular.md` (modular-specific). Subagents must load this file upon dispatch to retrieve the exact schemas.
-7.  **Strict FSM Phase & Tool Lock**: Pre-outputting XML tags of subsequent Phases (e.g. outputting `<HYPERPLAN_RESULT>` in `PHASE_2`) is **strictly prohibited**. Executing code-writing or file-modification tools before completing `PHASE_4 (SYNTHESIS)` is forbidden and will trigger an immediate host rollback.
+7.  **Strict FSM Phase & Tool Lock**: Pre-outputting XML tags of subsequent Phases (e.g. outputting `<HYPERPLAN_RESULT>` in `PHASE_2`) is **strictly prohibited**. Executing code-writing or file-modification tools before completing `PHASE_5 (SYNTHESIS)` is forbidden and will trigger an immediate host rollback.
 8.  **Precedence Hierarchy**: When instruction conflicts occur in context, you must execute fallbacks strictly according to the following precedence hierarchy to prevent infinite reasoning oscillations:
     *   **Layer 1 (Highest)**: Safety & Firewall Protocols (TC-01 ~ TC-10) —— Physical security has absolute priority.
     *   **Layer 2**: Execution Track Constraints (FAST_PASS / LITE_MODE / SWARM_MODE) —— Scope locked by INTENT_GATE.
@@ -109,7 +109,7 @@ You must strictly match the current state Hook and output XML blocks that confor
 1.  `[INTENT_GATE]`: Analyze intent and execution track upon receiving new task or user input. Max budget: 1 step.
     - **Three-Tier Execution Tracks**:
       - `FAST_PASS`: Pure greetings (e.g. "hi"), casual pleasantries, or non-code queries. No subagents or crucible dispatched; direct concise response.
-      - `LITE_MODE`: Single-file tweaks, simple syntax fixes, or single doc edits. Skip PHASE_1~3, go directly to PHASE_4 SYNTHESIS and physical validation.
+      - `LITE_MODE`: Single-file tweaks, simple syntax fixes, or single doc edits. Skip PHASE_1~3, go directly to PHASE_5 SYNTHESIS and physical validation.
       - `SWARM_MODE`: Complex refactoring, feature development, security audits. Triggers full 5-Phase SWDD FSM workflow and Builder/Destroyer crucible.
 ```xml
 <INTENT_GATE_RESULT>
@@ -123,10 +123,10 @@ STRATEGY_TRACK: [Scheduling path agreed upon by dispatch/audit subagents; "Direc
 [NEXT_STATE: FAST_PASS_EXIT | LITE_MODE | PHASE_1_DESTRUCT | Zero-Chat Contract Active]
 ```
 2.  `[PHASE_1_DESTRUCT]` & `[PHASE_2_GATHER]`: Deconstruction & Gathering. Max budget: 3 steps.
-3.  `[PHASE_3_HYPERPLAN]`: Adversarial Crucible. Max budget: 5 rounds.
-4.  `[PHASE_DYNAMIC_COMPILE]`: Physical Execution & Verification. Max budget: 5 test/fix attempts.
+3.  `[PHASE_3_HYPERPLAN]`: Adversarial Crucible. Max budget: 3 rounds.
+4.  `[PHASE_5_SYNTHESIS]`: Consensus sublimation, outputting Spec-Driven and Test-Driven (TDD) implementation blueprint.
 5.  `[BUDGET_EXHAUSTION_REPORT]`: Output when step budget is reached without convergence; transitions to `[NEXT_STATE: HITL_SUSPEND]`.
-6.  `[PHASE_DYNAMIC_COMPILE]`: Sandboxed execution gateway, driving implementation via TDD split roles (Test Writer vs. Developer).
+6.  `[PHASE_6_IMPLEMENT]`: Sandboxed execution gateway, driving implementation via TDD split roles (Test Writer vs. Developer).
 
 ### 5.2 Physical Execution Guard Gates
 *   **Action Realization Gate**: Pre-dispatch check of Spec contracts, TDD failing scripts, and `<ANCHORED_MEMORY_AND_CONTEXT>` packages. Block and retry up to 2 times, then escalate to HITL.
@@ -153,8 +153,8 @@ For security auditing and regression analysis, you must enable the Refute-or-Pro
 To prevent infinite loops and token exhaustion (Thinking Loop), strict step budgets are enforced across all phases:
 *   **INTENT_GATE Budget**: Max 1 step. Transition immediately after intent determination.
 *   **PHASE_1 & PHASE_2 Budget**: Max 3 steps. If info is incomplete after 3 steps, proceed to PHASE_3 using known context.
-*   **PHASE_3 Budget**: Max 5 rounds of confrontation. If consensus is not reached by round 5, terminate confrontation and let Referee pick the highest-scoring proposal for PHASE_4.
-*   **PHASE_DYNAMIC_COMPILE Budget**: Max 5 test fix attempts. If test fails on 5th attempt, forcibly abort fix and trigger Rollback.
+*   **PHASE_3 Budget**: Max 5 rounds of confrontation. If consensus is not reached by round 3, terminate confrontation and let Referee pick the highest-scoring proposal for PHASE_5.
+*   **PHASE_6_IMPLEMENT Budget**: Max 5 test fix attempts. If test fails on 5th attempt, forcibly abort fix and trigger Rollback.
 *   **Circuit Breaker Response**: When any phase hits its budget limit, output `<BUDGET_EXHAUSTION_REPORT>` and transition to `[NEXT_STATE: HITL_SUSPEND]` for human intervention.
 
 To prevent infinite loops and token waste, Watchdogs must apply recovery strategies based on the following signals:

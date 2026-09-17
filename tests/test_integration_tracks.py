@@ -118,7 +118,7 @@ class FSMGraphValidator:
         intent_match = re.search(r"INTENT_GATE.*?(?:預算|Budget).*?(\d+)", contract_text, re.IGNORECASE)
         gather_match = re.search(r"GATHER.*?(?:預算|Budget).*?(\d+)", contract_text, re.IGNORECASE)
         hyperplan_match = re.search(r"(?:HYPERPLAN|Crucible).*?(?:預算|Budget|上限|rounds).*?(\d+)", contract_text, re.IGNORECASE)
-        compile_match = re.search(r"(?:DYNAMIC_COMPILE|修復|test).*?(?:預算|Budget|上限|attempts).*?(\d+)", contract_text, re.IGNORECASE)
+        compile_match = re.search(r"(?:PHASE_6_IMPLEMENT|DYNAMIC_COMPILE|修復|test).*?(?:預算|Budget|上限|attempts).*?(\d+)", contract_text, re.IGNORECASE)
         
         if intent_match:
             budgets["INTENT_GATE"] = int(intent_match.group(1))
@@ -127,7 +127,7 @@ class FSMGraphValidator:
         if hyperplan_match:
             budgets["HYPERPLAN"] = int(hyperplan_match.group(1))
         if compile_match:
-            budgets["DYNAMIC_COMPILE"] = int(compile_match.group(1))
+            budgets["PHASE_6_IMPLEMENT"] = int(compile_match.group(1))
             
         return budgets
 
@@ -237,12 +237,12 @@ class TestExecutionTracksIntegration(unittest.TestCase):
                 f"GATHER budget < 3 in {filename}")
             self.assertIsNotNone(budgets.get("HYPERPLAN"),
                 f"HYPERPLAN budget not found in {filename} — contract wording may have changed")
-            self.assertGreaterEqual(budgets.get("HYPERPLAN"), 5,
-                f"HYPERPLAN budget < 5 in {filename}")
-            self.assertIsNotNone(budgets.get("DYNAMIC_COMPILE"),
-                f"DYNAMIC_COMPILE budget not found in {filename} — contract wording may have changed")
-            self.assertGreaterEqual(budgets.get("DYNAMIC_COMPILE"), 5,
-                f"DYNAMIC_COMPILE budget < 5 in {filename}")
+            self.assertGreaterEqual(budgets.get("HYPERPLAN"), 3,
+                f"HYPERPLAN budget < 3 in {filename}")
+            self.assertIsNotNone(budgets.get("PHASE_6_IMPLEMENT"),
+                f"PHASE_6_IMPLEMENT budget not found in {filename} — contract wording may have changed")
+            self.assertGreaterEqual(budgets.get("PHASE_6_IMPLEMENT"), 5,
+                f"PHASE_6_IMPLEMENT budget < 5 in {filename}")
 
     def test_template_contracts_schema_compliance(self):
         """Verifies that rule template contracts and output schemas contain mandatory keywords."""

@@ -6,7 +6,7 @@ import unittest
 import os
 import tempfile
 import shutil
-from swda.core.blackboard import Blackboard
+from swda.core.blackboard import Blackboard, AgentRole
 from swda.core.circuit_breaker import StepCounter
 from swda.core.firewall import SecurityFirewallException
 from swda.prime.repl import PrimeREPL
@@ -38,7 +38,7 @@ class TestWorkflows(unittest.TestCase):
 
     def test_prime_repl_firewall_blocks_mutation_in_gather(self):
         bb = Blackboard()
-        bb.write(bb.WRITE_PERMISSIONS["phase"][0], "phase", "PHASE_2_GATHER")
+        bb.as_role(AgentRole.SYSTEM).write("phase", "PHASE_2_GATHER")
         repl = PrimeREPL(bb)
 
         with self.assertRaises(SecurityFirewallException):
@@ -129,7 +129,7 @@ class TestWorkflows(unittest.TestCase):
             return {"content": "proposal"}
 
         bb = Blackboard()
-        bb.write(bb.WRITE_PERMISSIONS["active_proposal"][0], "active_proposal", {"spec": "x", "draft": True})
+        bb.as_role(AgentRole.BUILDER).write("active_proposal", {"spec": "x", "draft": True})
         rlm = RLMDispatcher(mock_handler=mock_garbage)
         crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=2)
         with self.assertRaises(CircuitBreakerException):

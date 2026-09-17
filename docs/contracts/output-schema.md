@@ -70,7 +70,7 @@ VULNERABILITY_FOUND: [True | False]
 ATTACK_POINTS: [條列詳細描述 Destroyer 發現的漏洞、崩潰點或效能瓶脅]
 REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向]
 </HYPERPLAN_RESULT>
-[NEXT_STATE: PHASE_4_SYNTHESIS | Zero-Chat Contract Active]
+[NEXT_STATE: PHASE_5_SYNTHESIS | Zero-Chat Contract Active]
 ```
 
 ### 2.5 `<SYSTEM_SPECIFICATION>` (共識昇華實作藍圖)
@@ -95,7 +95,7 @@ REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向]
 - Continuation State: [寫入 boulder-state 追蹤器，防範 Token 超限]
 - Directive Target: [交辦任務的具體目標與上述 Spec/TDD 合約的綁定關係]
 </SYSTEM_SPECIFICATION>
-[NEXT_STATE: PHASE_DYNAMIC_COMPILE | Zero-Chat Contract Active]
+[NEXT_STATE: PHASE_6_IMPLEMENT | Zero-Chat Contract Active]
 ```
 
 ### 2.6 `<TASK_SUMMARY_REPORT>` (任務物理執行總結)

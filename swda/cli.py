@@ -9,7 +9,6 @@ import os
 import argparse
 from typing import Optional
 
-import installer
 from swda.core.blackboard import Blackboard, AgentRole
 from swda.core.fsm import FSMEngine, FSMPhase
 from swda.core.circuit_breaker import CircuitBreakerException, StepCounter
@@ -112,12 +111,16 @@ def cmd_verify_session(args):
         ok = ok and gate["ok"]
     for m in res["missing"]:
         print(f"  ! {m}")
+    if getattr(args, "strict", False) and res.get("unverified"):
+        print(f"Strict: {len(res['unverified'])} unverified gate(s) require human confirmation", file=sys.stderr)
+        ok = False
     if not ok:
         sys.exit(1)
 
 
 def cmd_scan(args):
     """Scans local agents read-only (no writes)."""
+    import installer
     agents = installer.scan_agents()
     if not agents:
         print("No agents detected.")
@@ -283,13 +286,14 @@ def main():
 
     ver_p = subparsers.add_parser("verify-session", help="Prove an OMP session walked the SWDA harness")
     ver_p.add_argument("session", type=str, help="OMP session .jsonl file to scan")
-    ver_p.add_argument("--mcp-json", type=str, default=None, help="Also verify swda-mcp registration in this mcp.json")
     ver_p.add_argument("--contract", type=str, default=None, help="Also verify the delivery-gate binding in this contract file")
+    ver_p.add_argument("--strict", action="store_true", help="Fail on any unverified gate (needs human confirmation)")
 
     # Check if first arg is an installer command (install, update, check, version, discover, learn, remove)
     installer_subcommands = {"install", "update", "self-update", "doctor", "version", "discover", "learn"}
     if len(sys.argv) > 1 and sys.argv[1] in installer_subcommands:
         # Delegate directly to installer.main()
+        import installer
         installer.main()
         return
 
@@ -312,6 +316,7 @@ def main():
         cmd_verify_session(args)
     else:
         # Fallback to installer if no specific prime-swda command matched
+        import installer
         installer.main()
 
 

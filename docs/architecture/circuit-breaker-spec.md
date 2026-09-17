@@ -19,7 +19,7 @@
 | **INTENT_GATE** | **1 步** | INTENT_GATE 階段產生次數 $> 1$ | 物理強制將 `EXECUTION_TRACK` 設為 `FAST_PASS` 或提請人類決策。 |
 | **PHASE_1 & PHASE_2 (GATHER)** | **3 步** | GATHER 階段連續輸出 $\ge 3$ 次 | 強制發送指令注入：`"GATHER Step budget (3) reached. Proceed to PHASE_3 immediately using existing context."` |
 | **PHASE_3 (HYPERPLAN)** | **5 輪** | Builder 與 Destroyer 對抗迴圈 $\ge 5$ 輪 | 強制判定對抗結束，要求 Referee 取當前分數最高之方案輸出，轉移至 `PHASE_4`。 |
-| **PHASE_DYNAMIC_COMPILE** | **5 次修復** | TDD/實體測試失敗重試 $\ge 5$ 次 | 物理觸發 `git reset --hard` 回滾代碼變更，並要求 Agent 輸出 `<BUDGET_EXHAUSTION_REPORT>`。 |
+| **PHASE_6_IMPLEMENT** | **5 次修復** | TDD/實體測試失敗重試 $\ge 5$ 次 | 物理觸發 `git reset --hard` 回滾代碼變更，並要求 Agent 輸出 `<BUDGET_EXHAUSTION_REPORT>`。 |
 
 ---
 
