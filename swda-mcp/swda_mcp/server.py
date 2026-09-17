@@ -35,7 +35,11 @@ mcp = FastMCP("swda")
 def swda_reconcile(file: str, workspace_root: str = "") -> dict:
     """Check a Python file for hallucinated imports/APIs before delivery.
 
-    Returns {"valid": bool, "imported_modules": [...], "errors": [...]}.
+    Returns {"valid": bool, "verdict": "valid|unverifiable|invalid",
+    "imported_modules": [...], "errors": [...], "warnings": [...]}.
+    Gate policy: `verdict` is authoritative; `valid` is a compat key that
+    stays True for `unverifiable`. Do NOT treat `valid:true` as clean when
+    `verdict` is `unverifiable` — that means human confirmation is required.
     """
     root = workspace_root or os.getcwd()
     return ReverseReconciliation.verify_file(file, root)

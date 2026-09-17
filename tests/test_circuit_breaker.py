@@ -35,6 +35,54 @@ class TestCircuitBreaker(unittest.TestCase):
             counter.record_step("PHASE_4_CRUCIBLE")
         self.assertEqual(ctx.exception.phase, "GLOBAL")
 
+    def test_shared_counter_spans_fsm_and_crucible(self):
+        from swda.core.blackboard import Blackboard, AgentRole
+        from swda.core.fsm import FSMEngine, FSMPhase
+        from swda.prime.rlm import RLMDispatcher
+        from swda.workflows.crucible import CrucibleWorkflow
+
+        bb = Blackboard()
+        shared = StepCounter()
+        fsm = FSMEngine(bb, step_counter=shared)
+        rlm = RLMDispatcher(mock_handler=lambda role, prompt: {"content": "x"} if role != "referee" else {"passed": True, "score": 8, "reason": "ok"})
+        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, step_counter=shared)
+        self.assertIs(fsm.step_counter, crucible.step_counter)
+
+        fsm.advance_to(FSMPhase.PHASE_2_GATHER)
+        fsm.advance_to(FSMPhase.PHASE_3_HYPERPLAN)
+        bb.write(AgentRole.SYSTEM, "active_proposal", {"spec": "x", "draft": True})
+        fsm.advance_to(FSMPhase.PHASE_4_CRUCIBLE)
+        crucible.run_crucible("x")
+        # CRUCIBLE entry is free; only confrontation rounds bill the budget.
+        self.assertEqual(shared.get_count("PHASE_4_CRUCIBLE"), 1)
+        self.assertGreaterEqual(shared.total_steps, 3)
+
+    def test_third_round_still_reachable_under_shared_counter(self):
+        from swda.core.blackboard import Blackboard, AgentRole
+        from swda.core.fsm import FSMEngine, FSMPhase
+        from swda.prime.rlm import RLMDispatcher
+        from swda.workflows.crucible import CrucibleWorkflow
+
+        calls = {"n": 0}
+
+        def handler(role, prompt):
+            calls["n"] += 1
+            if role == "referee":
+                return {"passed": calls["n"] >= 9, "score": 8 if calls["n"] >= 9 else 4, "reason": "ok"}
+            return {"content": "x"}
+
+        bb = Blackboard()
+        shared = StepCounter()
+        fsm = FSMEngine(bb, step_counter=shared)
+        crucible = CrucibleWorkflow(rlm=RLMDispatcher(mock_handler=handler), blackboard=bb, step_counter=shared)
+        fsm.advance_to(FSMPhase.PHASE_2_GATHER)
+        fsm.advance_to(FSMPhase.PHASE_3_HYPERPLAN)
+        bb.write(AgentRole.SYSTEM, "active_proposal", {"spec": "x", "draft": True})
+        fsm.advance_to(FSMPhase.PHASE_4_CRUCIBLE)
+        res = crucible.run_crucible("x")
+        self.assertTrue(res.passed)
+        self.assertEqual(res.rounds_executed, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

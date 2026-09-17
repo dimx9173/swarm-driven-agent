@@ -293,7 +293,8 @@ class TestSWDAInstaller(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("Swarm-Driven Agent (SWDA) Version", result.stdout)
-        self.assertIn("Current version:", result.stdout)
+        self.assertIn("CLI version:", result.stdout)
+        self.assertIn("Contract (EN):", result.stdout)
 
         # Test `-v` mapping
         result_v = subprocess.run(
@@ -302,7 +303,7 @@ class TestSWDAInstaller(unittest.TestCase):
             text=True
         )
         self.assertEqual(result_v.returncode, 0)
-        self.assertIn("Current version:", result_v.stdout)
+        self.assertIn("CLI version:", result_v.stdout)
 
     def test_cli_discover_command(self):
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")

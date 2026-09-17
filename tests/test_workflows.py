@@ -88,6 +88,29 @@ class TestWorkflows(unittest.TestCase):
         self.assertEqual(res.rounds_executed, 1)
         self.assertEqual(bb.read("active_proposal")["spec"], "Add cache layer")
 
+    def test_crucible_role_prompts_are_isolated(self):
+        seen = {}
+
+        def spy(role: str, prompt: str):
+            seen[role] = prompt
+            if role == "builder":
+                return {"spec": "S", "secret_builder_note": "B-ONLY"}
+            if role == "destroyer":
+                return {"vector": "V"}
+            return {"passed": True, "score": 9, "reason": "ok"}
+
+        bb = Blackboard()
+        rlm = RLMDispatcher(mock_handler=spy)
+        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=1)
+        crucible.run_crucible("Task T")
+        # Builder never sees raw destroyer monologue; destroyer never sees the task.
+        self.assertNotIn("B-ONLY", seen.get("destroyer", ""))
+        self.assertNotIn("Task T", seen.get("destroyer", ""))
+        self.assertIn("Previous round digests", seen.get("builder", ""))
+        # Referee gets digest + reconcile re-run, not raw blobs.
+        self.assertIn("Critique digest", seen.get("referee", ""))
+        self.assertIn("Reconcile re-run", seen.get("referee", ""))
+
     def test_crucible_string_verdict_parsed_not_auto_passed(self):
         from swda.workflows.crucible import CrucibleWorkflow
         verdict = CrucibleWorkflow._parse_verdict('{"passed": true, "score": 9, "reason": "ok"}', 1)
@@ -154,6 +177,85 @@ class TestWorkflows(unittest.TestCase):
 
         res = ReverseReconciliation.verify_file(valid_file, self.temp_dir)
         self.assertTrue(res["valid"])
+        self.assertEqual(res["verdict"], "valid")
+        self.assertEqual(res["warnings"], [])
+
+    def test_reverse_reconciliation_unknown_receiver_is_unverifiable(self):
+        recv_file = os.path.join(self.temp_dir, "recv_unknown.py")
+        with open(recv_file, "w", encoding="utf-8") as f:
+            f.write("import json\ndef get_client():\n    return object()\nclient = get_client()\nclient.made_up_method()\n")
+
+        res = ReverseReconciliation.verify_file(recv_file, self.temp_dir)
+        self.assertTrue(res["valid"])
+        self.assertEqual(res["verdict"], "unverifiable")
+        self.assertTrue(any("client" in w for w in res["warnings"]))
+
+    def test_reverse_reconciliation_star_relative_dynamic_are_unverifiable(self):
+        for name, code in [
+            ("star_mod.py", "from os import *\nprint(getcwd())\n"),
+            ("rel_mod.py", "from . import sibling\nprint(sibling)\n"),
+            ("dyn_mod.py", "import importlib\nm = importlib.import_module(x)\ny = getattr(m, name)\n"),
+        ]:
+            path = os.path.join(self.temp_dir, name)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(code)
+            res = ReverseReconciliation.verify_file(path, self.temp_dir)
+            self.assertEqual(res["verdict"], "unverifiable", f"{name} should be unverifiable")
+            self.assertTrue(res["warnings"], f"{name} should carry warnings")
+
+    def test_reverse_reconciliation_literal_getattr_is_grounded(self):
+        path = os.path.join(self.temp_dir, "lit_getattr.py")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("import json\nx = getattr(json, 'dumps')\nprint(x({}))\n")
+        res = ReverseReconciliation.verify_file(path, self.temp_dir)
+        self.assertEqual(res["verdict"], "valid")
+        self.assertEqual(res["warnings"], [])
+
+    def test_reverse_reconciliation_deep_chain_is_not_silently_valid(self):
+        deep_file = os.path.join(self.temp_dir, "deep_chain.py")
+        with open(deep_file, "w", encoding="utf-8") as f:
+            f.write("from swda.core.fsm import FSMEngine\nx = FSMEngine.VALID_TRANSITIONS.this_method_does_not_exist()\n")
+
+        res = ReverseReconciliation.verify_file(deep_file, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.assertNotEqual(res["verdict"], "valid")
+
+    def test_reverse_reconciliation_kind_hint_warns_not_silences(self):
+        kind_file = os.path.join(self.temp_dir, "kind_hint.py")
+        with open(kind_file, "w", encoding="utf-8") as f:
+            f.write("from pathlib import Path\ndef f(p: Path):\n    return p.dirname()\n")
+
+        res = ReverseReconciliation.verify_file(kind_file, self.temp_dir)
+        self.assertEqual(res["verdict"], "unverifiable")
+        self.assertTrue(res["warnings"])
+
+    def test_reverse_reconciliation_hallucinated_self_method_is_invalid(self):
+        self_file = os.path.join(self.temp_dir, "self_hallu.py")
+        with open(self_file, "w", encoding="utf-8") as f:
+            f.write("class A:\n    def f(self):\n        return self.made_up_xyz()\n")
+
+        res = ReverseReconciliation.verify_file(self_file, self.temp_dir)
+        self.assertFalse(res["valid"])
+        self.assertEqual(res["verdict"], "invalid")
+        self.assertTrue(any("made_up_xyz" in e for e in res["errors"]))
+
+    def test_reverse_reconciliation_real_self_method_stays_quiet(self):
+        self_file = os.path.join(self.temp_dir, "self_real.py")
+        with open(self_file, "w", encoding="utf-8") as f:
+            f.write("class A:\n    def f(self):\n        return 1\n    def g(self):\n        return self.f()\n")
+
+        res = ReverseReconciliation.verify_file(self_file, self.temp_dir)
+        self.assertEqual(res["verdict"], "valid")
+
+    def test_reverse_reconciliation_workspace_reexport_is_unverifiable(self):
+        with open(os.path.join(self.temp_dir, "reexp.py"), "w", encoding="utf-8") as f:
+            f.write("from json import dumps\n")
+        use_file = os.path.join(self.temp_dir, "use_reexp.py")
+        with open(use_file, "w", encoding="utf-8") as f:
+            f.write("from reexp import dumps\nprint(dumps({}))\n")
+
+        res = ReverseReconciliation.verify_file(use_file, self.temp_dir)
+        self.assertEqual(res["verdict"], "unverifiable")
+        self.assertTrue(any("dumps" in w for w in res["warnings"]))
 
     def test_reverse_reconciliation_workspace_local_symbol(self):
         pkg_dir = os.path.join(self.temp_dir, "mymod")

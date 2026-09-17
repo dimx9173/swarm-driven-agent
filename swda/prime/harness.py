@@ -1,24 +1,203 @@
 """
-SWDA Continual Harness: Self-Improving Operational Scaffolding and Anti-Pattern Storage.
-Integrates Prime Agent's /refine methodology with SWDA L2 Memory Palace.
-"""
+SWDA Continual Harness: versioned supplemental-state store, primed with the
+prime-agent harness contract.
 
+Design (prime-agent `prime-agent-runtime/src/rlm/harness.py`, adapted in-process):
+  * kinds: prompt | memory | skill | subagent (each versioned, small-step edits)
+  * refinements recorded as {trigger, changes, evidence, outcome}; snapshots
+    support rollback; the base system prompt is never touched.
+  * local (workspace) vs global (~/.swda/harness) scoping; loads re-read the
+    on-disk mtime so external writers are not clobbered.
+  * `refine()` keeps the legacy anti-pattern YAML behaviour (Crucible/TDD
+    failures) while also recording a refinement event in the store.
+"""
 import os
-import glob
+import copy
+import json
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
+KINDS = ("prompt", "memory", "skill", "subagent")
+
+_ENTRY_FIELDS = {"id", "kind", "title", "content", "path", "scope",
+                 "reference", "arguments", "metadata", "source",
+                 "created_at", "updated_at", "version"}
+_REFINEMENT_FIELDS = {"id", "trigger", "changes", "evidence", "outcome", "created_at"}
+
+
+def _now() -> str:
+    return datetime.now().isoformat()
+
+
+def _slug(raw: str, fallback: str) -> str:
+    out = "".join(c if c.isalnum() or c in "-_" else "-" for c in (raw or "").strip().lower())
+    out = out.strip("-")
+    return out or fallback
+
+
+class HarnessState:
+    """CRUD store for reset-free harness refinement state (stdlib only)."""
+
+    def __init__(self, state_path: Optional[str] = None, scope: str = "local",
+                 in_memory: bool = False):
+        self.scope = scope
+        if in_memory or state_path is None:
+            self.state_path: Optional[str] = None
+        else:
+            self.state_path = os.path.abspath(os.path.expanduser(state_path))
+        self.entries: Dict[str, Dict[str, Dict[str, Any]]] = {k: {} for k in KINDS}
+        self.refinements: List[Dict[str, Any]] = []
+        self._loaded_mtime: Optional[int] = None
+        if self.state_path:
+            self.load()
+
+    # -- disk sync ---------------------------------------------------------
+    def _disk_mtime(self) -> Optional[int]:
+        if not self.state_path or not os.path.exists(self.state_path):
+            return None
+        return int(os.stat(self.state_path).st_mtime)
+
+    @staticmethod
+    def _default_path(scope: str) -> Optional[str]:
+        if scope == "global":
+            home = os.path.expanduser("~")
+            return os.path.join(home, ".swda", "harness", "harness_state.json")
+        if scope == "local":
+            return os.path.join(os.getcwd(), ".swda", "harness", "harness_state.json")
+        return None
+
+    def load(self) -> "HarnessState":
+        if not self.state_path:
+            return self
+        mtime = self._disk_mtime()
+        if mtime is not None and mtime == self._loaded_mtime:
+            return self  # on-disk unchanged since last load
+        try:
+            with open(self.state_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                self._hydrate(data)
+            self._loaded_mtime = mtime
+        except OSError:
+            pass  # first run: nothing on disk yet
+        except ValueError:
+            # corrupt store: keep memory, do not silently clobber disk
+            self._loaded_mtime = None
+        return self
+
+    def _hydrate(self, data: Dict[str, Any]) -> None:
+        self.entries = {k: {} for k in KINDS}
+        for kind, rows in (data.get("entries") or {}).items():
+            if kind in KINDS and isinstance(rows, dict):
+                self.entries[kind] = rows
+        self.refinements = [r for r in (data.get("refinements") or [])
+                            if isinstance(r, dict) and _REFINEMENT_FIELDS & set(r)]
+
+    def save(self) -> "HarnessState":
+        if not self.state_path:
+            return self
+        parent = os.path.dirname(self.state_path)
+        os.makedirs(parent, exist_ok=True)
+        tmp = self.state_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"entries": self.entries, "refinements": self.refinements},
+                      f, ensure_ascii=False, indent=2)
+        os.replace(tmp, self.state_path)
+        self._loaded_mtime = self._disk_mtime()
+        return self
+
+    # -- CRUD ---------------------------------------------------------------
+    def _entry(self, kind: str, id_: str, title: str, content: str, **extra: Any) -> Dict[str, Any]:
+        e = {k: None for k in _ENTRY_FIELDS}
+        e.update({"id": id_, "kind": kind, "title": title, "content": content,
+                  "path": "general", "scope": self.scope, "reference": {},
+                  "arguments": {}, "metadata": {}, "source": "agent",
+                  "created_at": _now(), "updated_at": _now(), "version": 1})
+        for k, v in extra.items():
+            if k in _ENTRY_FIELDS and v is not None:
+                e[k] = v
+        return e
+
+    def upsert(self, kind: str, id_: str, title: str, content: str, **extra: Any) -> Dict[str, Any]:
+        if kind not in KINDS:
+            raise ValueError(f"Unknown harness kind: {kind!r} (want one of {KINDS})")
+        existing = self.entries[kind].get(id_)
+        if existing:
+            updated = {**existing, **{k: v for k, v in {
+                "title": title, "content": content, **extra}.items() if v is not None}}
+            updated["version"] = int(existing.get("version", 1)) + 1
+            updated["updated_at"] = _now()
+            self.entries[kind][id_] = updated
+            entry = updated
+        else:
+            entry = self._entry(kind, id_, title, content, **extra)
+            self.entries[kind][id_] = entry
+        self.save()
+        return copy.deepcopy(entry)
+
+    def get(self, kind: str, id_: str) -> Optional[Dict[str, Any]]:
+        self.load()
+        row = self.entries.get(kind, {}).get(id_)
+        return copy.deepcopy(row) if row else None
+
+    def delete(self, kind: str, id_: str) -> bool:
+        self.load()
+        if id_ in self.entries.get(kind, {}):
+            del self.entries[kind][id_]
+            self.save()
+            return True
+        return False
+
+    def list(self, kind: Optional[str] = None) -> List[Dict[str, Any]]:
+        self.load()
+        kinds = [kind] if kind else list(KINDS)
+        out: List[Dict[str, Any]] = []
+        for k in kinds:
+            out.extend(copy.deepcopy(v) for v in self.entries.get(k, {}).values())
+        return out
+    # -- refinements ---------------------------------------------------------
+    def record_refinement(self, trigger: str, changes: List[str],
+                          evidence: str = "", outcome: str = "") -> Dict[str, Any]:
+        event = {"id": uuid4_hex12(), "trigger": trigger, "changes": list(changes),
+                 "evidence": evidence[:300], "outcome": outcome,
+                 "created_at": _now()}
+        for k in list(event):
+            if k not in _REFINEMENT_FIELDS:
+                del event[k]
+        self.refinements.append(event)
+        self.save()
+        return copy.deepcopy(event)
+
+    def snapshot(self) -> Dict[str, Any]:
+        return {"entries": copy.deepcopy(self.entries),
+                "refinements": copy.deepcopy(self.refinements)}
+
+    def restore(self, snapshot: Dict[str, Any]) -> None:
+        self._hydrate(snapshot)
+        self.save()
+
+
+def uuid4_hex12() -> str:
+    import uuid
+    return uuid.uuid4().hex[:12]
 
 
 class ContinualHarness:
     """
-    Maintains durable harness state across sessions.
-    Allows evidence-backed refinement of operating rules, skills, and anti-patterns.
+    Maintains durable harness state across sessions (versioned supplemental
+    store) and the legacy anti-pattern YAML flow used by Crucible/TDD refine.
     """
 
-    def __init__(self, workspace_root: Optional[str] = None):
+    def __init__(self, workspace_root: Optional[str] = None,
+                 state_path: Optional[str] = None, scope: str = "local"):
         self.workspace_root = workspace_root or os.getcwd()
         self.anti_patterns_dir = os.path.join(self.workspace_root, "docs", "anti-patterns")
         os.makedirs(self.anti_patterns_dir, exist_ok=True)
+        if state_path is None:
+            state_path = os.path.join(self.workspace_root, ".swda", "harness", "harness_state.json")
+        elif os.path.isdir(state_path):
+            state_path = os.path.join(state_path, "harness_state.json")
+        self.state = HarnessState(state_path=state_path, scope=scope)
 
     def record_anti_pattern(
         self,
@@ -70,7 +249,8 @@ class ContinualHarness:
 
     def refine(self, trajectory_summary: str, failure_signal: str) -> Optional[Dict[str, str]]:
         """
-        Reviews a failed trajectory and synthesizes an evidence-backed anti-pattern record.
+        Reviews a failed trajectory: anti-pattern YAML (legacy) plus a small,
+        evidence-backed entry in the supplemental store with a refinement log.
         """
         pattern_name = f"refine_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         path = self.record_anti_pattern(
@@ -80,12 +260,23 @@ class ContinualHarness:
             corrective_rule=self.derive_rule(trajectory_summary, failure_signal),
             tags=["auto-refine", "crucible-failure"]
         )
+        self.state.upsert(
+            kind="memory", id_=pattern_name, title=pattern_name[:60],
+            content=f"{trajectory_summary[:200]} -> {failure_signal[:200]}",
+            metadata={"path": path, "tags": ["auto-refine", "crucible-failure"]},
+        )
+        self.state.record_refinement(
+            trigger="crucible-failure", changes=[f"memory:{pattern_name} +created"],
+            evidence=f"{trajectory_summary[:200]} | {failure_signal[:200]}",
+            outcome="auto-refine recorded",
+        )
         return {"name": pattern_name, "path": path}
 
     def list_anti_patterns(self) -> List[Dict[str, Any]]:
         """Lists all registered anti-patterns in the workspace."""
+        import glob as _glob
         patterns = []
-        for file in glob.glob(os.path.join(self.anti_patterns_dir, "*.yaml")):
+        for file in _glob.glob(os.path.join(self.anti_patterns_dir, "*.yaml")):
             try:
                 with open(file, "r", encoding="utf-8") as f:
                     lines = f.readlines()
@@ -100,7 +291,6 @@ class ContinualHarness:
             except Exception:
                 continue
         return patterns
-
     def format_focal_context(self, max_items: int = 5) -> str:
         """
         Formats top anti-patterns for Arachne focal positioning (placed at front and rear of context).

@@ -561,8 +561,8 @@ def get_agent_status(agent, template_versions):
         p_t_soul = parse_semver(t_soul_ver)
         p_soul = parse_semver(soul_ver)
         soul_status = "ok" if (soul_ver and p_soul >= p_t_soul) else ("update" if soul_ver else "missing")
-        rule_status = "ok"
-        skill_status = "ok"
+        rule_status = "n/a"
+        skill_status = "n/a"
         rule_ver = None
         skill_ver = None
     else:
@@ -612,12 +612,13 @@ def load_installed_agents(agents_list=None):
     path = get_installed_agents_config_path()
     if not os.path.exists(path):
         # Auto-discovery fallback: if no config file exists,
-        # scan the system and record any agents that already have RULE.md installed.
+        # scan the system and record agents that already carry a contract
+        # (modular RULE.md or integrated APPEND_SYSTEM.md).
         installed = []
         if agents_list:
             for agent in agents_list:
                 rule_path = os.path.join(agent['dir_path'], "RULE.md")
-                if os.path.exists(rule_path):
+                if os.path.exists(rule_path) or os.path.basename(agent.get('soul_path', '')) == "APPEND_SYSTEM.md" and os.path.exists(agent['soul_path']):
                     installed.append(agent['dir_path'])
             save_installed_agents(installed)
         return installed
@@ -626,18 +627,38 @@ def load_installed_agents(agents_list=None):
             data = json.load(f)
             if isinstance(data, list):
                 return data
-    except Exception:
-        pass
+            print(f"Warning: tracking file {path} holds {type(data).__name__}, expected a list; treating as empty.", file=sys.stderr)
+    except (OSError, ValueError) as e:
+        # Corrupt tracking file is an error, never silent empty: back it up
+        # so doctor/update visibly degrade instead of pretending nothing is tracked.
+        bak = f"{path}.corrupt.{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.bak"
+        try:
+            shutil.copy2(path, bak)
+        except Exception:
+            pass
+        print(f"Error: tracking file {path} is corrupt ({e}); backed up to {bak}. Run 'swda install' to re-register.", file=sys.stderr)
+        sys.exit(1)
     return []
 
 def save_installed_agents(installed_paths):
     import json
+    import tempfile
     path = get_installed_agents_config_path()
     try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(installed_paths, f, indent=4)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".installed_agents.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(installed_paths, f, indent=4)
+            os.replace(tmp, path)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
     except Exception as e:
-        print(f"Warning: Failed to save installed agents config: {e}", file=sys.stderr)
+        print(f"Error: Failed to save installed agents config: {e}", file=sys.stderr)
+        sys.exit(1)
 
 def record_agent_installed(agent_dir_path):
     # Normalize path
@@ -1002,20 +1023,28 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     if not re.match(r"^[a-zA-Z0-9_\-]+$", name):
         print(f"Error: Invalid agent name '{name}'. Only alphanumeric characters, underscores, and hyphens are allowed.", file=sys.stderr)
         sys.exit(1)
-        
+
+    # Default to openclaw layout when --type is omitted.
+    agent_type = (agent_type or "openclaw").lower()
     home_dir = os.path.expanduser("~")
-    
-    if agent_type.lower() == "hermes":
+
+    if agent_type == "hermes":
         dest_dir = os.path.join(home_dir, ".hermes", "profiles", name)
-    elif agent_type.lower() == "omp":
+    elif agent_type == "omp":
         if name in ("default", "agent"):
             dest_dir = os.path.join(home_dir, ".omp", "agent")
         else:
             dest_dir = os.path.join(home_dir, ".omp", "agent", "profiles", name)
+    elif agent_type == "pi":
+        if name in ("default", "agent"):
+            dest_dir = os.path.join(home_dir, ".pi", "agent")
+        else:
+            dest_dir = os.path.join(home_dir, ".pi", "agent", "profiles", name)
     else:
+        agent_type = "openclaw"
         dest_dir = os.path.join(home_dir, ".openclaw", "workspaces", name)
         
-    if agent_type.lower() == "omp":
+    if agent_type in ("omp", "pi"):
         append_system_dest_path = os.path.join(dest_dir, "APPEND_SYSTEM.md")
         if os.path.exists(append_system_dest_path):
             print(f"Error: Agent workspace '{name}' already exists at: {dest_dir} (found APPEND_SYSTEM.md)", file=sys.stderr)
@@ -1038,7 +1067,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
         try:
             with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
                 all_in_content = f.read()
-            initial_identity = f"# 1. 系統定位 (System Identity)\n{identity}\n"
+            initial_identity = f"# 1. 系統定位 (System Identity)\n{identity or '你是一個全能的智慧 Agent。'}\n"
             merged_append = merge_soul_content(initial_identity, all_in_content)
             with open(append_system_dest_path, 'w', encoding='utf-8') as f:
                 f.write(merged_append)
@@ -1048,6 +1077,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
             sys.exit(1)
             
         print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
+        record_agent_installed(dest_dir)
         return
 
     soul_dest_path = os.path.join(dest_dir, "SOUL.md")
@@ -1279,19 +1309,27 @@ def main():
     if args.command == "update":
         args.command = "doctor"
         args.fix = True
-
+        # Preserve update-scoped selection: positional names + --type filter.
+        # Bare `swda update` (neither given) updates all installed agents.
+        args._update_type = getattr(args, "type", None)
+        if isinstance(getattr(args, "agents", None), str) and args.agents:
+            args.agents = [t.strip() for t in args.agents.split(",") if t.strip()]
+        elif not getattr(args, "agents", None):
+            args.agents = ["all"]
     if args.command == "version":
         local_ver = CLI_VERSION
         print("="*60)
         print("             Swarm-Driven Agent (SWDA) Version")
         print("="*60)
-        print(f"Current version: {local_ver}")
+        print(f"CLI version:     {local_ver} (swda tool itself)")
+        print(f"Contract (EN):   {extract_version(ALL_IN_RULE_TEMPLATE)} (template/integrated/ALL_IN_RULE.en.md)")
         print("Checking for latest version...")
         remote_ver = get_remote_version()
         if remote_ver:
             print(f"Latest version:  {remote_ver}")
             if parse_semver(local_ver) < parse_semver(remote_ver):
-                print("\nStatus:          [UPDATE AVAILABLE] Run 'swda update --cli' or 'swda self-update' to upgrade.")
+                print("\nStatus:          [UPDATE AVAILABLE] Run 'swda update --cli' or 'swda self-update' to upgrade the CLI.")
+                print("                 (Contract updates ship with the CLI; re-run 'swda update -y' to refresh agents.)")
             else:
                 print("\nStatus:          [UP TO DATE] You are running the latest version.")
         else:
@@ -1310,8 +1348,9 @@ def main():
     if args.command == "doctor":
         if args.fix:
             args.check = False
-            args.agents = ["all"]
             args.uninstall = False
+            if not isinstance(getattr(args, "agents", None), list) or not args.agents:
+                args.agents = ["all"]
         else:
             args.check = True
             args.agents = []
@@ -1360,7 +1399,19 @@ def main():
     if args.command == "doctor":
         installed_paths = load_installed_agents(agents)
         installed_paths = [os.path.abspath(p).replace("\\", "/") for p in installed_paths]
+        scanned_dirs = {os.path.abspath(a['dir_path']).replace("\\", "/") for a in agents}
+        stale = [p for p in installed_paths if p not in scanned_dirs]
+        for p in stale:
+            print(f"Warning: tracked agent dir no longer on disk (stale entry): {p}")
+        if stale:
+            print("Run 'swda install' to re-register, or remove the entry from ~/.swda/installed_agents.json.")
         agents = [a for a in agents if os.path.abspath(a['dir_path']).replace("\\", "/") in installed_paths]
+        update_type = getattr(args, "_update_type", None)
+        if update_type and update_type.lower() != "all":
+            agents = [a for a in agents if a['type'].lower() == update_type.lower()]
+            if not agents:
+                print(f"No installed agents of type '{update_type}'.")
+                sys.exit(0)
         if not agents:
             print("No installed agents tracked. Run 'swda install' to install on an agent.")
             sys.exit(0)

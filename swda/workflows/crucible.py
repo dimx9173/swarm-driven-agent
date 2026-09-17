@@ -48,6 +48,11 @@ class CrucibleWorkflow:
     def run_crucible(self, task_spec: str, context: Optional[Dict[str, Any]] = None) -> CrucibleResult:
         """
         Executes iterative Crucible rounds until Referee approves or circuit breaker trips.
+
+        Role isolation: Builder sees the task plus a digest of prior rounds
+        (never raw Destroyer monologue); Destroyer sees the current proposal
+        only; Referee sees proposal + critique digest plus a reconcile re-run
+        verdict when the proposal names Python files.
         """
         all_critiques = []
         current_proposal = {"spec": task_spec, "round": 0}
@@ -55,46 +60,47 @@ class CrucibleWorkflow:
         for round_idx in range(1, self.max_rounds + 1):
             self.step_counter.record_step("PHASE_4_CRUCIBLE")
 
-            # 1. Builder develops/sharpens proposal
+            # 1. Builder develops/sharpens proposal (digest only, no raw critique)
             builder_prompt = (
                 f"Task: {task_spec}\n"
-                f"Previous critiques: {all_critiques}\n"
+                f"Previous round digests: {self._digest_critiques(all_critiques)}\n"
                 "Propose a formal Spec with explicit edge cases, data structures, and trade-offs."
             )
             raw_proposal = self.rlm.spawn(
                 role=AgentRole.BUILDER.value,
                 prompt=builder_prompt,
-                context=context,
+                context=self._role_context(context, AgentRole.BUILDER.value),
             )
             current_proposal = (
                 raw_proposal if isinstance(raw_proposal, dict) else {"content": raw_proposal, "round": round_idx}
             )
             self.blackboard.write(AgentRole.BUILDER, "active_proposal", current_proposal)
 
-            # 2. Destroyer attacks (Falsifiable Vector Constraint)
+            # 2. Destroyer attacks (proposal only, no task context bleed)
             destroyer_prompt = (
-                f"Proposal: {current_proposal}\n"
+                f"Proposal: {self._proposal_brief(current_proposal)}\n"
                 "Attack with falsifiable vectors: race conditions, resource leaks, edge errors, fake mocks."
             )
             raw_critique = self.rlm.spawn(
                 role=AgentRole.DESTROYER.value,
                 prompt=destroyer_prompt,
-                context=context,
+                context=self._role_context(context, AgentRole.DESTROYER.value),
             )
             critique = raw_critique if isinstance(raw_critique, dict) else {"critique": raw_critique, "round": round_idx}
             all_critiques.append(critique)
             self.blackboard.write(AgentRole.DESTROYER, "crucible_critiques", all_critiques)
 
-            # 3. Referee renders cold, impassive verdict
+            # 3. Referee renders cold, impassive verdict (digest + re-run check)
             referee_prompt = (
-                f"Proposal: {current_proposal}\n"
-                f"Critique: {critique}\n"
+                f"Proposal: {self._proposal_brief(current_proposal)}\n"
+                f"Critique digest: {self._digest_critiques([critique])}\n"
+                f"Reconcile re-run: {self._reconcile_check(current_proposal)}\n"
                 "Render objective verdict. Return JSON with 'passed' (boolean), 'score' (1-10), and 'reason'."
             )
             raw_verdict = self.rlm.spawn(
                 role=AgentRole.REFEREE.value,
                 prompt=referee_prompt,
-                context=context,
+                context=self._role_context(context, AgentRole.REFEREE.value),
             )
             verdict = self._parse_verdict(raw_verdict, round_idx)
             self.blackboard.write(AgentRole.REFEREE, "crucible_verdict", verdict)
@@ -115,6 +121,54 @@ class CrucibleWorkflow:
             max_limit=self.max_rounds,
             reason="Crucible deadlock: Builder and Destroyer failed to reach consensus. Suspending to HITL."
         )
+    @staticmethod
+    def _role_context(context: Optional[Dict[str, Any]], role: str) -> Optional[Dict[str, Any]]:
+        """Role-scoped context: role tag plus shared anchors, never raw peer monologue."""
+        base = dict(context or {})
+        base["role"] = role
+        return base
+
+    @staticmethod
+    def _digest_critiques(critiques: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Compresses critiques to vector/severity/round triples for Builder/Referee."""
+        digest = []
+        for c in critiques[-3:]:
+            if isinstance(c, dict):
+                digest.append({k: c.get(k) for k in ("vector", "severity", "round", "critique") if c.get(k) is not None})
+        return digest
+
+    @staticmethod
+    def _proposal_brief(proposal: Any) -> Any:
+        """Trims the proposal for Destroyer/Referee (no internal reasoning leakage)."""
+        if isinstance(proposal, dict):
+            return {k: proposal.get(k) for k in ("spec", "content", "edge_cases", "round") if proposal.get(k) is not None}
+        return proposal
+
+    @staticmethod
+    def _reconcile_check(proposal: Any) -> str:
+        """Re-runs reconcile when the proposal names workspace Python files."""
+        import os as _os
+        from swda.workflows.reconcile import ReverseReconciliation
+        files = []
+        stack = [proposal]
+        while stack:
+            cur = stack.pop()
+            if isinstance(cur, dict):
+                stack.extend(cur.values())
+            elif isinstance(cur, (list, tuple)):
+                stack.extend(cur)
+            elif isinstance(cur, str) and cur.strip().endswith(".py") and _os.path.exists(cur.strip()):
+                files.append(cur.strip())
+        if not files:
+            return "no workspace Python files named; skipped"
+        parts = []
+        for f in sorted(set(files))[:5]:
+            try:
+                res = ReverseReconciliation.verify_file(f, _os.getcwd())
+                parts.append(f"{f}: {res.get('verdict', 'unknown')}")
+            except Exception as e:
+                parts.append(f"{f}: check failed ({e})")
+        return "; ".join(parts)
 
     @staticmethod
     def _parse_verdict(raw_verdict: Any, round_idx: int) -> Dict[str, Any]:

@@ -8,9 +8,12 @@ import sys
 import io
 import ast
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 from swda.core.blackboard import Blackboard
 from swda.core.firewall import SafetyFirewall, SecurityFirewallException
+
+if TYPE_CHECKING:
+    from swda.core.hooks import HookRegistry
 
 try:
     from IPython.core.interactiveshell import InteractiveShell
@@ -26,8 +29,10 @@ class PrimeREPL:
     Retains namespace and variable state across multi-turn interactions.
     """
 
-    def __init__(self, blackboard: Blackboard, initial_namespace: Optional[Dict[str, Any]] = None):
+    def __init__(self, blackboard: Blackboard, initial_namespace: Optional[Dict[str, Any]] = None,
+                 hooks: Optional["HookRegistry"] = None):
         self.blackboard = blackboard
+        self.hooks = hooks
         self.namespace: Dict[str, Any] = {
             "blackboard": self.blackboard,
             "__name__": "__main__",
@@ -47,6 +52,16 @@ class PrimeREPL:
         Returns a dictionary with 'stdout', 'stderr', 'result', and 'success'.
         """
         current_phase = self.blackboard.read("phase")
+
+        # 0. PreToolUse hooks: a block verdict aborts before any audit/exec.
+        if self.hooks is not None:
+            from swda.core.hooks import HookBlocked
+            try:
+                self.hooks.run_pre("repl.execute", {"code": code_str, "phase": current_phase})
+            except HookBlocked as blocked:
+                return {"success": False, "stdout": "", "stderr": "",
+                        "result": None, "error": str(blocked)}
+        
         
         # 1. Physical AST and Security Audit
         SafetyFirewall.audit_code_ast(code_str, current_phase)
@@ -92,15 +107,16 @@ class PrimeREPL:
             error_msg = traceback.format_exc()
         finally:
             sys.stdout = old_stdout
-            sys.stderr = old_stderr
-
-        return {
+        outcome = {
             "success": success,
             "stdout": redirected_stdout.getvalue(),
             "stderr": redirected_stderr.getvalue(),
             "result": result_val,
             "error": error_msg,
         }
+        if self.hooks is not None:
+            self.hooks.run_post("repl.execute", {"code": code_str, "phase": current_phase}, outcome)
+        return outcome
 
     def set_variable(self, name: str, value: Any) -> None:
         """Injects a variable directly into the persistent REPL environment."""

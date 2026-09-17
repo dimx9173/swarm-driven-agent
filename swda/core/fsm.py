@@ -63,8 +63,11 @@ class FSMEngine:
         # Prerequisite validation (Exit gates)
         self._verify_phase_prerequisites(next_phase)
 
-        # Record step in circuit breaker
-        self.step_counter.record_step(next_phase.value)
+        # Record step in circuit breaker. CRUCIBLE entry itself is free: the
+        # round budget is billed per confrontation round inside run_crucible,
+        # so a shared counter doesn't eat round 3 before it starts.
+        if next_phase != FSMPhase.PHASE_4_CRUCIBLE:
+            self.step_counter.record_step(next_phase.value)
 
         return self._commit_transition(next_phase)
 
