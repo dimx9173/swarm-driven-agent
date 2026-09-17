@@ -97,6 +97,41 @@ class UpdateScopeTest(unittest.TestCase):
         self.assertIn("<!-- swda-begin -->", content)
         self.assertTrue(any("pi_probe" in p for p in self._tracked()))
 
+    def test_create_prime_routes_and_tracks(self):
+        r = self._run("install", "--create", "prime_probe", "--type", "prime", "-y")
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        append = os.path.join(self.mock_home, ".prime", "agent", "profiles", "prime_probe", "APPEND_SYSTEM.md")
+        self.assertTrue(os.path.exists(append))
+        with open(append, encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("<!-- swda-begin -->", content)
+        self.assertTrue(any("prime_probe" in p for p in self._tracked()))
+
+    def test_install_prime_type_detects_and_upgrades(self):
+        prime_dir = os.path.join(self.mock_home, ".prime", "agent")
+        os.makedirs(prime_dir, exist_ok=True)
+        with open(os.path.join(prime_dir, "APPEND_SYSTEM.md"), "w", encoding="utf-8") as f:
+            f.write("# 1. 系統定位 (System Identity)\ntest\n")
+        r = self._run("install", "--type", "prime", "-y")
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        self.assertIn("Prime", r.stdout)
+        r2 = self._run("doctor")
+        self.assertEqual(r2.returncode, 0, r2.stderr[-500:])
+        self.assertIn("Prime", r2.stdout)
+
+    def test_prime_skill_wrapper_package_shape(self):
+        base = os.path.join(REPO_ROOT, "swda-mcp", "prime-skill", "swda-skill")
+        for rel in ("SKILL.md", "pyproject.toml", "src/swda/__init__.py",
+                    "references/wiring.md"):
+            self.assertTrue(os.path.exists(os.path.join(base, rel)), rel)
+        with open(os.path.join(base, "src/swda/__init__.py"), encoding="utf-8") as f:
+            src = f.read()
+        tree = __import__("ast").parse(src)
+        names = {n.name for n in __import__("ast").walk(tree)
+                 if isinstance(n, __import__("ast").AsyncFunctionDef)}
+        self.assertIn("reconcile", names)
+        self.assertIn("audit", names)
+
     def test_corrupt_tracking_file_errors_loudly(self):
         self._install_all()
         cfg = os.path.join(self.mock_home, ".swda", "installed_agents.json")

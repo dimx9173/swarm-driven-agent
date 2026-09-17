@@ -679,7 +679,7 @@ def record_agent_uninstalled(agent_dir_path):
         save_installed_agents(installed)
 
 def scan_agents():
-    """Scans the local system for openclaw, hermes, omp, and pi agents."""
+    """Scans the local system for openclaw, hermes, omp, pi, and prime agents."""
     home_dir = os.path.expanduser("~")
     print("Scanning local system for agents...")
     
@@ -687,6 +687,7 @@ def scan_agents():
     openclaw_path = os.path.join(home_dir, ".openclaw")
     omp_path = os.path.join(home_dir, ".omp", "agent")
     pi_path = os.path.join(home_dir, ".pi", "agent")
+    prime_path = os.path.join(home_dir, ".prime", "agent")
     
     detected = []
     seen_dirs = set()
@@ -719,8 +720,7 @@ def scan_agents():
                         soul_p = os.path.join(root, "SOUL.md")
                         found_paths.append(os.path.normpath(soul_p).replace("\\", "/"))
         return found_paths
-
-    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path) + scan_dir(omp_path) + scan_dir(pi_path)
+    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path) + scan_dir(omp_path) + scan_dir(pi_path) + scan_dir(prime_path)
     
     escaped_home = re.escape(home_dir.replace("\\", "/"))
     patterns = [
@@ -732,7 +732,9 @@ def scan_agents():
         rf"^{escaped_home}/\.omp/agent/(SOUL\.md|APPEND_SYSTEM\.md)$",
         rf"^{escaped_home}/\.omp/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$",
         rf"^{escaped_home}/\.pi/agent/(SOUL\.md|APPEND_SYSTEM\.md)$",
-        rf"^{escaped_home}/\.pi/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$"
+        rf"^{escaped_home}/\.pi/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$",
+        rf"^{escaped_home}/\.prime/agent/(SOUL\.md|APPEND_SYSTEM\.md)$",
+        rf"^{escaped_home}/\.prime/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$"
     ]
     
     for path in all_paths:
@@ -776,6 +778,14 @@ def scan_agents():
             matched = True
             agent_type = "Pi"
             agent_name = m.group(1)
+        elif re.match(patterns[9], path):
+            matched = True
+            agent_type = "Prime"
+            agent_name = "default"
+        elif m := re.match(patterns[10], path):
+            matched = True
+            agent_type = "Prime"
+            agent_name = m.group(1)
             
         if matched:
             agent_dir = os.path.dirname(path)
@@ -794,6 +804,7 @@ def scan_agents():
         (os.path.join(home_dir, ".hermes"), "Hermes", "default (speculari)", os.path.join(home_dir, ".hermes", "SOUL.md")),
         (os.path.join(home_dir, ".omp", "agent"), "OMP", "default", os.path.join(home_dir, ".omp", "agent", "APPEND_SYSTEM.md")),
         (os.path.join(home_dir, ".pi", "agent"), "Pi", "default", os.path.join(home_dir, ".pi", "agent", "APPEND_SYSTEM.md")),
+        (os.path.join(home_dir, ".prime", "agent"), "Prime", "default", os.path.join(home_dir, ".prime", "agent", "APPEND_SYSTEM.md")),
     ]
     for d_path, a_type, a_name, s_path in default_dirs:
         norm_d = d_path.replace("\\", "/")
@@ -1040,11 +1051,16 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
             dest_dir = os.path.join(home_dir, ".pi", "agent")
         else:
             dest_dir = os.path.join(home_dir, ".pi", "agent", "profiles", name)
+    elif agent_type == "prime":
+        if name in ("default", "agent"):
+            dest_dir = os.path.join(home_dir, ".prime", "agent")
+        else:
+            dest_dir = os.path.join(home_dir, ".prime", "agent", "profiles", name)
     else:
         agent_type = "openclaw"
         dest_dir = os.path.join(home_dir, ".openclaw", "workspaces", name)
         
-    if agent_type in ("omp", "pi"):
+    if agent_type in ("omp", "pi", "prime"):
         append_system_dest_path = os.path.join(dest_dir, "APPEND_SYSTEM.md")
         if os.path.exists(append_system_dest_path):
             print(f"Error: Agent workspace '{name}' already exists at: {dest_dir} (found APPEND_SYSTEM.md)", file=sys.stderr)
@@ -1258,7 +1274,7 @@ def main():
     install_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
     install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SWDA workflow.")
-    install_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "all"], default=None, help="The type of agent to create or install.")
+    install_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "prime", "all"], default=None, help="The type of agent to create or install.")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
     # Update sub-command (GitHub CLI style: Update installed agents)
@@ -1266,7 +1282,7 @@ def main():
     update_parser.add_argument("agents", nargs="?", help="Comma-separated list of installed agent names to update. Updates all installed agents if omitted.")
     update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when updating.")
     update_parser.add_argument("--cli", action="store_true", help="Self-upgrade the swda CLI tool itself by pulling from remote repository.")
-    update_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "all"], help="Filter installed agents by type to update.")
+    update_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "prime", "all"], help="Filter installed agents by type to update.")
 
     # Self-update sub-command (GitHub CLI / rustup alias)
     self_update_parser = subparsers.add_parser("self-update", help="Self-upgrade the swda CLI tool itself.")
@@ -1451,9 +1467,16 @@ def main():
                     with open(append_path, "w", encoding="utf-8") as f:
                         f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
             agents = scan_agents()
+            if "prime" not in types_detected:
+                prime_def = os.path.join(home_dir, ".prime", "agent")
+                os.makedirs(prime_def, exist_ok=True)
+                append_path = os.path.join(prime_def, "APPEND_SYSTEM.md")
+                if not os.path.exists(append_path):
+                    with open(append_path, "w", encoding="utf-8") as f:
+                        f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
         else:
             if target_type not in types_detected:
-                if target_type in ("omp", "pi"):
+                if target_type in ("omp", "pi", "prime"):
                     target_def = os.path.join(home_dir, f".{target_type}", "agent")
                     os.makedirs(target_def, exist_ok=True)
                     append_path = os.path.join(target_def, "APPEND_SYSTEM.md")
@@ -1479,7 +1502,7 @@ def main():
             if not args.agents:
                 args.agents = ["all"]
     elif not agents:
-        print("No openclaw, hermes, or omp agents found on the local machine.")
+        print("No openclaw, hermes, omp, pi, or prime agents found on the local machine.")
         sys.exit(0)
         
     # Get status for all agents

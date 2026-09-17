@@ -1,0 +1,13 @@
+[project]
+name = "swda"
+version = "1.0.0"
+description = "SWDA delivery-gate tools as a prime-agent Python-backed skill"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+swda = "rlm.skill:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["swda*"]

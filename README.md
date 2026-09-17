@@ -102,7 +102,7 @@ pip install --break-system-packages -e .
 ### 1. 首次安裝（install）
 ```bash
 swda install                  # 互動式：掃描本機 agents，選號安裝
-swda install -y --type all    # 全裝：hermes + openclaw + omp + pi（缺目錄自動建）
+swda install -y --type all    # 全裝：hermes + openclaw + omp + pi + prime（缺目錄自動建）
 swda install -y --type omp    # 只裝 OMP（~/.omp/agent/APPEND_SYSTEM.md）
 swda install workspace        # 依名稱安裝（逗號分隔，不可有空格）
 ```
@@ -138,7 +138,7 @@ swda install --create my_coder --type openclaw --identity "Python refactoring as
 swda install --create my_analyst --type hermes -y
 swda install --create my_profile --type omp -y
 ```
-落點：`--type` 省略預設 `openclaw`；`hermes` → `~/.hermes/profiles/<name>`；`openclaw` → `~/.openclaw/workspaces/<name>`；`omp`/`pi` → `~/.omp|pi/agent[/profiles/<name>]`（`default`/`agent` 直接用根目錄）。`--identity` 省略則用預設中文 identity。建完自動登記追蹤。
+落點：`--type` 省略預設 `openclaw`；`hermes` → `~/.hermes/profiles/<name>`；`openclaw` → `~/.openclaw/workspaces/<name>`；`omp`/`pi`/`prime` → `~/.omp|pi|prime/agent[/profiles/<name>]`（`default`/`agent` 直接用根目錄）。`--identity` 省略則用預設中文 identity。建完自動登記追蹤。
 
 ### 6. 解除安裝（uninstall）
 ```bash
@@ -155,7 +155,7 @@ swda reconcile [--json] <file.py> # 交 gates：valid(0)/unverifiable(2)/invalid
 swda verify-session <session.jsonl> [--mcp-json ...] [--contract ...] [--strict]  # 證明某 OMP session 真走過 harness（--strict：unverified 即失敗）
 swda run [--mock] [--json] "task desc"  # 走 GATHER→HYPERPLAN→CRUCIBLE→SYNTHESIS（真 LLM 需 .env；--json 给 CI）
 swda models                      # 列出 gateway live model ids
-python3 -m unittest discover -s tests  # 全套迴歸（目前 174 tests）
+python3 -m unittest discover -s tests  # 全套迴歸（目前 177 tests）
 ```
 
 ### 7c. 記憶 scope（local/global）
@@ -177,9 +177,14 @@ python3 -m unittest discover -s tests  # 全套迴歸（目前 174 tests）
 ```
 驗證：`swda verify-session <session.jsonl> --mcp-json ~/.omp/agent/mcp.json --contract ~/.omp/agent/APPEND_SYSTEM.md`
 
+### 7d. prime-agent：裝合約 + 接 swda-mcp
+installer 第五類：`swda install -y --type prime`（落點 `~/.prime/agent/APPEND_SYSTEM.md`，
+`--create` 走 `profiles/<name>`）。skill wrapper 在 `swda-mcp/prime-skill/swda-skill/`
+（`SKILL.md` + `pyproject.toml` + `src/swda/__init__.py` + `references/wiring.md`）：
+拷到 `~/.prime/agent/skills/swda/` 後 `/reload`，kernel 內 `await swda.reconcile(file, root)`。
+前置：啟動 prime-agent 前 `export SWDA_REPO` + `PYTHONPATH`（kernel MCP env 只吃 tagged reference）。
+
 ### 8. 常見問題
-- `swda: command not found` → 重跑 `pip install -e .`（本節 §0）。
-- `swda doctor` 顯示 `No installed agents tracked` → 先 `swda install` 登記至少一個 agent。
 - `APPEND_SYSTEM.md` 異常變大（如破千行）→ 舊版堆疊殘留，重跑一次 `swda update -y` 即 dedup 為單份（~300 行）；見 `tests/test_effectiveness.py`。
 - `swda run` 真 LLM 很慢 → 正常：1 輪 Crucible = builder/destroyer/referee 共 3 次 gateway call，最多 3 輪；先用 `--mock` 驗流程。
 
