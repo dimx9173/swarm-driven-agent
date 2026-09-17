@@ -78,6 +78,20 @@ class TestContractSingleCopy(unittest.TestCase):
         self.assertEqual(merged.count(BEGIN), 1)
         self.assertIn("Effectiveness probe identity.", merged)
 
+    def test_mixed_stacked_plus_marker_dedups_to_single_copy(self):
+        # Remote fossil shape: legacy stacked copies with a marker block
+        # appended at the end (merge must not keep the stack as "identity").
+        no_mark = self.template.replace(BEGIN, "").replace(END, "")
+        idx = no_mark.find("# Swarm-Driven Agent")
+        body = no_mark[idx:]
+        stacked = self.identity + "\n" + body * 8
+        once = installer.merge_soul_content(stacked, self.template)
+        twice = installer.merge_soul_content(once, self.template)
+        self.assertEqual(once, twice)
+        self.assertEqual(twice.count(CONTRACT_HEADER), 1)
+        self.assertEqual(twice.count(BEGIN), 1)
+        self.assertIn("Effectiveness probe identity.", twice)
+
     def test_uninstall_strips_contract_keeps_identity(self):
         merged = installer.merge_soul_content(self.identity, self.template)
         stripped = installer.uninstall_soul_content(merged)

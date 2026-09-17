@@ -1089,6 +1089,15 @@ def merge_soul_content(target_content, template_content):
         t_end = target_body.find(end_marker)
         if t_start != -1 and t_end != -1:
             user_identity = target_body[:t_start].strip() + "\n" + target_body[t_end + len(end_marker):].strip()
+            # The pre-marker portion may itself hold a legacy stacked contract
+            # (marker block appended after stacked copies). Cut at the first
+            # contract header so stacked copies never survive as "identity".
+            cut = []
+            for line in user_identity.splitlines():
+                if line.strip().startswith('# Swarm-Driven Agent'):
+                    break
+                cut.append(line)
+            user_identity = '\n'.join(cut).strip()
         else:
             # Legacy fallback for target content
             cleaned_target_body = []
