@@ -15,6 +15,238 @@ RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
 SKILL_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "SKILL.en.md")
 ALL_IN_RULE_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "integrated", "ALL_IN_RULE.en.md")
 
+MCP_SERVER_DIR = os.path.join(SCRIPT_DIR, "swda-mcp")
+MCP_SERVER_MODULE = "swda_mcp.server"
+MCP_VERSION_FILE = os.path.join(MCP_SERVER_DIR, "pyproject.toml")
+
+
+def get_mcp_version():
+    """Reads the swda-mcp package version from its pyproject.toml."""
+    try:
+        with open(MCP_VERSION_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+        match = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
+        if match:
+            return match.group(1)
+    except Exception:
+        pass
+    return None
+
+
+def check_swda_mcp(python_exe=None):
+    """Health-checks the swda-mcp bridge: SDK present + tools importable.
+
+    Returns {"ok": bool, "version": str|None, "reasons": [str]}.
+    Never raises; safe to call from doctor/update paths.
+    """
+    import subprocess
+    import sys as _sys
+    reasons = []
+    version = get_mcp_version()
+    if version is None:
+        reasons.append("swda-mcp pyproject.toml unreadable")
+    exe = python_exe or _sys.executable
+    probe = (
+        "import sys; sys.path.insert(0, %r); sys.path.insert(0, %r); "
+        "import mcp.server.fastmcp; from swda_mcp.server import "
+        "swda_reconcile, swda_firewall_audit, swda_stats, swda_models; "
+        "print('mcp-ok')" % (MCP_SERVER_DIR, SCRIPT_DIR)
+    )
+    try:
+        res = subprocess.run([exe, "-c", probe], capture_output=True, text=True, timeout=30)
+        if res.returncode != 0 or "mcp-ok" not in (res.stdout or ""):
+            reasons.append(f"mcp import probe failed: {(res.stderr or res.stdout or '').strip()[:200]}")
+    except Exception as e:
+        reasons.append(f"mcp probe error: {e}")
+    return {"ok": not reasons, "version": version, "reasons": reasons}
+
+
+def ensure_swda_mcp(python_exe=None):
+    """Verifies the swda-mcp bridge and prints registration guidance.
+
+    swda-mcp runs from the source tree (server.py inserts sys.path itself),
+    so there is nothing to pip-install; this reports health plus the exact
+    mcp.json entry to register. Returns check_swda_mcp().
+    """
+    return check_swda_mcp(python_exe=python_exe)
+
+
+def _backup_file(path):
+    """Timestamped backup before any config modification; no-op if missing."""
+    if not os.path.exists(path):
+        return None
+    bak = f"{path}.{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.bak"
+    shutil.copy2(path, bak)
+    return bak
+def _mcp_entry(python_exe=None):
+    """Builds the swda-mcp server entry (command/cwd/env)."""
+    import sys as _sys
+    return {
+        "command": python_exe or _sys.executable,
+        "args": ["-m", MCP_SERVER_MODULE],
+        "cwd": MCP_SERVER_DIR,
+        "env": {"PYTHONPATH": SCRIPT_DIR, "SWDA_REPO": SCRIPT_DIR},
+    }
+
+
+def _write_json_atomic(path, data):
+    import json as _json
+    import tempfile as _tf
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = _tf.mkstemp(dir=os.path.dirname(path), prefix=".mcp.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            _json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def register_swda_mcp(agent_type, python_exe=None):
+    """Registers the swda-mcp server in the agent's MCP config (no-op if present).
+
+    Per-agent shapes (verified against live configs):
+      OMP/PI:    <home>/.omp|pi/agent/mcp.json :: mcpServers["swda-mcp"]
+      Prime:     <home>/.prime/agent/settings.json :: mcpServers["swda"] (type stdio)
+      OpenClaw:  <home>/.openclaw/openclaw.json :: mcp.servers["swda-mcp"] (no env key)
+      Hermes:    no MCP surface -> returns {"registered": False, "reason": ...}
+    Existing entries are never overwritten; missing parent objects are created.
+    Returns {"registered": bool, "path": str|None, "reason": str}.
+    """
+    import json as _json
+    home = os.path.expanduser("~")
+    atype = (agent_type or "").lower()
+    entry = _mcp_entry(python_exe)
+
+    def _merge(path, *keys, name, extra=None):
+        data = {}
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = _json.load(f)
+                if not isinstance(data, dict):
+                    return {"registered": False, "path": path,
+                            "reason": f"{path} is not a JSON object; left untouched"}
+            except ValueError as e:
+                return {"registered": False, "path": path,
+                        "reason": f"{path} has invalid JSON ({e}); left untouched"}
+        node = data
+        for k in keys:
+            if not isinstance(node.get(k), dict):
+                node[k] = {}
+            node = node[k]
+        if name in node and isinstance(node[name], dict):
+            return {"registered": True, "path": path, "reason": "already registered"}
+        node[name] = {**entry, **(extra or {})}
+        _backup_file(path)
+        _write_json_atomic(path, data)
+        return {"registered": True, "path": path, "reason": "registered"}
+
+
+
+    if atype == "omp":
+        return _merge(os.path.join(home, ".omp", "agent", "mcp.json"),
+                      "mcpServers", name="swda-mcp")
+    if atype == "pi":
+        return _merge(os.path.join(home, ".pi", "agent", "mcp.json"),
+                      "mcpServers", name="swda-mcp")
+    if atype == "prime":
+        return _merge(os.path.join(home, ".prime", "agent", "settings.json"),
+                      "mcpServers", name="swda",
+                      extra={"type": "stdio", "startupTimeoutMs": 20000, "callTimeoutMs": 60000})
+    if atype in ("openclaw", "openclaw-workspace"):
+        return _merge(os.path.join(home, ".openclaw", "openclaw.json"),
+                      "mcp", "servers", name="swda-mcp",
+                      extra={"no_env_note": "openclaw schema carries no env key; export SWDA_REPO+PYTHONPATH in the launching shell"})
+    if atype == "hermes":
+        return _register_hermes_yaml(home, entry, python_exe)
+    return {"registered": False, "path": None,
+            "reason": f"type '{agent_type}' has no MCP surface; contract only"}
+
+
+def _register_hermes_yaml(home, entry, python_exe=None):
+    """Registers swda-mcp in ~/.hermes/config.yaml (mcp_servers, stdio shape).
+
+    stdlib-only minimal YAML edit: parses top-level `mcp_servers:` block by
+    indentation, never reformats unrelated keys. Existing swda-mcp entry is
+    a no-op. Always backs up before writing.
+    """
+    path = os.path.join(home, ".hermes", "config.yaml")
+    exe = python_exe or sys.executable
+    block = [
+        "  swda-mcp:\n",
+        f"    command: \"{exe}\"\n",
+        "    args: [\"-m\", \"swda_mcp.server\"]\n",
+        "    env:\n",
+        f"      PYTHONPATH: \"{SCRIPT_DIR}\"\n",
+        f"      SWDA_REPO: \"{SCRIPT_DIR}\"\n",
+        f"    cwd: \"{MCP_SERVER_DIR}\"\n",
+        "    timeout: 120\n",
+        "    tools:\n",
+        "      include: [swda_reconcile, swda_firewall_audit, swda_stats, swda_models]\n",
+    ]
+    existing = ""
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            existing = f.read()
+    else:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    if "swda-mcp:" in existing:
+        return {"registered": True, "path": path, "reason": "already registered"}
+    _backup_file(path)
+    if "mcp_servers:" in existing:
+        lines = existing.splitlines(keepends=True)
+        out = []
+        inserted = False
+        for i, line in enumerate(lines):
+            out.append(line)
+            if not inserted and line.strip() == "mcp_servers:":
+                # insert right after the header, before existing servers
+                out.extend(block)
+                inserted = True
+        if not inserted:
+            out.extend(["mcp_servers:\n"] + block)
+        new_content = "".join(out)
+    else:
+        sep = "" if not existing or existing.endswith("\n") else "\n"
+        new_content = existing + sep + "mcp_servers:\n" + "".join(block)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    os.replace(tmp, path)
+    return {"registered": True, "path": path, "reason": "registered"}
+
+
+def verify_agent_doctor(agent_type, timeout=30):
+    """Runs the agent's own read-only doctor/status command after MCP registration.
+
+    Only side-effect-free commands: prime-agent doctor, omp config list.
+    pi/omp update and hermes/openclaw (no CLI) report supported=False.
+    Returns {"supported": bool, "ok": bool, "output": str}. Never raises.
+    """
+    import subprocess
+    cmds = {
+        "prime": (["prime-agent", "doctor"], "prime-agent doctor"),
+        "omp": (["omp", "config", "list"], "omp config list"),
+    }
+    atype = (agent_type or "").lower()
+    if atype not in cmds:
+        return {"supported": False, "ok": True,
+                "output": f"type '{agent_type}' has no doctor command; skipped"}
+    argv, label = cmds[atype]
+    try:
+        res = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        out = ((res.stdout or "") + (res.stderr or "")).strip()[-800:]
+        return {"supported": True, "ok": res.returncode == 0,
+                "output": f"{label} exit={res.returncode}\n{out}"}
+    except Exception as e:
+        return {"supported": True, "ok": False, "output": f"{label} failed: {e}"}
+
+
 def get_on_disk_version():
     setup_py_path = os.path.join(SCRIPT_DIR, "setup.py")
     if os.path.exists(setup_py_path):
@@ -1094,6 +1326,26 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
             
         print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
         record_agent_installed(dest_dir)
+        try:
+            mcp_res = register_swda_mcp(agent_type)
+            if mcp_res["registered"]:
+                print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
+            else:
+                print(f"    MCP: skipped - {mcp_res['reason']}")
+        except Exception as e:
+            print(f"    MCP: registration failed ({e}); contract install unaffected")
+            mcp_res = {"registered": False}
+        if mcp_res.get("registered"):
+            try:
+                doc = verify_agent_doctor(agent_type)
+                if doc["supported"]:
+                    print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
+                    if not doc["ok"]:
+                        print(f"      {doc['output'][:300]}")
+                else:
+                    print(f"    Doctor: skipped ({doc['output']})")
+            except Exception as e:
+                print(f"    Doctor: check failed ({e})")
         return
 
     soul_dest_path = os.path.join(dest_dir, "SOUL.md")
@@ -1160,6 +1412,26 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
         
     print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
     record_agent_installed(dest_dir)
+    try:
+        mcp_res = register_swda_mcp(agent_type)
+        if mcp_res["registered"]:
+            print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
+        else:
+            print(f"    MCP: skipped - {mcp_res['reason']}")
+    except Exception as e:
+        print(f"    MCP: registration failed ({e}); contract install unaffected")
+        mcp_res = {"registered": False}
+    if mcp_res.get("registered"):
+        try:
+            doc = verify_agent_doctor(agent_type)
+            if doc["supported"]:
+                print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
+                if not doc["ok"]:
+                    print(f"      {doc['output'][:300]}")
+            else:
+                print(f"    Doctor: skipped ({doc['output']})")
+        except Exception as e:
+            print(f"    Doctor: check failed ({e})")
 
 def upgrade_swda():
     """Performs self-upgrade of swda CLI by pulling from git and re-installing."""
@@ -1234,6 +1506,7 @@ def upgrade_swda():
         if result.returncode == 0:
             new_ver = get_on_disk_version()
             print(f"\nswda upgraded successfully to version {new_ver}!")
+            print("swda-mcp runs from the source tree (no reinstall needed); restart MCP hosts to reload it.")
             sys.exit(0)
         else:
             print(f"Error during package re-installation:\n{result.stderr}", file=sys.stderr)
@@ -1282,6 +1555,7 @@ def main():
     update_parser.add_argument("agents", nargs="?", help="Comma-separated list of installed agent names to update. Updates all installed agents if omitted.")
     update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when updating.")
     update_parser.add_argument("--cli", action="store_true", help="Self-upgrade the swda CLI tool itself by pulling from remote repository.")
+    update_parser.add_argument("--mcp", action="store_true", help="Verify the swda-mcp bridge and print its registration entry (agents untouched).")
     update_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "prime", "all"], help="Filter installed agents by type to update.")
 
     # Self-update sub-command (GitHub CLI / rustup alias)
@@ -1322,11 +1596,25 @@ def main():
         upgrade_swda()
         sys.exit(0)
 
+    if args.command == "update" and getattr(args, "mcp", False):
+        import json as _json
+        mcp = ensure_swda_mcp()
+        print("swda-mcp bridge: " + ("OK" if mcp["ok"] else "BROKEN") + f" (v{mcp['version'] or 'unknown'})")
+        for r in mcp["reasons"]:
+            print(f"  ! {r}")
+        print("\nRegister in your MCP host (e.g. ~/.omp/agent/mcp.json):")
+        print(_json.dumps({"mcpServers": {"swda-mcp": {
+            "command": sys.executable,
+            "args": ["-m", MCP_SERVER_MODULE],
+            "cwd": MCP_SERVER_DIR,
+            "env": {"PYTHONPATH": SCRIPT_DIR, "SWDA_REPO": SCRIPT_DIR},
+        }}}, indent=2))
+        sys.exit(0 if mcp["ok"] else 1)
+
     if args.command == "update":
         args.command = "doctor"
         args.fix = True
         # Preserve update-scoped selection: positional names + --type filter.
-        # Bare `swda update` (neither given) updates all installed agents.
         args._update_type = getattr(args, "type", None)
         if isinstance(getattr(args, "agents", None), str) and args.agents:
             args.agents = [t.strip() for t in args.agents.split(",") if t.strip()]
@@ -1527,7 +1815,13 @@ def main():
             skill_detail = f"{status_info['skill_ver'] or 'missing'} -> {template_versions['SKILL.md']}" if status_info['skill_status'] in ('update', 'missing') else f"{status_info['skill_ver']}"
             print(f"     Details: SOUL: {soul_detail} | RULE: {rule_detail} | SKILL: {skill_detail}")
         print(f"     Path:    {agent['dir_path']}\n")
-        
+
+    mcp = check_swda_mcp()
+    mcp_ver = mcp["version"] or "unknown"
+    print(f"swda-mcp bridge: {'OK' if mcp['ok'] else 'BROKEN'} (v{mcp_ver})")
+    for r in mcp["reasons"]:
+        print(f"     ! {r}")
+    print()
     if args.check:
         print("Check completed.")
         sys.exit(0)
@@ -1729,6 +2023,26 @@ def main():
                     
                 print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
                 record_agent_installed(agent['dir_path'])
+                try:
+                    mcp_res = register_swda_mcp(agent['type'])
+                    if mcp_res["registered"]:
+                        print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
+                    else:
+                        print(f"    MCP: skipped - {mcp_res['reason']}")
+                except Exception as e:
+                    print(f"    MCP: registration failed ({e}); contract install unaffected")
+                    mcp_res = {"registered": False}
+                if mcp_res.get("registered"):
+                    try:
+                        doc = verify_agent_doctor(agent["type"])
+                        if doc["supported"]:
+                            print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
+                            if not doc["ok"]:
+                                print(f"      {doc['output'][:300]}")
+                        else:
+                            print(f"    Doctor: skipped ({doc['output']})")
+                    except Exception as e:
+                        print(f"    Doctor: check failed ({e})")
             else:
                 # 1. Back up target SOUL.md if it exists
                 if os.path.exists(agent['soul_path']):
@@ -1819,6 +2133,26 @@ def main():
                     
                 print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
                 record_agent_installed(agent['dir_path'])
+                try:
+                    mcp_res = register_swda_mcp(agent['type'])
+                    if mcp_res["registered"]:
+                        print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
+                    else:
+                        print(f"    MCP: skipped - {mcp_res['reason']}")
+                except Exception as e:
+                    print(f"    MCP: registration failed ({e}); contract install unaffected")
+                    mcp_res = {"registered": False}
+                if mcp_res.get("registered"):
+                    try:
+                        doc = verify_agent_doctor(agent["type"])
+                        if doc["supported"]:
+                            print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
+                            if not doc["ok"]:
+                                print(f"      {doc['output'][:300]}")
+                        else:
+                            print(f"    Doctor: skipped ({doc['output']})")
+                    except Exception as e:
+                        print(f"    Doctor: check failed ({e})")
             
     print("\nAll done!")
 

@@ -10,6 +10,25 @@ import sys
 # Import helper functions directly from installer.py
 import installer
 
+
+class TestSwdaMcpHelpers(unittest.TestCase):
+    def test_mcp_version_reads_pyproject(self):
+        self.assertEqual(installer.get_mcp_version(), "1.0.0")
+
+    def test_mcp_check_reports_shape(self):
+        res = installer.check_swda_mcp()
+        self.assertIn("ok", res)
+        self.assertIn("version", res)
+        self.assertIn("reasons", res)
+        self.assertEqual(res["version"], "1.0.0")
+
+    def test_mcp_update_prints_registration(self):
+        script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "installer.py")
+        r = subprocess.run([sys.executable, script, "update", "--mcp"],
+                           capture_output=True, text=True)
+        self.assertIn("swda_mcp.server", r.stdout)
+
+
 class TestSWDAInstaller(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()

@@ -119,7 +119,31 @@ class UpdateScopeTest(unittest.TestCase):
         self.assertEqual(r2.returncode, 0, r2.stderr[-500:])
         self.assertIn("Prime", r2.stdout)
 
-    def test_prime_skill_wrapper_package_shape(self):
+    def test_create_hermes_registers_yaml_mcp(self):
+        import installer as _installer
+        cfg = os.path.join(self.mock_home, ".hermes", "config.yaml")
+        os.makedirs(os.path.dirname(cfg), exist_ok=True)
+        with open(cfg, "w", encoding="utf-8") as f:
+            f.write("plugins:\n  enabled:\n    - orca-status\n")
+        r = self._run("install", "--create", "hermes_probe", "--type", "hermes", "-y")
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        with open(cfg, encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("swda-mcp:", content)
+        self.assertIn("mcp_servers:", content)
+        self.assertIn("orca-status", content)
+        import glob as _glob
+        self.assertTrue(_glob.glob(cfg + ".*.bak"))
+
+    def test_doctor_supported_matrix(self):
+        import installer as _installer
+        prime = _installer.verify_agent_doctor("prime")
+        self.assertTrue(prime["supported"])
+        omp = _installer.verify_agent_doctor("omp")
+        self.assertTrue(omp["supported"])
+        for t in ("hermes", "openclaw", "pi"):
+            d = _installer.verify_agent_doctor(t)
+            self.assertFalse(d["supported"])
         base = os.path.join(REPO_ROOT, "swda-mcp", "prime-skill", "swda-skill")
         for rel in ("SKILL.md", "pyproject.toml", "src/swda/__init__.py",
                     "references/wiring.md"):

@@ -121,8 +121,10 @@ swda doctor --fix -y   # 把已登記且過期的 agents 全部升級到模板�
 swda update -y                    # 全部已登記 agents 升級
 swda update -y workspace          # 只升級指定名稱（位置參數，逗號分隔）
 swda update -y --type omp         # 只升級指定類型
-swda update -y openclaw:workspace # 精確匹配 type:name
+swda update --mcp                # 只驗 swda-mcp bridge + 印 mcp.json 註冊條目（agents 不動）
 ```
+三軌分工：`swda update`（agents 合約）/ `swda update --mcp`（bridge 健康 + 註冊指引）
+/ `swda update --cli`（工具自升級）。`doctor` 每次都會附帶 `swda-mcp bridge: OK/BROKEN` 一行。
 注意：`swda update` **不等於** CLI 自升級，它只更新 agents 的合約文件。要升級 `swda` 工具本身，看下一節。
 
 ### 4. 自升級 CLI（self-update）
