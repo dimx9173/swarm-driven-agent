@@ -119,21 +119,43 @@ class UpdateScopeTest(unittest.TestCase):
         self.assertEqual(r2.returncode, 0, r2.stderr[-500:])
         self.assertIn("Prime", r2.stdout)
 
-    def test_create_hermes_registers_yaml_mcp(self):
+    def test_create_hermes_installs_skill_no_mcp(self):
         import installer as _installer
-        cfg = os.path.join(self.mock_home, ".hermes", "config.yaml")
-        os.makedirs(os.path.dirname(cfg), exist_ok=True)
-        with open(cfg, "w", encoding="utf-8") as f:
-            f.write("plugins:\n  enabled:\n    - orca-status\n")
         r = self._run("install", "--create", "hermes_probe", "--type", "hermes", "-y")
         self.assertEqual(r.returncode, 0, r.stderr[-500:])
-        with open(cfg, encoding="utf-8") as f:
-            content = f.read()
-        self.assertIn("swda-mcp:", content)
-        self.assertIn("mcp_servers:", content)
-        self.assertIn("orca-status", content)
-        import glob as _glob
-        self.assertTrue(_glob.glob(cfg + ".*.bak"))
+        self.assertIn("Skill: installed", r.stdout)
+        self.assertIn("contract + skill mode", r.stdout)
+        skill = os.path.join(self.mock_home, ".hermes", "profiles", "hermes_probe",
+                             "skills", "swda", "SKILL.md")
+        self.assertTrue(os.path.exists(skill))
+        res = _installer.register_swda_mcp("hermes")
+        self.assertFalse(res["registered"])
+        self.assertIn("contract + skill", res["reason"])
+
+    def test_omp_uses_mcp_no_skill(self):
+        import installer as _installer
+        omp_dir = os.path.join(self.mock_home, ".omp", "agent")
+        os.makedirs(omp_dir, exist_ok=True)
+        with open(os.path.join(omp_dir, "APPEND_SYSTEM.md"), "w", encoding="utf-8") as f:
+            f.write("# 1. 系統定位\nt\n")
+        r = self._run("install", "--type", "omp", "-y")
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        self.assertIn("MCP: registered", r.stdout)
+        self.assertIn("Skill: skipped", r.stdout)
+        self.assertIn("contract + MCP", r.stdout)
+        res = _installer.install_swda_skill("omp", omp_dir)
+        self.assertFalse(res["installed"])
+
+    def test_prime_uses_skill_no_mcp(self):
+        import installer as _installer
+        r = self._run("install", "--create", "pskill", "--type", "prime", "-y")
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        self.assertIn("Skill: installed", r.stdout)
+        self.assertIn("contract + skill mode", r.stdout)
+        skill = os.path.join(self.mock_home, ".prime", "agent", "skills", "swda", "SKILL.md")
+        self.assertTrue(os.path.exists(skill))
+        res = _installer.register_swda_mcp("prime")
+        self.assertFalse(res["registered"])
 
     def test_doctor_supported_matrix(self):
         import installer as _installer

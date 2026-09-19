@@ -109,11 +109,9 @@ def _write_json_atomic(path, data):
 def register_swda_mcp(agent_type, python_exe=None):
     """Registers the swda-mcp server in the agent's MCP config (no-op if present).
 
-    Per-agent shapes (verified against live configs):
-      OMP/PI:    <home>/.omp|pi/agent/mcp.json :: mcpServers["swda-mcp"]
-      Prime:     <home>/.prime/agent/settings.json :: mcpServers["swda"] (type stdio)
-      OpenClaw:  <home>/.openclaw/openclaw.json :: mcp.servers["swda-mcp"] (no env key)
-      Hermes:    no MCP surface -> returns {"registered": False, "reason": ...}
+    Only OMP and Pi use the MCP bridge. hermes/openclaw/prime-agent consume
+    SWDA through contract + skill (see install_swda_skill); they intentionally
+    get {"registered": False} here so install/update output stays truthful.
     Existing entries are never overwritten; missing parent objects are created.
     Returns {"registered": bool, "path": str|None, "reason": str}.
     """
@@ -155,70 +153,73 @@ def register_swda_mcp(agent_type, python_exe=None):
         return _merge(os.path.join(home, ".pi", "agent", "mcp.json"),
                       "mcpServers", name="swda-mcp")
     if atype == "prime":
-        return _merge(os.path.join(home, ".prime", "agent", "settings.json"),
-                      "mcpServers", name="swda",
-                      extra={"type": "stdio", "startupTimeoutMs": 20000, "callTimeoutMs": 60000})
+        return {"registered": False, "path": None,
+                "reason": "prime-agent uses contract + skill (see install_swda_skill); no MCP entry"}
     if atype in ("openclaw", "openclaw-workspace"):
-        return _merge(os.path.join(home, ".openclaw", "openclaw.json"),
-                      "mcp", "servers", name="swda-mcp",
-                      extra={"no_env_note": "openclaw schema carries no env key; export SWDA_REPO+PYTHONPATH in the launching shell"})
+        return {"registered": False, "path": None,
+                "reason": "openclaw uses contract + skill (see install_swda_skill); no MCP entry"}
     if atype == "hermes":
-        return _register_hermes_yaml(home, entry, python_exe)
+        return {"registered": False, "path": None,
+                "reason": "hermes uses contract + skill (see install_swda_skill); no MCP entry"}
     return {"registered": False, "path": None,
             "reason": f"type '{agent_type}' has no MCP surface; contract only"}
 
 
-def _register_hermes_yaml(home, entry, python_exe=None):
-    """Registers swda-mcp in ~/.hermes/config.yaml (mcp_servers, stdio shape).
+def install_swda_skill(agent_type, agent_dir=None):
+    """Installs the swda skill package for contract+skill agents.
 
-    stdlib-only minimal YAML edit: parses top-level `mcp_servers:` block by
-    indentation, never reformats unrelated keys. Existing swda-mcp entry is
-    a no-op. Always backs up before writing.
+    Targets (contract + skill, no MCP bridge):
+      hermes:   <agent_dir>/skills/swda/  (agent workspace layout)
+      openclaw: <agent_dir>/skills/swda/
+      prime:    <home>/.prime/agent/skills/swda/ (kernel skill dir)
+    Source: swda-mcp/prime-skill/swda-skill/ (SKILL.md + references/).
+    Idempotent: existing files are overwritten with identical content;
+    the skill dir is created as needed. User skills alongside are untouched.
+    Returns {"installed": bool, "path": str|None, "reason": str}.
     """
-    path = os.path.join(home, ".hermes", "config.yaml")
-    exe = python_exe or sys.executable
-    block = [
-        "  swda-mcp:\n",
-        f"    command: \"{exe}\"\n",
-        "    args: [\"-m\", \"swda_mcp.server\"]\n",
-        "    env:\n",
-        f"      PYTHONPATH: \"{SCRIPT_DIR}\"\n",
-        f"      SWDA_REPO: \"{SCRIPT_DIR}\"\n",
-        f"    cwd: \"{MCP_SERVER_DIR}\"\n",
-        "    timeout: 120\n",
-        "    tools:\n",
-        "      include: [swda_reconcile, swda_firewall_audit, swda_stats, swda_models]\n",
-    ]
-    existing = ""
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            existing = f.read()
+    home = os.path.expanduser("~")
+    atype = (agent_type or "").lower()
+    src = os.path.join(MCP_SERVER_DIR, "prime-skill", "swda-skill")
+    if not os.path.isdir(src):
+        return {"installed": False, "path": None,
+                "reason": f"skill source missing: {src}"}
+    if atype == "prime":
+        dest = os.path.join(home, ".prime", "agent", "skills", "swda")
+    elif atype in ("hermes", "openclaw", "openclaw-workspace"):
+        base = agent_dir or {
+            "hermes": os.path.join(home, ".hermes"),
+            "openclaw": os.path.join(home, ".openclaw", "workspace"),
+            "openclaw-workspace": os.path.join(home, ".openclaw", "workspace"),
+        }[atype]
+        dest = os.path.join(base, "skills", "swda")
     else:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-    if "swda-mcp:" in existing:
-        return {"registered": True, "path": path, "reason": "already registered"}
-    _backup_file(path)
-    if "mcp_servers:" in existing:
-        lines = existing.splitlines(keepends=True)
-        out = []
-        inserted = False
-        for i, line in enumerate(lines):
-            out.append(line)
-            if not inserted and line.strip() == "mcp_servers:":
-                # insert right after the header, before existing servers
-                out.extend(block)
-                inserted = True
-        if not inserted:
-            out.extend(["mcp_servers:\n"] + block)
-        new_content = "".join(out)
-    else:
-        sep = "" if not existing or existing.endswith("\n") else "\n"
-        new_content = existing + sep + "mcp_servers:\n" + "".join(block)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(new_content)
-    os.replace(tmp, path)
-    return {"registered": True, "path": path, "reason": "registered"}
+        return {"installed": False, "path": None,
+                "reason": f"type '{agent_type}' uses contract + MCP; no skill install"}
+    try:
+        copied = 0
+        for root, _dirs, files in os.walk(src):
+            rel = os.path.relpath(root, src)
+            target_root = dest if rel == "." else os.path.join(dest, rel)
+            os.makedirs(target_root, exist_ok=True)
+            for fn in files:
+                if fn.endswith(".pyc") or "__pycache__" in root:
+                    continue
+                with open(os.path.join(root, fn), "rb") as f:
+                    content = f.read()
+                target = os.path.join(target_root, fn)
+                old = None
+                if os.path.exists(target):
+                    with open(target, "rb") as f:
+                        old = f.read()
+                if old != content:
+                    _backup_file(target)
+                    with open(target, "wb") as f:
+                        f.write(content)
+                copied += 1
+        return {"installed": True, "path": dest,
+                "reason": f"installed ({copied} files)"}
+    except Exception as e:
+        return {"installed": False, "path": dest, "reason": f"skill install failed: {e}"}
 
 
 def verify_agent_doctor(agent_type, timeout=30):
@@ -1336,7 +1337,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
         print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
         record_agent_installed(dest_dir)
         try:
-            mcp_res = register_swda_mcp(agent_type)
+            mcp_res = register_swda_mcp(agent_type) if agent_type.lower() in ("omp", "pi") else {"registered": False, "path": None, "reason": "contract + skill mode; no MCP entry"}
             if mcp_res["registered"]:
                 print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
             else:
@@ -1344,6 +1345,14 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
         except Exception as e:
             print(f"    MCP: registration failed ({e}); contract install unaffected")
             mcp_res = {"registered": False}
+        try:
+            skill_res = install_swda_skill(agent_type, dest_dir)
+            if skill_res["installed"]:
+                print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
+            else:
+                print(f"    Skill: skipped - {skill_res['reason']}")
+        except Exception as e:
+            print(f"    Skill: install failed ({e}); contract install unaffected")
         if mcp_res.get("registered"):
             try:
                 doc = verify_agent_doctor(agent_type)
@@ -1422,7 +1431,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
     record_agent_installed(dest_dir)
     try:
-        mcp_res = register_swda_mcp(agent_type)
+        mcp_res = register_swda_mcp(agent_type) if agent_type.lower() in ("omp", "pi") else {"registered": False, "path": None, "reason": "contract + skill mode; no MCP entry"}
         if mcp_res["registered"]:
             print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
         else:
@@ -1430,6 +1439,14 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     except Exception as e:
         print(f"    MCP: registration failed ({e}); contract install unaffected")
         mcp_res = {"registered": False}
+    try:
+        skill_res = install_swda_skill(agent_type, dest_dir)
+        if skill_res["installed"]:
+            print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
+        else:
+            print(f"    Skill: skipped - {skill_res['reason']}")
+    except Exception as e:
+        print(f"    Skill: install failed ({e}); contract install unaffected")
     if mcp_res.get("registered"):
         try:
             doc = verify_agent_doctor(agent_type)
@@ -1973,11 +1990,31 @@ def main():
                     print("    SKILL.md removed.")
                 except Exception as e:
                     print(f"    Failed to remove SKILL.md: {e}")
-                    
-            # 6. Clean up directories if empty
-            if os.path.exists(skill_dir_path) and not os.listdir(skill_dir_path):
+
+            # 5b. Remove swda skill package (installed by install_swda_skill)
+            swda_skill_dir = os.path.join(agent['dir_path'], "skills", "swda")
+            if os.path.isdir(swda_skill_dir):
+                print(" -> Removing swda skill package...")
                 try:
-                    os.rmdir(skill_dir_path)
+                    shutil.rmtree(swda_skill_dir)
+                    print("    swda skill package removed.")
+                except Exception as e:
+                    print(f"    Failed to remove swda skill package: {e}")
+            # 5c. Remove prime kernel skill (lives outside the agent dir)
+            if (agent.get('type') or '').lower() == 'prime':
+                prime_skill = os.path.join(os.path.expanduser('~'), '.prime', 'agent', 'skills', 'swda')
+                if os.path.isdir(prime_skill):
+                    print(' -> Removing prime swda skill package...')
+                    try:
+                        shutil.rmtree(prime_skill)
+                        print('    prime swda skill package removed.')
+                    except Exception as e:
+                        print(f'    Failed to remove prime swda skill package: {e}')
+            # 6. Clean up directories if empty
+            swarm_dir = os.path.join(agent['dir_path'], "skills", "swarm")
+            if os.path.exists(swarm_dir) and not os.listdir(swarm_dir):
+                try:
+                    os.rmdir(swarm_dir)
                     print("    Removed empty skills/swarm directory.")
                 except Exception:
                     pass
@@ -1988,14 +2025,12 @@ def main():
                     print("    Removed empty skills directory.")
                 except Exception:
                     pass
-                    
             print(f" Successfully uninstalled SWDA from: {agent['name']}")
             record_agent_uninstalled(agent['dir_path'])
-            
+
         else:
             print(f"\nInstalling/Upgrading SWDA for: {agent['name']} ({agent['type']})")
             is_integrated = (agent['type'] == "OMP" or os.path.basename(agent['soul_path']) == "APPEND_SYSTEM.md")
-            
             if is_integrated:
                 if os.path.exists(agent['soul_path']):
                     print(" -> Backing up APPEND_SYSTEM.md...")
@@ -2033,7 +2068,7 @@ def main():
                 print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
                 record_agent_installed(agent['dir_path'])
                 try:
-                    mcp_res = register_swda_mcp(agent['type'])
+                    mcp_res = register_swda_mcp(agent['type']) if agent['type'].lower() in ("omp", "pi") else {"registered": False, "path": None, "reason": "contract + skill mode; no MCP entry"}
                     if mcp_res["registered"]:
                         print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
                     else:
@@ -2041,6 +2076,14 @@ def main():
                 except Exception as e:
                     print(f"    MCP: registration failed ({e}); contract install unaffected")
                     mcp_res = {"registered": False}
+                try:
+                    skill_res = install_swda_skill(agent['type'], agent['dir_path'])
+                    if skill_res["installed"]:
+                        print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
+                    else:
+                        print(f"    Skill: skipped - {skill_res['reason']}")
+                except Exception as e:
+                    print(f"    Skill: install failed ({e}); contract install unaffected")
                 if mcp_res.get("registered"):
                     try:
                         doc = verify_agent_doctor(agent["type"])
@@ -2143,7 +2186,7 @@ def main():
                 print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
                 record_agent_installed(agent['dir_path'])
                 try:
-                    mcp_res = register_swda_mcp(agent['type'])
+                    mcp_res = register_swda_mcp(agent['type']) if agent['type'].lower() in ("omp", "pi") else {"registered": False, "path": None, "reason": "contract + skill mode; no MCP entry"}
                     if mcp_res["registered"]:
                         print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
                     else:
@@ -2151,6 +2194,14 @@ def main():
                 except Exception as e:
                     print(f"    MCP: registration failed ({e}); contract install unaffected")
                     mcp_res = {"registered": False}
+                try:
+                    skill_res = install_swda_skill(agent['type'], agent['dir_path'])
+                    if skill_res["installed"]:
+                        print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
+                    else:
+                        print(f"    Skill: skipped - {skill_res['reason']}")
+                except Exception as e:
+                    print(f"    Skill: install failed ({e}); contract install unaffected")
                 if mcp_res.get("registered"):
                     try:
                         doc = verify_agent_doctor(agent["type"])

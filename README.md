@@ -123,8 +123,10 @@ swda update -y workspace          # 只升級指定名稱（位置參數，逗�
 swda update -y --type omp         # 只升級指定類型
 swda update --mcp                # 只驗 swda-mcp bridge + 印 mcp.json 註冊條目（agents 不動）
 ```
-三軌分工：`swda update`（agents 合約）/ `swda update --mcp`（bridge 健康 + 註冊指引）
-/ `swda update --cli`（工具自升級）。`doctor` 每次都會附帶 `swda-mcp bridge: OK/BROKEN` 一行。
+消費分流：**合約 + swda-mcp** → omp/pi；**合約 + skill** → hermes/openclaw/prime-agent。
+`swda install/update` 會按類型自動走對的分流（MCP 只寫 omp/pi 的 `mcp.json`，
+skill 裝到 hermes/openclaw 的 agent 目錄與 prime 的 kernel skill 目錄）。
+三軌分工：`swda update`（agents 合約+分流）/ `swda update --mcp`（bridge 健康 + 註冊指引）
 注意：`swda update` **不等於** CLI 自升級，它只更新 agents 的合約文件。要升級 `swda` 工具本身，看下一節。
 
 ### 4. 自升級 CLI（self-update）
