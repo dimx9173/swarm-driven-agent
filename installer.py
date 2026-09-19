@@ -109,8 +109,8 @@ def _write_json_atomic(path, data):
 def register_swda_mcp(agent_type, python_exe=None):
     """Registers the swda-mcp server in the agent's MCP config (no-op if present).
 
-    Only OMP and Pi use the MCP bridge. hermes/openclaw/prime-agent consume
-    SWDA through contract + skill (see install_swda_skill); they intentionally
+    Only OMP and Pi use the MCP bridge. hermes/openclaw consume SWDA
+    through contract + skill (see install_swda_skill); they intentionally
     get {"registered": False} here so install/update output stays truthful.
     Existing entries are never overwritten; missing parent objects are created.
     Returns {"registered": bool, "path": str|None, "reason": str}.
@@ -152,9 +152,6 @@ def register_swda_mcp(agent_type, python_exe=None):
     if atype == "pi":
         return _merge(os.path.join(home, ".pi", "agent", "mcp.json"),
                       "mcpServers", name="swda-mcp")
-    if atype == "prime":
-        return {"registered": False, "path": None,
-                "reason": "prime-agent uses contract + skill (see install_swda_skill); no MCP entry"}
     if atype in ("openclaw", "openclaw-workspace"):
         return {"registered": False, "path": None,
                 "reason": "openclaw uses contract + skill (see install_swda_skill); no MCP entry"}
@@ -171,21 +168,18 @@ def install_swda_skill(agent_type, agent_dir=None):
     Targets (contract + skill, no MCP bridge):
       hermes:   <agent_dir>/skills/swda/  (agent workspace layout)
       openclaw: <agent_dir>/skills/swda/
-      prime:    <home>/.prime/agent/skills/swda/ (kernel skill dir)
-    Source: swda-mcp/prime-skill/swda-skill/ (SKILL.md + references/).
+    Source: swda-mcp/agent-skill/swda-skill/ (SKILL.md + references/).
     Idempotent: existing files are overwritten with identical content;
     the skill dir is created as needed. User skills alongside are untouched.
     Returns {"installed": bool, "path": str|None, "reason": str}.
     """
     home = os.path.expanduser("~")
     atype = (agent_type or "").lower()
-    src = os.path.join(MCP_SERVER_DIR, "prime-skill", "swda-skill")
+    src = os.path.join(MCP_SERVER_DIR, "agent-skill", "swda-skill")
     if not os.path.isdir(src):
         return {"installed": False, "path": None,
                 "reason": f"skill source missing: {src}"}
-    if atype == "prime":
-        dest = os.path.join(home, ".prime", "agent", "skills", "swda")
-    elif atype in ("hermes", "openclaw", "openclaw-workspace"):
+    if atype in ("hermes", "openclaw", "openclaw-workspace"):
         base = agent_dir or {
             "hermes": os.path.join(home, ".hermes"),
             "openclaw": os.path.join(home, ".openclaw", "workspace"),
@@ -225,13 +219,12 @@ def install_swda_skill(agent_type, agent_dir=None):
 def verify_agent_doctor(agent_type, timeout=30):
     """Runs the agent's own read-only doctor/status command after MCP registration.
 
-    Only side-effect-free commands: prime-agent doctor, omp config list.
+    Only side-effect-free commands: omp config list.
     pi/omp update and hermes/openclaw (no CLI) report supported=False.
     Returns {"supported": bool, "ok": bool, "output": str}. Never raises.
     """
     import subprocess
     cmds = {
-        "prime": (["prime-agent", "doctor"], "prime-agent doctor"),
         "omp": (["omp", "config", "list"], "omp config list"),
     }
     atype = (agent_type or "").lower()
@@ -912,7 +905,7 @@ def record_agent_uninstalled(agent_dir_path):
         save_installed_agents(installed)
 
 def scan_agents():
-    """Scans the local system for openclaw, hermes, omp, pi, and prime agents."""
+    """Scans the local system for openclaw, hermes, omp, and pi agents."""
     home_dir = os.path.expanduser("~")
     print("Scanning local system for agents...")
     
@@ -920,7 +913,6 @@ def scan_agents():
     openclaw_path = os.path.join(home_dir, ".openclaw")
     omp_path = os.path.join(home_dir, ".omp", "agent")
     pi_path = os.path.join(home_dir, ".pi", "agent")
-    prime_path = os.path.join(home_dir, ".prime", "agent")
     
     detected = []
     seen_dirs = set()
@@ -953,7 +945,7 @@ def scan_agents():
                         soul_p = os.path.join(root, "SOUL.md")
                         found_paths.append(os.path.normpath(soul_p).replace("\\", "/"))
         return found_paths
-    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path) + scan_dir(omp_path) + scan_dir(pi_path) + scan_dir(prime_path)
+    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path) + scan_dir(omp_path) + scan_dir(pi_path)
     
     escaped_home = re.escape(home_dir.replace("\\", "/"))
     patterns = [
@@ -966,8 +958,6 @@ def scan_agents():
         rf"^{escaped_home}/\.omp/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$",
         rf"^{escaped_home}/\.pi/agent/(SOUL\.md|APPEND_SYSTEM\.md)$",
         rf"^{escaped_home}/\.pi/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$",
-        rf"^{escaped_home}/\.prime/agent/(SOUL\.md|APPEND_SYSTEM\.md)$",
-        rf"^{escaped_home}/\.prime/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$"
     ]
     
     for path in all_paths:
@@ -1011,14 +1001,6 @@ def scan_agents():
             matched = True
             agent_type = "Pi"
             agent_name = m.group(1)
-        elif re.match(patterns[9], path):
-            matched = True
-            agent_type = "Prime"
-            agent_name = "default"
-        elif m := re.match(patterns[10], path):
-            matched = True
-            agent_type = "Prime"
-            agent_name = m.group(1)
             
         if matched:
             agent_dir = os.path.dirname(path)
@@ -1037,7 +1019,6 @@ def scan_agents():
         (os.path.join(home_dir, ".hermes"), "Hermes", "default (speculari)", os.path.join(home_dir, ".hermes", "SOUL.md")),
         (os.path.join(home_dir, ".omp", "agent"), "OMP", "default", os.path.join(home_dir, ".omp", "agent", "APPEND_SYSTEM.md")),
         (os.path.join(home_dir, ".pi", "agent"), "Pi", "default", os.path.join(home_dir, ".pi", "agent", "APPEND_SYSTEM.md")),
-        (os.path.join(home_dir, ".prime", "agent"), "Prime", "default", os.path.join(home_dir, ".prime", "agent", "APPEND_SYSTEM.md")),
     ]
     for d_path, a_type, a_name, s_path in default_dirs:
         norm_d = d_path.replace("\\", "/")
@@ -1293,16 +1274,11 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
             dest_dir = os.path.join(home_dir, ".pi", "agent")
         else:
             dest_dir = os.path.join(home_dir, ".pi", "agent", "profiles", name)
-    elif agent_type == "prime":
-        if name in ("default", "agent"):
-            dest_dir = os.path.join(home_dir, ".prime", "agent")
-        else:
-            dest_dir = os.path.join(home_dir, ".prime", "agent", "profiles", name)
     else:
         agent_type = "openclaw"
         dest_dir = os.path.join(home_dir, ".openclaw", "workspaces", name)
         
-    if agent_type in ("omp", "pi", "prime"):
+    if agent_type in ("omp", "pi"):
         append_system_dest_path = os.path.join(dest_dir, "APPEND_SYSTEM.md")
         if os.path.exists(append_system_dest_path):
             print(f"Error: Agent workspace '{name}' already exists at: {dest_dir} (found APPEND_SYSTEM.md)", file=sys.stderr)
@@ -1573,7 +1549,7 @@ def main():
     install_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
     install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SWDA workflow.")
-    install_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "prime", "all"], default=None, help="The type of agent to create or install.")
+    install_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "all"], default=None, help="The type of agent to create or install.")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
     # Update sub-command (GitHub CLI style: Update installed agents)
@@ -1582,7 +1558,7 @@ def main():
     update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when updating.")
     update_parser.add_argument("--cli", action="store_true", help="Self-upgrade the swda CLI tool itself by pulling from remote repository.")
     update_parser.add_argument("--mcp", action="store_true", help="Verify the swda-mcp bridge and print its registration entry (agents untouched).")
-    update_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "prime", "all"], help="Filter installed agents by type to update.")
+    update_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "all"], help="Filter installed agents by type to update.")
 
     # Self-update sub-command (GitHub CLI / rustup alias)
     self_update_parser = subparsers.add_parser("self-update", help="Self-upgrade the swda CLI tool itself.")
@@ -1781,16 +1757,9 @@ def main():
                     with open(append_path, "w", encoding="utf-8") as f:
                         f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
             agents = scan_agents()
-            if "prime" not in types_detected:
-                prime_def = os.path.join(home_dir, ".prime", "agent")
-                os.makedirs(prime_def, exist_ok=True)
-                append_path = os.path.join(prime_def, "APPEND_SYSTEM.md")
-                if not os.path.exists(append_path):
-                    with open(append_path, "w", encoding="utf-8") as f:
-                        f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
         else:
             if target_type not in types_detected:
-                if target_type in ("omp", "pi", "prime"):
+                if target_type in ("omp", "pi"):
                     target_def = os.path.join(home_dir, f".{target_type}", "agent")
                     os.makedirs(target_def, exist_ok=True)
                     append_path = os.path.join(target_def, "APPEND_SYSTEM.md")
@@ -1816,7 +1785,7 @@ def main():
             if not args.agents:
                 args.agents = ["all"]
     elif not agents:
-        print("No openclaw, hermes, omp, pi, or prime agents found on the local machine.")
+        print("No openclaw, hermes, omp, or pi agents found on the local machine.")
         sys.exit(0)
         
     # Get status for all agents
@@ -2000,16 +1969,6 @@ def main():
                     print("    swda skill package removed.")
                 except Exception as e:
                     print(f"    Failed to remove swda skill package: {e}")
-            # 5c. Remove prime kernel skill (lives outside the agent dir)
-            if (agent.get('type') or '').lower() == 'prime':
-                prime_skill = os.path.join(os.path.expanduser('~'), '.prime', 'agent', 'skills', 'swda')
-                if os.path.isdir(prime_skill):
-                    print(' -> Removing prime swda skill package...')
-                    try:
-                        shutil.rmtree(prime_skill)
-                        print('    prime swda skill package removed.')
-                    except Exception as e:
-                        print(f'    Failed to remove prime swda skill package: {e}')
             # 6. Clean up directories if empty
             swarm_dir = os.path.join(agent['dir_path'], "skills", "swarm")
             if os.path.exists(swarm_dir) and not os.listdir(swarm_dir):

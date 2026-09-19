@@ -102,7 +102,7 @@ pip install --break-system-packages -e .
 ### 1. 首次安裝（install）
 ```bash
 swda install                  # 互動式：掃描本機 agents，選號安裝
-swda install -y --type all    # 全裝：hermes + openclaw + omp + pi + prime（缺目錄自動建）
+swda install -y --type all    # 全裝：hermes + openclaw + omp + pi（缺目錄自動建）
 swda install -y --type omp    # 只裝 OMP（~/.omp/agent/APPEND_SYSTEM.md）
 swda install workspace        # 依名稱安裝（逗號分隔，不可有空格）
 ```
@@ -123,9 +123,9 @@ swda update -y workspace          # 只升級指定名稱（位置參數，逗�
 swda update -y --type omp         # 只升級指定類型
 swda update --mcp                # 只驗 swda-mcp bridge + 印 mcp.json 註冊條目（agents 不動）
 ```
-消費分流：**合約 + swda-mcp** → omp/pi；**合約 + skill** → hermes/openclaw/prime-agent。
+消費分流：**合約 + swda-mcp** → omp/pi；**合約 + skill** → hermes/openclaw。
 `swda install/update` 會按類型自動走對的分流（MCP 只寫 omp/pi 的 `mcp.json`，
-skill 裝到 hermes/openclaw 的 agent 目錄與 prime 的 kernel skill 目錄）。
+skill 裝到 hermes/openclaw 的 agent 目錄）。
 三軌分工：`swda update`（agents 合約+分流）/ `swda update --mcp`（bridge 健康 + 註冊指引）
 注意：`swda update` **不等於** CLI 自升級，它只更新 agents 的合約文件。要升級 `swda` 工具本身，看下一節。
 
@@ -142,7 +142,7 @@ swda install --create my_coder --type openclaw --identity "Python refactoring as
 swda install --create my_analyst --type hermes -y
 swda install --create my_profile --type omp -y
 ```
-落點：`--type` 省略預設 `openclaw`；`hermes` → `~/.hermes/profiles/<name>`；`openclaw` → `~/.openclaw/workspaces/<name>`；`omp`/`pi`/`prime` → `~/.omp|pi|prime/agent[/profiles/<name>]`（`default`/`agent` 直接用根目錄）。`--identity` 省略則用預設中文 identity。建完自動登記追蹤。
+落點：`--type` 省略預設 `openclaw`；`hermes` → `~/.hermes/profiles/<name>`；`openclaw` → `~/.openclaw/workspaces/<name>`；`omp`/`pi` → `~/.omp|pi/agent[/profiles/<name>]`（`default`/`agent` 直接用根目錄）。`--identity` 省略則用預設中文 identity。建完自動登記追蹤。
 
 ### 6. 解除安裝（uninstall）
 ```bash
@@ -180,13 +180,6 @@ python3 -m unittest discover -s tests  # 全套迴歸（目前 177 tests）
 }
 ```
 驗證：`swda verify-session <session.jsonl> --mcp-json ~/.omp/agent/mcp.json --contract ~/.omp/agent/APPEND_SYSTEM.md`
-
-### 7d. prime-agent：裝合約 + 接 swda-mcp
-installer 第五類：`swda install -y --type prime`（落點 `~/.prime/agent/APPEND_SYSTEM.md`，
-`--create` 走 `profiles/<name>`）。skill wrapper 在 `swda-mcp/prime-skill/swda-skill/`
-（`SKILL.md` + `pyproject.toml` + `src/swda/__init__.py` + `references/wiring.md`）：
-拷到 `~/.prime/agent/skills/swda/` 後 `/reload`，kernel 內 `await swda.reconcile(file, root)`。
-前置：啟動 prime-agent 前 `export SWDA_REPO` + `PYTHONPATH`（kernel MCP env 只吃 tagged reference）。
 
 ### 8. 常見問題
 - `APPEND_SYSTEM.md` 異常變大（如破千行）→ 舊版堆疊殘留，重跑一次 `swda update -y` 即 dedup 為單份（~300 行）；見 `tests/test_effectiveness.py`。
