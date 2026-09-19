@@ -59,6 +59,47 @@ class TestAdmissionHandle(unittest.TestCase):
         gate.set()
         self.assertEqual(self.reg.get(h.child_id).status, "cancelled")
 
+    def test_wait_default_timeout_is_bounded(self):
+        t0 = __import__("time").time()
+        res = self.inbox.wait(sender_name="ghost-never-arrives", timeout=1)
+        self.assertEqual(res, [])
+        self.assertLess(__import__("time").time() - t0, 10)
+
+    def test_inbox_caps_drop_oversize(self):
+        big = "x" * (Inbox.MAX_MESSAGES if False else 1)
+        for _ in range(Inbox.MAX_MESSAGES + 5):
+            self.inbox.send("child", "spam", big)
+        last = self.inbox.send("child", "spam", big)
+        self.assertFalse(last["delivered"])
+        self.assertIn("cap", last.get("reason", ""))
+
+    def test_inbox_bytes_cap_drops(self):
+        r = self.inbox.send("child", "big", "x" * (Inbox.MAX_BYTES + 1))
+        self.assertFalse(r["delivered"])
+
+    def test_cancel_wakes_waiter(self):
+        import threading as _th
+        got = []
+        reg2 = ChildRegistry(os.path.join(self.tmp, "children2"), inbox=self.inbox)
+        th = _th.Thread(target=lambda: got.append(self.inbox.wait(sender_name="c1", timeout=5)))
+        th.start()
+        __import__("time").sleep(0.2)
+        h = reg2.admit(name="c1", prompt="x")
+        reg2.cancel(h.child_id)
+        th.join(5)
+        self.assertEqual(len(got), 1)
+        self.assertIsNone(got[0][0]["message"])
+
+    def test_worker_pool_exhaustion_rejects(self):
+        gate = threading.Event()
+        slow = SubagentRunner(self.reg, self.inbox,
+                              handler=lambda n, p: (gate.wait(5), "slow")[1],
+                              max_workers=1)
+        slow.spawn("a", name="w1")
+        with self.assertRaises(RuntimeError):
+            slow.spawn("b", name="w2")
+        gate.set()
+
 class TestHarnessStore(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -173,6 +214,19 @@ class TestGoalStore(unittest.TestCase):
         done = self.store.complete()
         self.assertEqual(done["status"], "completed")
         self.assertIsNone(self.store.get())
+
+    def test_note_rejects_negative_tokens(self):
+        self.store.create("goal a")
+        with self.assertRaises(ValueError):
+            self.store.note("bad", tokens_used=-5)
+
+    def test_terminal_goal_transitions_raise(self):
+        self.store.create("goal a")
+        self.store.complete()
+        with self.assertRaises(ValueError):
+            self.store.pause()
+        with self.assertRaises(ValueError):
+            self.store.resume()
 
     def test_pause_resume_clear(self):
         self.store.create("goal a")

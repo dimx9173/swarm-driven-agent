@@ -19,7 +19,7 @@ class ReverseReconciliation:
     """
 
     @classmethod
-    def verify_file(cls, file_path: str, workspace_root: str) -> Dict[str, Any]:
+    def verify_file(cls, file_path: str, workspace_root: str, anchors: Any = None) -> Dict[str, Any]:
         """
         Parses the Python file at file_path and checks import validity and syntax.
 
@@ -35,6 +35,10 @@ class ReverseReconciliation:
             re-export. Gate policy: zero ``invalid`` AND human-confirmed
             ``unverifiable`` before delivery.
           * ``valid``: every checked symbol grounded, nothing left unknown.
+
+        ``anchors`` (optional hashline list [{file, line, id?}]): findings whose
+        line matches an anchor cite it (``@anchor <id|file:line>``); without
+        anchors the verdict is unchanged (full-file mode).
         """
         if not os.path.exists(file_path):
             return {"valid": False, "verdict": "invalid", "errors": [f"File does not exist: {file_path}"], "warnings": []}
@@ -265,13 +269,43 @@ class ReverseReconciliation:
             verdict = "unverifiable"
         else:
             verdict = "valid"
+        anchor_hits = cls._match_anchors(file_path, errors + warnings, anchors)
         return {
             "valid": len(errors) == 0,
             "verdict": verdict,
             "imported_modules": list(imported_modules),
             "errors": errors,
             "warnings": warnings,
+            "anchor_hits": anchor_hits,
         }
+
+    @staticmethod
+    def _match_anchors(file_path: str, findings: List[str], anchors: Any) -> List[Dict[str, Any]]:
+        """Matches finding lines against hashline anchors (same file only)."""
+        import re as _re
+        norm_target = os.path.basename(file_path)
+        norm_anchors: List[Dict[str, Any]] = []
+        if isinstance(anchors, list):
+            for a in anchors[:32]:
+                if isinstance(a, dict) and isinstance(a.get("file"), str) and a["file"]:
+                    try:
+                        line = int(a.get("line", 0))
+                    except (TypeError, ValueError):
+                        continue
+                    if line > 0 and os.path.basename(a["file"]) == norm_target:
+                        norm_anchors.append({"file": a["file"], "line": line, "id": a.get("id")})
+        hits: List[Dict[str, Any]] = []
+        for f in findings:
+            m = _re.search(r"\(line (\d+)\)", f)
+            if not m:
+                continue
+            lineno = int(m.group(1))
+            for a in norm_anchors:
+                if a["line"] == lineno:
+                    hits.append({"line": lineno, "anchor": a.get("id") or f"{a['file']}:{lineno}",
+                                 "finding": f[:160]})
+                    break
+        return hits
     #: Attribute allowlist per locally-inferred kind. A hit grounds the access
     #: silently; a miss stays a warning (never an error: kinds are heuristic).
     KIND_METHODS: Dict[str, Set[str]] = {

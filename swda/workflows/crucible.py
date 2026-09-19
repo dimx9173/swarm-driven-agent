@@ -134,14 +134,43 @@ class CrucibleWorkflow:
         digest = []
         for c in critiques[-3:]:
             if isinstance(c, dict):
-                digest.append({k: c.get(k) for k in ("vector", "severity", "round", "critique") if c.get(k) is not None})
+                row = {k: c.get(k) for k in ("vector", "severity", "round", "critique") if c.get(k) is not None}
+                anchors = CrucibleWorkflow.normalize_anchors(c.get("anchors"))
+                if anchors:
+                    row["anchors"] = anchors
+                digest.append(row)
         return digest
+
+    @staticmethod
+    def normalize_anchors(anchors: Any) -> List[Dict[str, Any]]:
+        """Normalizes optional hashline anchors [{file, line, id?}]; garbage -> []."""
+        out: List[Dict[str, Any]] = []
+        if not isinstance(anchors, list):
+            return out
+        for a in anchors[:32]:
+            if not isinstance(a, dict):
+                continue
+            try:
+                line = int(a.get("line", 0))
+            except (TypeError, ValueError):
+                continue
+            if line <= 0 or not isinstance(a.get("file"), str) or not a["file"]:
+                continue
+            row: Dict[str, Any] = {"file": a["file"], "line": line}
+            if isinstance(a.get("id"), str) and a["id"]:
+                row["id"] = a["id"]
+            out.append(row)
+        return out
 
     @staticmethod
     def _proposal_brief(proposal: Any) -> Any:
         """Trims the proposal for Destroyer/Referee (no internal reasoning leakage)."""
         if isinstance(proposal, dict):
-            return {k: proposal.get(k) for k in ("spec", "content", "edge_cases", "round") if proposal.get(k) is not None}
+            brief = {k: proposal.get(k) for k in ("spec", "content", "edge_cases", "round") if proposal.get(k) is not None}
+            anchors = CrucibleWorkflow.normalize_anchors(proposal.get("anchors"))
+            if anchors:
+                brief["anchors"] = anchors
+            return brief
         return proposal
 
     @staticmethod

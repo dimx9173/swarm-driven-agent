@@ -48,17 +48,23 @@ class ChildRecord:
 
 
 class Inbox:
-    """Parent-scoped child-message inbox."""
+    """Parent-scoped child-message inbox (bounded: caps + default timeout)."""
+
+    #: Backpressure caps (OMO Team schema parity, scaled to stdlib single-proc).
+    MAX_MESSAGES = 1000
+    MAX_BYTES = 8 * 1024 * 1024
+    DEFAULT_WAIT_TIMEOUT = 300.0
 
     def __init__(self, parent_name: str = "parent"):
         self.parent_name = parent_name
         self._lock = threading.Lock()
         self._messages: List[Dict[str, Any]] = []
         self._waits: List[threading.Condition] = []
+        self._bytes = 0
 
     def send(self, sender_role: str, sender_name: str, message: Any,
              receiver_name: Optional[str] = None) -> Dict[str, Any]:
-        """Delivers a reply; returns a delivery receipt."""
+        """Delivers a reply; returns a delivery receipt (drops on cap breach)."""
         receipt = {
             "sender_role": sender_role,
             "sender_name": sender_name,
@@ -66,8 +72,17 @@ class Inbox:
             "delivered": True,
             "timestamp": time.time(),
         }
+        try:
+            size = len(json.dumps(message, ensure_ascii=False, default=str))
+        except Exception:
+            size = 1024
         with self._lock:
-            self._messages.append({"receipt": receipt, "message": message})
+            if len(self._messages) >= self.MAX_MESSAGES or self._bytes + size > self.MAX_BYTES:
+                receipt["delivered"] = False
+                receipt["reason"] = "inbox cap breached"
+                return receipt
+            self._messages.append({"receipt": receipt, "message": message, "size": size})
+            self._bytes += size
             waiters = list(self._waits)
         # Notify outside _lock: wait() holds its cond while reading _lock,
         # so acquiring conds under _lock risks an ABBA deadlock.
@@ -83,36 +98,38 @@ class Inbox:
                      if sender_name is None or m["receipt"]["sender_name"] == sender_name]
             for m in taken:
                 self._messages.remove(m)
+                self._bytes -= m.get("size", 0)
         return taken
 
     def wait(self, sender_name: Optional[str] = None, timeout: Optional[float] = None) -> List[Dict[str, Any]]:
-        """Blocks until at least one matching message arrives, then reads."""
+        """Blocks until a matching message arrives; default timeout bounds forever-waits."""
+        if timeout is None:
+            timeout = self.DEFAULT_WAIT_TIMEOUT
         def _ready() -> bool:
             with self._lock:
                 return any(m for m in self._messages
                            if sender_name is None or m["receipt"]["sender_name"] == sender_name)
         cond = threading.Condition()
-        deadline = None if timeout is None else time.time() + timeout
+        deadline = time.time() + timeout
         with cond:
             self._waits.append(cond)
             try:
                 while not _ready():
-                    remaining = None if deadline is None else deadline - time.time()
-                    if remaining is not None and remaining <= 0:
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
                         return []
-                    cond.wait(timeout=remaining if remaining is not None else 5.0)
+                    cond.wait(timeout=min(remaining, 5.0))
             finally:
                 self._waits.remove(cond)
         return self.read(sender_name=sender_name)
 
 
 class ChildRegistry:
-    """Parent-scoped registry: admission through completion, requeryable."""
-
-    def __init__(self, artifact_root: str):
+    def __init__(self, artifact_root: str, inbox: Optional["Inbox"] = None):
         self.artifact_root = artifact_root
         self._lock = threading.Lock()
         self._children: Dict[str, ChildRecord] = {}
+        self._inbox = inbox
         os.makedirs(artifact_root, exist_ok=True)
 
     def admit(self, name: str, prompt: str, model: Optional[str] = None, depth: int = 0) -> SpawnHandle:
@@ -144,13 +161,20 @@ class ChildRegistry:
                 rec.status = "failed"
                 rec.error = error
                 rec.finished_at = time.time()
-
     def cancel(self, child_id: str) -> None:
         with self._lock:
             rec = self._children.get(child_id)
             if rec and rec.status == "running":
                 rec.status = "cancelled"
                 rec.finished_at = time.time()
+                name = rec.handle.name
+            else:
+                return
+        # Wake waiters: a cancelled child sends no answer, so notify or the
+        # parent blocks until timeout.
+        if self._inbox is not None:
+            self._inbox.send(sender_role="child", sender_name=name,
+                             message=None, receiver_name="parent")
 
     def get(self, selector: str) -> Optional[ChildRecord]:
         with self._lock:
@@ -177,18 +201,24 @@ class SubagentRunner:
     def __init__(self, registry: ChildRegistry, inbox: Inbox,
                  handler: Callable[[str, str], Any],
                  hooks: Optional[HookRegistry] = None,
-                 max_depth: int = DEFAULT_MAX_DEPTH):
+                 max_depth: int = DEFAULT_MAX_DEPTH,
+                 max_workers: int = 8):
         self.registry = registry
         self.inbox = inbox
+        registry._inbox = inbox
         self.handler = handler
         self.hooks = hooks
         self.max_depth = max_depth
+        self.max_workers = max_workers
+        self._slot = threading.Semaphore(max_workers)
 
     def spawn(self, prompt: str, name: str, model: Optional[str] = None, depth: int = 0) -> SpawnHandle:
         if not name or not str(name).strip():
             raise ValueError("rlm.spawn requires a non-empty name")
         if depth >= self.max_depth:
             raise RuntimeError(f"RLM depth limit reached ({depth}/{self.max_depth}); child not admitted")
+        if not self._slot.acquire(blocking=False):
+            raise RuntimeError(f"RLM worker pool exhausted ({self.max_workers} running); child not admitted")
         if self.hooks is not None:
             self.hooks.run_pre("rlm.spawn", {"prompt": prompt, "name": name, "depth": depth})
         handle = self.registry.admit(name=name, prompt=prompt, model=model, depth=depth)
@@ -209,3 +239,5 @@ class SubagentRunner:
             self.registry.fail(handle.child_id, str(e))
             self.inbox.send(sender_role="child", sender_name=handle.name,
                             message=None, receiver_name="parent")
+        finally:
+            self._slot.release()

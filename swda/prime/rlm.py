@@ -69,6 +69,14 @@ class RLMDispatcher:
     #: Gateway default when neither --model nor SWDA_MODEL is set.
     AUTO_FREE_MODEL = "auto-free"
 
+    #: Category->model routing (OMO category matrix, stdlib edition).
+    #: Roles map to cost tiers; SWDA_MODEL_<CATEGORY> env overrides each.
+    CATEGORY_ROLES = {
+        "quick": ("intent_gate", "alpha", "beta", "gamma"),
+        "standard": ("builder", "reviewer", "developer"),
+        "deep": ("destroyer", "referee"),
+    }
+
     def __init__(
         self,
         default_model: Optional[str] = None,
@@ -84,14 +92,18 @@ class RLMDispatcher:
         self.fallback_models = self._normalize_fallbacks(fallback_models)
         self.mock_handler = mock_handler
 
-    @staticmethod
-    def _normalize_fallbacks(explicit: Optional[List[str]] = None) -> List[str]:
-        """Merges explicit list with SWDA_FALLBACK_MODELS env; auto-free always last."""
-        merged: List[str] = list(explicit) if explicit else []
-        for m in RLMDispatcher._env_fallbacks():
-            if m not in merged:
-                merged.append(m)
-        return merged
+    @classmethod
+    def category_for_role(cls, role: str) -> str:
+        r = (role or "").lower()
+        for cat, roles in cls.CATEGORY_ROLES.items():
+            if r in roles:
+                return cat
+        return "standard"
+
+    @classmethod
+    def model_for_category(cls, category: str, default: Optional[str] = None) -> Optional[str]:
+        env_key = f"SWDA_MODEL_{category.upper()}"
+        return os.getenv(env_key) or default
 
     @staticmethod
     def _env_fallbacks() -> List[str]:
@@ -101,6 +113,15 @@ class RLMDispatcher:
         if RLMDispatcher.AUTO_FREE_MODEL not in models:
             models.append(RLMDispatcher.AUTO_FREE_MODEL)
         return models
+
+    @staticmethod
+    def _normalize_fallbacks(explicit: Optional[List[str]] = None) -> List[str]:
+        """Merges explicit list with SWDA_FALLBACK_MODELS env; auto-free always last."""
+        merged: List[str] = list(explicit) if explicit else []
+        for m in RLMDispatcher._env_fallbacks():
+            if m not in merged:
+                merged.append(m)
+        return merged
 
     def spawn(
         self,
@@ -113,8 +134,11 @@ class RLMDispatcher:
         """
         Synchronously or asynchronously dispatches a subagent call.
         Returns validated schema instance or parsed JSON/text.
+
+        Model precedence: explicit arg > SWDA_MODEL_<CATEGORY> > default.
         """
-        target_model = model or self.default_model
+        category = self.category_for_role(role)
+        target_model = model or self.model_for_category(category) or self.default_model
 
         # 1. Deterministic Mock / Replay Support
         if self.mock_handler:

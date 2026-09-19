@@ -12,6 +12,21 @@ import time
 from typing import Any, Dict, List, Optional
 
 
+class _ThreadGuard:
+    """Wraps a threading.Lock as a context manager (stdlib, no extra import)."""
+
+    def __init__(self, lock):
+        self._lock = lock
+
+    def __enter__(self):
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, *exc):
+        self._lock.release()
+        return False
+
+
 class GoalStore:
     """Manages persistent goals in a workspace (stdlib only)."""
 
@@ -30,6 +45,15 @@ class GoalStore:
         except (OSError, ValueError):
             return []
 
+    def _guarded(self):
+        """Holds thread lock + store file lock (fixed order, no ABBA)."""
+        import contextlib
+        from swda.core.flock import locked
+        stack = contextlib.ExitStack()
+        stack.enter_context(_ThreadGuard(self._lock))
+        stack.enter_context(locked(self.store_path))
+        return stack
+
     def _write_all(self, goals: List[Dict[str, Any]]) -> None:
         tmp = self.store_path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -37,7 +61,7 @@ class GoalStore:
         os.replace(tmp, self.store_path)
 
     def create(self, objective: str, token_budget: Optional[int] = None) -> Dict[str, Any]:
-        with self._lock:
+        with self._guarded():
             goals = self._read_all()
             for g in goals:
                 if g.get("status") == "active":
@@ -57,7 +81,9 @@ class GoalStore:
         return None
 
     def note(self, progress: str, tokens_used: int = 0) -> Optional[Dict[str, Any]]:
-        with self._lock:
+        if tokens_used < 0:
+            raise ValueError(f"tokens_used must be >= 0, got {tokens_used}")
+        with self._guarded():
             goals = self._read_all()
             for g in reversed(goals):
                 if g.get("status") == "active":
@@ -72,11 +98,20 @@ class GoalStore:
     def complete(self) -> Optional[Dict[str, Any]]:
         return self._set_status("completed")
 
+    def _reject_if_terminal(self, action: str) -> None:
+        for g in reversed(self._read_all()):
+            if g.get("status") in ("active", "paused"):
+                return
+            if g.get("status") == "completed":
+                raise ValueError(f"cannot {action} a completed goal")
+
     def pause(self) -> Optional[Dict[str, Any]]:
+        self._reject_if_terminal("pause")
         return self._set_status("paused")
 
     def resume(self) -> Optional[Dict[str, Any]]:
-        with self._lock:
+        self._reject_if_terminal("resume")
+        with self._guarded():
             goals = self._read_all()
             for g in reversed(goals):
                 if g.get("status") == "paused":
@@ -87,12 +122,12 @@ class GoalStore:
             return None
 
     def clear(self) -> None:
-        with self._lock:
+        with self._guarded():
             goals = [g for g in self._read_all() if g.get("status") not in ("active", "paused", "completed")]
             self._write_all(goals)
 
     def _set_status(self, status: str) -> Optional[Dict[str, Any]]:
-        with self._lock:
+        with self._guarded():
             goals = self._read_all()
             for g in reversed(goals):
                 if g.get("status") in ("active", "paused"):

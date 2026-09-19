@@ -15,7 +15,6 @@ from swda.prime.harness import ContinualHarness
 from swda.workflows.crucible import CrucibleWorkflow
 from swda.workflows.reconcile import ReverseReconciliation
 
-
 class TestWorkflows(unittest.TestCase):
 
     def setUp(self):
@@ -110,6 +109,31 @@ class TestWorkflows(unittest.TestCase):
         # Referee gets digest + reconcile re-run, not raw blobs.
         self.assertIn("Critique digest", seen.get("referee", ""))
         self.assertIn("Reconcile re-run", seen.get("referee", ""))
+
+    def test_crucible_anchors_passthrough_and_normalize(self):
+        from swda.workflows.crucible import CrucibleWorkflow
+        self.assertEqual(CrucibleWorkflow.normalize_anchors("junk"), [])
+        self.assertEqual(
+            CrucibleWorkflow.normalize_anchors([{"file": "", "line": "x"}, {"file": "a.py", "line": 3}]),
+            [{"file": "a.py", "line": 3}],
+        )
+        brief = CrucibleWorkflow._proposal_brief({"spec": "S", "anchors": [{"file": "a.py", "line": 7, "id": "L7#x"}]})
+        self.assertEqual(brief.get("anchors"), [{"file": "a.py", "line": 7, "id": "L7#x"}])
+        plain = CrucibleWorkflow._proposal_brief({"spec": "S"})
+        self.assertNotIn("anchors", plain)
+
+    def test_reconcile_anchor_hits_cite_lines(self):
+        path = os.path.join(self.temp_dir, "anch.py")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("import json\nx = json.nope_xyz()\n")
+        res = ReverseReconciliation.verify_file(path, self.temp_dir,
+                                                anchors=[{"file": "anch.py", "line": 2, "id": "L2#abc"}])
+        self.assertEqual(res["verdict"], "invalid")
+        self.assertEqual(len(res["anchor_hits"]), 1)
+        self.assertEqual(res["anchor_hits"][0]["anchor"], "L2#abc")
+        res2 = ReverseReconciliation.verify_file(path, self.temp_dir)
+        self.assertEqual(res2["verdict"], "invalid")
+        self.assertEqual(res2["anchor_hits"], [])
 
     def test_crucible_string_verdict_parsed_not_auto_passed(self):
         from swda.workflows.crucible import CrucibleWorkflow
@@ -277,6 +301,7 @@ class TestWorkflows(unittest.TestCase):
         with open(env_file, "w", encoding="utf-8") as f:
             f.write('SWDA_TEST_KEY="from-file"\nSWDA_TEST_OTHER=plain\n# comment\n\n')
         os.environ["SWDA_TEST_KEY"] = "from-env"
+        os.environ.pop("SWDA_TEST_OTHER", None)
         try:
             loaded = load_dotenv(search_paths=[env_file])
             self.assertEqual(loaded, env_file)
@@ -284,7 +309,7 @@ class TestWorkflows(unittest.TestCase):
             self.assertEqual(os.environ["SWDA_TEST_OTHER"], "plain")
         finally:
             del os.environ["SWDA_TEST_KEY"]
-            del os.environ["SWDA_TEST_OTHER"]
+            os.environ.pop("SWDA_TEST_OTHER", None)
 
     def test_rlm_fallback_chain_always_ends_with_auto_free(self):
         saved = os.environ.get("SWDA_FALLBACK_MODELS")
@@ -299,6 +324,24 @@ class TestWorkflows(unittest.TestCase):
                 del os.environ["SWDA_FALLBACK_MODELS"]
             else:
                 os.environ["SWDA_FALLBACK_MODELS"] = saved
+
+    def test_rlm_category_routing(self):
+        self.assertEqual(RLMDispatcher.category_for_role("builder"), "standard")
+        self.assertEqual(RLMDispatcher.category_for_role("destroyer"), "deep")
+        self.assertEqual(RLMDispatcher.category_for_role("referee"), "deep")
+        self.assertEqual(RLMDispatcher.category_for_role("alpha"), "quick")
+        self.assertEqual(RLMDispatcher.category_for_role("unknown-role"), "standard")
+        saved = os.environ.pop("SWDA_MODEL_DEEP", None)
+        os.environ["SWDA_MODEL_DEEP"] = "strong-model"
+        try:
+            self.assertEqual(RLMDispatcher.model_for_category("deep"), "strong-model")
+            self.assertEqual(RLMDispatcher.model_for_category("quick", default="base"), "base")
+        finally:
+            if saved is None:
+                del os.environ["SWDA_MODEL_DEEP"]
+            else:
+                os.environ["SWDA_MODEL_DEEP"] = saved
+
     def test_rlm_socket_timeout_wrapped_as_runtime_error(self):
         import socket
         from unittest import mock

@@ -305,7 +305,6 @@ class TestHarnessWalkLevels(unittest.TestCase):
         self.assertTrue(res["passed"])
         self.assertEqual(res["level"], "gate")
         self.assertTrue(any("SYSTEM_SPECIFICATION" in m for m in res["missing"]))
-
     def test_live_baseline_zero_mcp_deliveries(self):
         if not os.path.isdir(SESSIONS_DIR):
             self.skipTest("no OMP sessions on this machine")
@@ -319,6 +318,45 @@ class TestHarnessWalkLevels(unittest.TestCase):
         # Baseline as of 2026-09-16: swda-mcp registered, never invoked from OMP.
         # Flip this assertion once the first trap probe lands.
         self.assertEqual(total, 0, "unexpected: an OMP session invoked swda tools")
+
+
+class TestVerifySessionCli(unittest.TestCase):
+    def _write_session(self, lines):
+        import tempfile as _t
+        fd, path = _t.mkstemp(suffix=".jsonl")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def _args(self, session, strict=False):
+        import argparse as _ap
+        ns = _ap.Namespace(session=session, strict=strict, mcp_json=None, contract=None)
+        return ns
+
+    def test_missing_file_exits_2(self):
+        from swda.cli import cmd_verify_session
+        with self.assertRaises(SystemExit) as ctx:
+            cmd_verify_session(self._args("/nonexistent-session.jsonl"))
+        self.assertEqual(ctx.exception.code, 2)
+
+    def test_strict_fails_on_unverified_gate(self):
+        from swda.cli import cmd_verify_session
+        path = self._write_session([
+            _start("edit", {"path": "x.py"}, "c1"),
+            _start("swda_reconcile", {"file": "x.py"}, "c2"),
+        ])
+        with self.assertRaises(SystemExit) as ctx:
+            cmd_verify_session(self._args(path, strict=True))
+        self.assertEqual(ctx.exception.code, 1)
+
+    def test_non_strict_passes_gate_level(self):
+        from swda.cli import cmd_verify_session
+        path = self._write_session([
+            _start("edit", {"path": "x.py"}, "c1"),
+            _start("swda_reconcile", {"file": "x.py"}, "c2"),
+        ])
+        cmd_verify_session(self._args(path, strict=False))
 
 
 if __name__ == "__main__":

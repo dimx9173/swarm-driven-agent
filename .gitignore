@@ -33,3 +33,6 @@ dist/
 
 # Local LLM endpoint secrets (see .env.example)
 .env
+
+# Local reviewer drafts (claude/codex critique artifacts)
+local/

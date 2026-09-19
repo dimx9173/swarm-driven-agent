@@ -85,6 +85,20 @@ class HarnessState:
             self._loaded_mtime = None
         return self
 
+    def load_locked(self) -> "HarnessState":
+        """Reloads from disk without the mtime shortcut (call under lock)."""
+        if not self.state_path:
+            return self
+        try:
+            with open(self.state_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                self._hydrate(data)
+                self._loaded_mtime = self._disk_mtime()
+        except (OSError, ValueError):
+            pass
+        return self
+
     def _hydrate(self, data: Dict[str, Any]) -> None:
         self.entries = {k: {} for k in KINDS}
         for kind, rows in (data.get("entries") or {}).items():
@@ -96,15 +110,34 @@ class HarnessState:
     def save(self) -> "HarnessState":
         if not self.state_path:
             return self
+        from swda.core.flock import locked
         parent = os.path.dirname(self.state_path)
         os.makedirs(parent, exist_ok=True)
-        tmp = self.state_path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"entries": self.entries, "refinements": self.refinements},
-                      f, ensure_ascii=False, indent=2)
-        os.replace(tmp, self.state_path)
-        self._loaded_mtime = self._disk_mtime()
+        with locked(self.state_path):
+            tmp = self.state_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump({"entries": self.entries, "refinements": self.refinements},
+                          f, ensure_ascii=False, indent=2)
+            os.replace(tmp, self.state_path)
+            self._loaded_mtime = self._disk_mtime()
         return self
+
+    def _mutate(self):
+        """Holds the store file lock and reloads (callers modify then save)."""
+        from swda.core.flock import locked
+        import contextlib
+
+        @contextlib.contextmanager
+        def _h():
+            if not self.state_path:
+                yield
+                return
+            parent = os.path.dirname(self.state_path)
+            os.makedirs(parent, exist_ok=True)
+            with locked(self.state_path):
+                self.load_locked()
+                yield
+        return _h()
 
     # -- CRUD ---------------------------------------------------------------
     def _entry(self, kind: str, id_: str, title: str, content: str, **extra: Any) -> Dict[str, Any]:
@@ -121,19 +154,20 @@ class HarnessState:
     def upsert(self, kind: str, id_: str, title: str, content: str, **extra: Any) -> Dict[str, Any]:
         if kind not in KINDS:
             raise ValueError(f"Unknown harness kind: {kind!r} (want one of {KINDS})")
-        existing = self.entries[kind].get(id_)
-        if existing:
-            updated = {**existing, **{k: v for k, v in {
-                "title": title, "content": content, **extra}.items() if v is not None}}
-            updated["version"] = int(existing.get("version", 1)) + 1
-            updated["updated_at"] = _now()
-            self.entries[kind][id_] = updated
-            entry = updated
-        else:
-            entry = self._entry(kind, id_, title, content, **extra)
-            self.entries[kind][id_] = entry
-        self.save()
-        return copy.deepcopy(entry)
+        with self._mutate():
+            existing = self.entries[kind].get(id_)
+            if existing:
+                updated = {**existing, **{k: v for k, v in {
+                    "title": title, "content": content, **extra}.items() if v is not None}}
+                updated["version"] = int(existing.get("version", 1)) + 1
+                updated["updated_at"] = _now()
+                self.entries[kind][id_] = updated
+                entry = updated
+            else:
+                entry = self._entry(kind, id_, title, content, **extra)
+                self.entries[kind][id_] = entry
+            self.save()
+            return copy.deepcopy(entry)
 
     def get(self, kind: str, id_: str) -> Optional[Dict[str, Any]]:
         self.load()
@@ -141,12 +175,12 @@ class HarnessState:
         return copy.deepcopy(row) if row else None
 
     def delete(self, kind: str, id_: str) -> bool:
-        self.load()
-        if id_ in self.entries.get(kind, {}):
-            del self.entries[kind][id_]
-            self.save()
-            return True
-        return False
+        with self._mutate():
+            if id_ in self.entries.get(kind, {}):
+                del self.entries[kind][id_]
+                self.save()
+                return True
+            return False
 
     def list(self, kind: Optional[str] = None) -> List[Dict[str, Any]]:
         self.load()
@@ -158,24 +192,25 @@ class HarnessState:
     # -- refinements ---------------------------------------------------------
     def record_refinement(self, trigger: str, changes: List[str],
                           evidence: str = "", outcome: str = "") -> Dict[str, Any]:
-        event = {"id": uuid4_hex12(), "trigger": trigger, "changes": list(changes),
-                 "evidence": evidence[:300], "outcome": outcome,
-                 "created_at": _now()}
-        for k in list(event):
-            if k not in _REFINEMENT_FIELDS:
-                del event[k]
-        self.refinements.append(event)
-        self.save()
-        return copy.deepcopy(event)
+        with self._mutate():
+            event = {"id": uuid4_hex12(), "trigger": trigger, "changes": list(changes),
+                     "evidence": evidence[:300], "outcome": outcome,
+                     "created_at": _now()}
+            for k in list(event):
+                if k not in _REFINEMENT_FIELDS:
+                    del event[k]
+            self.refinements.append(event)
+            self.save()
+            return copy.deepcopy(event)
 
     def snapshot(self) -> Dict[str, Any]:
         return {"entries": copy.deepcopy(self.entries),
                 "refinements": copy.deepcopy(self.refinements)}
 
     def restore(self, snapshot: Dict[str, Any]) -> None:
-        self._hydrate(snapshot)
-        self.save()
-
+        with self._mutate():
+            self._hydrate(snapshot)
+            self.save()
 
 def uuid4_hex12() -> str:
     import uuid
