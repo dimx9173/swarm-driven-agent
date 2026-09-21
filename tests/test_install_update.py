@@ -341,6 +341,48 @@ class PiSubagentsTest(unittest.TestCase):
         with open(os.path.join(self.pi, "settings.json"), "w", encoding="utf-8") as f:
             json.dump({"packages": ["git:github.com/HazAT/pi-interactive-subagents"]}, f)
 
+    def _seed_herdr(self):
+        pkg = os.path.join(self.mock_home, "apps", "pi-herdr-subagents")
+        os.makedirs(pkg, exist_ok=True)
+        os.makedirs(self.pi, exist_ok=True)
+        with open(os.path.join(pkg, "index.ts"), "w", encoding="utf-8") as f:
+            f.write("// team herdr runtime\n")
+        with open(os.path.join(self.pi, "settings.json"), "w", encoding="utf-8") as f:
+            json.dump({"packages": ["~/apps/pi-herdr-subagents"]}, f)
+
+
+    def test_check_accepts_herdr_as_equivalent_runtime(self):
+        import installer as _installer
+        self._seed_herdr()
+        state = _installer.check_pi_subagents()
+        self.assertTrue(state["registered"])
+        self.assertTrue(state["present"])
+        self.assertEqual(state["flavor"], "herdr")
+        res = _installer.install_swda_workflow("pi", self.pi)
+        self.assertTrue(res["installed"])
+        self.assertEqual(len(res["files"]), 11)
+        self.assertTrue(os.path.exists(os.path.join(self.pi, "agents", "swda-referee.md")))
+
+    def test_ensure_never_installs_hazat_alongside_herdr(self):
+        import installer as _installer
+        self._seed_herdr()
+        # ensure() must no-op on herdr without invoking `pi install` (which
+        # would create the conflicting HazAT package).
+        import subprocess as _sp
+        called = []
+        real_run = _sp.run
+        def _spy(*a, **k):
+            called.append(a)
+            return real_run(*a, **k)
+        _sp.run = _spy
+        try:
+            res = _installer.ensure_pi_subagents()
+        finally:
+            _sp.run = real_run
+        self.assertTrue(res["ok"])
+        self.assertIn("herdr", res["reason"])
+        self.assertEqual(called, [])
+
     def test_check_reports_absent_without_plugin(self):
         import installer as _installer
         state = _installer.check_pi_subagents()

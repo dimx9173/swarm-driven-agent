@@ -275,12 +275,23 @@ WORKFLOW_LAYOUT = {
     "pi": {"commands": "prompts", "agents": None},
 }
 
-# Team-mandated Pi subagent runtime. Without this package Pi has no task-agent
-# surface, so the SWDA research/crucible agents cannot run there. Installation
-# is forced for Pi: the package source is pinned, and the entry point is
-# selected by probing the host pi instead of guessing a settings.json shape.
+# Team-mandated Pi subagent runtime. The team ships its own
+# `pi-herdr-subagents` (herdr-native, same tool names and the same
+# `agent/agents` discovery); HazAT's `pi-interactive-subagents` is the
+# fallback for hosts without it. The two packages register identical tool
+# names, so they must never be installed together - Pi refuses to load with
+# a hard "Tool conflicts" error.
 PI_SUBAGENTS_SOURCE = "git:github.com/HazAT/pi-interactive-subagents"
 PI_SUBAGENTS_ENTRY = "pi-extension/subagents/index.ts"
+PI_HERDR_MARKERS = ("pi-herdr-subagents", "herdr-subagents")
+
+
+def _pi_herdr_dir():
+    """Returns the on-disk dir of the team's herdr subagent runtime, or None."""
+    cand = os.path.join(os.path.expanduser("~"), "apps", "pi-herdr-subagents")
+    if os.path.isdir(cand) and os.path.exists(os.path.join(cand, "index.ts")):
+        return cand
+    return None
 
 
 def _pi_package_dir():
@@ -293,16 +304,22 @@ def _pi_package_dir():
 
 
 def check_pi_subagents():
-    """Reports whether the Pi subagent runtime is registered and on disk.
+    """Reports whether a Pi subagent runtime is registered and on disk.
 
-    Returns {"registered": bool, "present": bool, "source": str|None}.
+    Accepts either the team's `pi-herdr-subagents` or HazAT's
+    `pi-interactive-subagents` (they provide the same tools; herdr wins when
+    both are present because Pi refuses to load duplicated tool names).
+    Returns {"registered": bool, "present": bool, "source": str|None,
+             "flavor": "herdr"|"hazat"|None}.
     Never raises; a missing/broken pi binary or settings.json reads as absent.
     """
     import json as _json
     import shutil as _shutil
     import subprocess as _sp
-    out = {"registered": False, "present": False, "source": None}
-    if _pi_package_dir() is not None:
+    out = {"registered": False, "present": False, "source": None, "flavor": None}
+    hazat_dir = _pi_package_dir()
+    herdr_dir = _pi_herdr_dir()
+    if hazat_dir is not None or herdr_dir is not None:
         out["present"] = True
     pj = os.path.join(os.path.expanduser("~"), ".pi", "agent", "settings.json")
     try:
@@ -310,26 +327,37 @@ def check_pi_subagents():
             data = _json.load(f)
         for entry in data.get("packages", []) or []:
             src = entry if isinstance(entry, str) else entry.get("source", "")
+            if any(m in (src or "") for m in PI_HERDR_MARKERS):
+                out["registered"] = True
+                out["source"] = src
+                out["flavor"] = "herdr"
+                break
             if "HazAT/pi-interactive-subagents" in (src or ""):
                 out["registered"] = True
                 out["source"] = src
-                break
+                out["flavor"] = out["flavor"] or "hazat"
     except (OSError, ValueError):
         pass
-    if not out["registered"] and _shutil.which("pi") and _pi_package_dir() is not None:
+    if not out["registered"] and _shutil.which("pi") and hazat_dir is not None:
         try:
             res = _sp.run(["pi", "list"], capture_output=True, text=True, timeout=60)
             if "pi-interactive-subagents" in (res.stdout or ""):
                 out["registered"] = True
                 out["source"] = out["source"] or PI_SUBAGENTS_SOURCE
+                out["flavor"] = out["flavor"] or "hazat"
         except Exception:
             pass
+    if out["registered"] and out["flavor"] is None:
+        out["flavor"] = "herdr" if herdr_dir is not None else ("hazat" if hazat_dir is not None else None)
     return out
 
 
 def ensure_pi_subagents(timeout=600):
-    """Forces the Pi subagent runtime into place (team-mandated spec).
+    """Ensures a Pi subagent runtime is in place (team-mandated spec).
 
+    Prefers the team's `pi-herdr-subagents` when present and never installs
+    HazAT alongside it (identical tool names crash Pi with a hard "Tool
+    conflicts" error). Installs HazAT only when neither runtime exists.
     Runs only `pi install <pinned source>`; the registration shape in
     settings.json and the on-disk layout are whatever the host pi writes, so
     SWDA never hand-edits the package entry. Re-running while installed is a
@@ -339,7 +367,7 @@ def ensure_pi_subagents(timeout=600):
     import subprocess as _sp
     state = check_pi_subagents()
     if state["registered"] and state["present"]:
-        return {"ok": True, "reason": "already installed"}
+        return {"ok": True, "reason": f"already installed ({state['flavor']})"}
     if os.environ.get("SWDA_TEST_MODE") == "1":
         return {"ok": False,
                 "reason": "skipped (SWDA_TEST_MODE; network install disabled in tests)"}
