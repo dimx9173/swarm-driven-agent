@@ -385,6 +385,84 @@ def ensure_pi_subagents(timeout=600):
         return {"ok": True, "reason": "installed"}
     return {"ok": False, "reason": f"pi install exit={res.returncode}: {tail}"}
 
+HERDR_PLUGIN_ID = "pi-herdr-subagents"
+
+
+def check_herdr_plugin():
+    """Reports whether the herdr pi-herdr-subagents plugin is linked + enabled.
+
+    Returns {"available": bool, "linked": bool, "enabled": bool, "reason": str}.
+    `available` is False when the herdr binary is missing (system-level
+    install, out of scope for this installer). Never raises.
+    """
+    import json as _json
+    import shutil as _shutil
+    import subprocess as _sp
+    out = {"available": False, "linked": False, "enabled": False, "reason": ""}
+    herdr = _shutil.which("herdr")
+    if not herdr:
+        out["reason"] = "herdr binary not found on PATH (install herdr first)"
+        return out
+    out["available"] = True
+    try:
+        res = _sp.run([herdr, "plugin", "list", "--json"],
+                      capture_output=True, text=True, timeout=60)
+    except Exception as e:
+        out["reason"] = f"herdr plugin list failed to launch: {e}"
+        return out
+    if res.returncode != 0:
+        out["reason"] = f"herdr plugin list exit={res.returncode}: {(res.stderr or res.stdout or '').strip()[-200:]}"
+        return out
+    try:
+        data = _json.loads(res.stdout or "{}")
+        plugins = ((data.get("result") or {}).get("plugins")) or []
+    except ValueError as e:
+        out["reason"] = f"herdr plugin list returned invalid JSON ({e})"
+        return out
+    for p in plugins:
+        if p.get("plugin_id") == HERDR_PLUGIN_ID:
+            out["linked"] = True
+            out["enabled"] = bool(p.get("enabled"))
+            out["reason"] = "linked + enabled" if out["enabled"] else "linked but disabled"
+            return out
+    out["reason"] = "pi-herdr-subagents not in herdr plugin list"
+    return out
+
+
+def ensure_herdr_plugin_link(timeout=300):
+    """Links + enables the herdr pi-herdr-subagents plugin (team-mandated spec).
+
+    Runs only `herdr plugin link <team runtime>/herdr-plugin --enabled`; the
+    team runtime must already be on disk (see ensure_pi_subagents ordering).
+    Re-running while linked + enabled is a no-op. Returns
+    {"ok": bool, "reason": str}. Never raises.
+    """
+    import subprocess as _sp
+    state = check_herdr_plugin()
+    if not state["available"]:
+        return {"ok": False, "reason": state["reason"]}
+    if state["linked"] and state["enabled"]:
+        return {"ok": True, "reason": "already linked + enabled"}
+    if os.environ.get("SWDA_TEST_MODE") == "1":
+        return {"ok": False,
+                "reason": "skipped (SWDA_TEST_MODE; herdr mutation disabled in tests)"}
+    herdr_dir = _pi_herdr_dir()
+    if herdr_dir is None:
+        return {"ok": False, "reason": "team pi-herdr-subagents runtime not on disk; run Pi runtime install first"}
+    import shutil as _shutil
+    herdr = _shutil.which("herdr")
+    plugin_path = os.path.join(herdr_dir, "herdr-plugin")
+    try:
+        res = _sp.run([herdr, "plugin", "link", plugin_path, "--enabled"],
+                      capture_output=True, text=True, timeout=timeout)
+    except Exception as e:
+        return {"ok": False, "reason": f"herdr plugin link failed to launch: {e}"}
+    tail = ((res.stdout or "") + (res.stderr or "")).strip()[-500:]
+    state = check_herdr_plugin()
+    if res.returncode == 0 and state["linked"] and state["enabled"]:
+        return {"ok": True, "reason": "linked + enabled"}
+    return {"ok": False, "reason": f"herdr plugin link exit={res.returncode}: {tail}"}
+
 
 def _workflow_dest(agent_type, agent_dir=None):
     """Resolves the workflow pack base dir and layout for a host type.
@@ -567,6 +645,15 @@ def report_agent_surfaces(agent_type, agent_dir):
                       "contract + skill/prompts are unaffected")
         except Exception as e:
             print(f"    Pi-Subagents: ensure failed ({e}); contract install unaffected")
+        # Team-mandated herdr plugin: links the Pi subagent panes into herdr.
+        # Runs after the Pi runtime so the plugin path exists. herdr itself
+        # is a system-level install (out of scope); when missing we report
+        # and move on. Disabled link (linked but not enabled) is repaired.
+        try:
+            link = ensure_herdr_plugin_link()
+            print(f"    Herdr-Plugin: {link['reason']}")
+        except Exception as e:
+            print(f"    Herdr-Plugin: ensure failed ({e}); Pi runtime install unaffected")
     try:
         if atype == "omp":
             mcp_res = register_swda_mcp(agent_type)

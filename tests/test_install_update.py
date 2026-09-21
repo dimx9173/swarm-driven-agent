@@ -487,6 +487,136 @@ class PiSubagentsTest(unittest.TestCase):
         self.assertIn("removed stale Pi swda-mcp entry", r.stdout)
         self.assertFalse(os.path.exists(stale))
 
+class HerdrPluginTest(unittest.TestCase):
+    """Locks the team-mandated herdr plugin link wiring.
+
+    1. check_herdr_plugin reports missing binary without raising.
+    2. A fake `herdr` on PATH answering `plugin list --json` is parsed for
+       linked + enabled state (both polarities).
+    3. ensure_herdr_plugin_link no-ops when linked + enabled without
+       invoking any mutation; otherwise it runs link --enabled and
+       re-verifies.
+    """
+
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp()
+        self.mock_home = os.path.join(self.test_dir, "mock_home")
+        os.makedirs(self.mock_home)
+        self.original_home = os.environ.get("HOME")
+        os.environ["HOME"] = self.mock_home
+        self.orig_path = os.environ.get("PATH", "")
+        self.bin = os.path.join(self.test_dir, "bin")
+        os.makedirs(self.bin)
+        os.environ["PATH"] = self.bin + os.pathsep + self.orig_path
+        self.env = dict(os.environ, SWDA_TEST_MODE="1")
+        self.pi = os.path.join(self.mock_home, ".pi", "agent")
+
+    def tearDown(self):
+        if self.original_home is not None:
+            os.environ["HOME"] = self.original_home
+        elif "HOME" in os.environ:
+            del os.environ["HOME"]
+        os.environ["PATH"] = self.orig_path
+        shutil.rmtree(self.test_dir)
+
+    def _fake_herdr(self, plugins_json, record=None):
+        path = os.path.join(self.bin, "herdr")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("#!/bin/sh\n")
+            f.write('if [ "$1" = "plugin" ] && [ "$2" = "list" ]; then\n')
+            f.write(f"  printf '%s' '{plugins_json}'\n")
+            f.write("  exit 0\n")
+            f.write("fi\n")
+            f.write('if [ "$1" = "plugin" ] && [ "$2" = "link" ]; then\n')
+            f.write(f"  echo LINKED:$3 >> {self.test_dir}/calls.log\n")
+            # After a link, report linked + enabled on subsequent lists.
+            f.write("  exit 0\n")
+            f.write("fi\n")
+            f.write("exit 7\n")
+        os.chmod(path, 0o755)
+        if record is not None:
+            record.append(path)
+
+    def _plugins_json(self, linked, enabled):
+        import json as _json
+        plugins = []
+        if linked:
+            plugins.append({"plugin_id": "pi-herdr-subagents", "enabled": enabled})
+        return _json.dumps({"result": {"plugins": plugins}})
+
+    def test_missing_binary_reports_without_raising(self):
+        import installer as _installer
+        os.environ["PATH"] = self.orig_path  # no fake herdr; real one may exist
+        import shutil as _shutil
+        if _shutil.which("herdr"):
+            self.skipTest("real herdr on PATH; cannot simulate absence")
+        state = _installer.check_herdr_plugin()
+        self.assertFalse(state["available"])
+        self.assertIn("not found", state["reason"])
+        res = _installer.ensure_herdr_plugin_link()
+        self.assertFalse(res["ok"])
+
+    def test_list_parses_linked_states(self):
+        import installer as _installer
+        self._fake_herdr(self._plugins_json(True, True))
+        state = _installer.check_herdr_plugin()
+        self.assertTrue(state["available"])
+        self.assertTrue(state["linked"])
+        self.assertTrue(state["enabled"])
+        self._fake_herdr(self._plugins_json(True, False))
+        state = _installer.check_herdr_plugin()
+        self.assertTrue(state["linked"])
+        self.assertFalse(state["enabled"])
+        self._fake_herdr(self._plugins_json(False, False))
+        state = _installer.check_herdr_plugin()
+        self.assertFalse(state["linked"])
+
+    def test_ensure_noops_when_enabled(self):
+        import installer as _installer
+        self._fake_herdr(self._plugins_json(True, True))
+        import subprocess as _sp
+        called = []
+        real_run = _sp.run
+        def _spy(*a, **k):
+            called.append(a[0] if a else k)
+            return real_run(*a, **k)
+        _sp.run = _spy
+        try:
+            res = _installer.ensure_herdr_plugin_link()
+        finally:
+            _sp.run = real_run
+        self.assertTrue(res["ok"])
+        self.assertIn("already", res["reason"])
+        # Only the read-only `plugin list` ran; no link mutation.
+        self.assertFalse(any("link" in str(c) for c in called))
+
+    def test_ensure_links_when_missing(self):
+        import installer as _installer
+        self._fake_herdr(self._plugins_json(False, False))
+        os.environ.pop("SWDA_TEST_MODE", None)
+        runtime = os.path.join(self.mock_home, "apps", "pi-herdr-subagents")
+        os.makedirs(os.path.join(runtime, "herdr-plugin"), exist_ok=True)
+        with open(os.path.join(runtime, "index.ts"), "w", encoding="utf-8") as f:
+            f.write("// team runtime\n")
+        try:
+            res = _installer.ensure_herdr_plugin_link()
+        finally:
+            os.environ["SWDA_TEST_MODE"] = "1"
+        # Fake herdr exits 0 on link but keeps reporting unlinked, so ensure
+        # reports the failure truthfully instead of claiming success.
+        self.assertFalse(res["ok"])
+        self.assertIn("exit=0", res["reason"])
+        with open(os.path.join(self.test_dir, "calls.log"), encoding="utf-8") as f:
+            self.assertIn("LINKED:", f.read())
+
+    def test_install_reports_herdr_link_line(self):
+        r = subprocess.run(
+            [sys.executable, SCRIPT, "install", "--type", "pi", "-y"],
+            capture_output=True, text=True, env=self.env, cwd=REPO_ROOT,
+        )
+        self.assertEqual(r.returncode, 0, r.stderr[-500:])
+        self.assertIn("Herdr-Plugin:", r.stdout)
+
 class CliDelegationTest(unittest.TestCase):
     def test_module_entry_delegates_installer_commands(self):
         for cmd in ("doctor", "scan"):

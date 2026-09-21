@@ -146,7 +146,7 @@ Pi/OMP 沒有 `workflows/` 這種槽位，SWDD 以各自的**原生槽位**落�
 
 ```bash
 swda install --type omp -y     # 裝 11 檔（skill + 4 commands + 6 agents）
-swda install --type pi  -y     # 強制裝 pi-interactive-subagents（團隊規格）+ 11 檔（skill + 4 prompts + 6 Pi 原生 agents）
+swda install --type pi  -y     # 強制裝 pi-herdr-subagents（團隊規格，有 herdr 優先；無則裝 HazAT，絕不雙裝）+ herdr plugin link --enabled + 11 檔（skill + 4 prompts + 6 Pi 原生 agents）
 swda install -u -y omp         # 反安裝：只刪帶 swda-workflow:v1 標記的檔，你自己的 skill/command 不會被動
 ```
 冪等：內容相同不重寫、不產生 `.bak`；`doctor` 的 `WORKFLOW` 欄位可看出完整性（`ok`/`partial`/`missing`）。測試模式（`SWDA_TEST_MODE=1`）下跳過聯網的 `pi install`，測強制安裝邏輯請直接調 `ensure_pi_subagents()`。
@@ -184,7 +184,7 @@ swda stats                       # telemetry 儀表板（.swda/metrics.jsonl 聚
 swda verify-session <session.jsonl> [--mcp-json ...] [--contract ...] [--strict]  # 證明某 OMP session 真走過 harness（--strict：unverified 即失敗）
 swda run [--mock] [--json] "task desc"  # 走 GATHER→HYPERPLAN→CRUCIBLE→SYNTHESIS（真 LLM 需 .env；--json 给 CI）
 swda models                      # 列出 gateway live model ids
-python3 -m unittest discover -s tests  # 全套迴歸（目前 204 tests）
+python3 -m unittest discover -s tests  # 全套迴歸（目前 211 tests）
 ```
 
 ### 7c. 記憶 scope（local/global）
