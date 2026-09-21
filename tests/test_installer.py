@@ -28,6 +28,40 @@ class TestSwdaMcpHelpers(unittest.TestCase):
                            capture_output=True, text=True)
         self.assertIn("swda_mcp.server", r.stdout)
 
+    def test_mcp_entry_selects_capable_interpreter(self):
+        entry = installer._mcp_entry()
+        self.assertEqual(entry["args"], ["-m", "swda_mcp.server"])
+        probe = installer.check_swda_mcp(python_exe=entry["command"])
+        self.assertTrue(probe["ok"], probe["reasons"])
+
+    def test_register_repairs_broken_entry(self):
+        import json as _json
+        import tempfile as _tf
+        real_home = os.environ.get("HOME")
+        fake = _tf.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, fake, True)
+        os.makedirs(os.path.join(fake, ".omp", "agent"), exist_ok=True)
+        with open(os.path.join(fake, ".omp", "agent", "mcp.json"), "w", encoding="utf-8") as f:
+            _json.dump({"mcpServers": {"swda-mcp": {
+                "command": "/nonexistent/python",
+                "args": ["-m", "swda_mcp.server"],
+                "cwd": installer.MCP_SERVER_DIR,
+                "env": {}}}}, f)
+        os.environ["HOME"] = fake
+        try:
+            res = installer.register_swda_mcp("omp")
+        finally:
+            if real_home is None:
+                del os.environ["HOME"]
+            else:
+                os.environ["HOME"] = real_home
+        self.assertTrue(res["registered"], res)
+        self.assertIn("repaired", res["reason"])
+        with open(os.path.join(fake, ".omp", "agent", "mcp.json"), encoding="utf-8") as f:
+            data = _json.load(f)
+        cmd = data["mcpServers"]["swda-mcp"]["command"]
+        self.assertTrue(installer.check_swda_mcp(python_exe=cmd)["ok"])
+
 
 class TestSWDAInstaller(unittest.TestCase):
     def setUp(self):

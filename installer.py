@@ -19,6 +19,10 @@ MCP_SERVER_DIR = os.path.join(SCRIPT_DIR, "swda-mcp")
 MCP_SERVER_MODULE = "swda_mcp.server"
 MCP_VERSION_FILE = os.path.join(MCP_SERVER_DIR, "pyproject.toml")
 
+# Host-neutral workflow pack (skill + commands/prompts + task agents).
+WORKFLOW_SOURCE = os.path.join(MCP_SERVER_DIR, "agent-skill", "swda-workflow")
+WORKFLOW_MARKER = "<!-- swda-workflow:v1 -->"
+
 
 def get_mcp_version():
     """Reads the swda-mcp package version from its pyproject.toml."""
@@ -78,15 +82,37 @@ def _backup_file(path):
     bak = f"{path}.{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.bak"
     shutil.copy2(path, bak)
     return bak
-def _mcp_entry(python_exe=None):
-    """Builds the swda-mcp server entry (command/cwd/env)."""
+def _mcp_python_candidates(explicit=None):
+    """Candidate interpreters that could run the swda-mcp server, best first."""
     import sys as _sys
-    return {
-        "command": python_exe or _sys.executable,
-        "args": ["-m", MCP_SERVER_MODULE],
-        "cwd": MCP_SERVER_DIR,
-        "env": {"PYTHONPATH": SCRIPT_DIR, "SWDA_REPO": SCRIPT_DIR},
-    }
+    seen = []
+    for cand in [explicit, _sys.executable,
+                 "/Users/carlos/miniconda3/bin/python3",
+                 os.path.join(os.path.expanduser("~"), "miniconda3", "bin", "python3")]:
+        if cand and cand not in seen:
+            seen.append(cand)
+    return seen
+
+
+def _mcp_entry(python_exe=None):
+    """Builds the swda-mcp server entry (command/cwd/env).
+
+    The interpreter is the first candidate that passes check_swda_mcp, so a
+    bare system python without the mcp SDK is never written into mcp.json.
+    Raises RuntimeError when no candidate can run the server.
+    """
+    last = None
+    for cand in _mcp_python_candidates(python_exe):
+        probe = check_swda_mcp(python_exe=cand)
+        if probe["ok"]:
+            return {
+                "command": cand,
+                "args": ["-m", MCP_SERVER_MODULE],
+                "cwd": MCP_SERVER_DIR,
+                "env": {"PYTHONPATH": SCRIPT_DIR, "SWDA_REPO": SCRIPT_DIR},
+            }
+        last = "; ".join(probe["reasons"])
+    raise RuntimeError(f"no python with the mcp SDK found ({last or 'no candidates'})")
 
 
 def _write_json_atomic(path, data):
@@ -109,16 +135,22 @@ def _write_json_atomic(path, data):
 def register_swda_mcp(agent_type, python_exe=None):
     """Registers the swda-mcp server in the agent's MCP config (no-op if present).
 
-    Only OMP and Pi use the MCP bridge. hermes/openclaw consume SWDA
-    through contract + skill (see install_swda_skill); they intentionally
-    get {"registered": False} here so install/update output stays truthful.
+    Only OMP uses the MCP bridge: the installed Pi bundle has no MCP client
+    (zero "mcp" strings in the binary, verified), so a Pi mcp.json entry
+    would be dead config. Pi drives the gate through the swda CLI instead
+    (see pi-skills/pi-prompts). hermes/openclaw consume SWDA through contract
+    + skill (see install_swda_skill); they intentionally get
+    {"registered": False} here so install/update output stays truthful.
     Existing entries are never overwritten; missing parent objects are created.
     Returns {"registered": bool, "path": str|None, "reason": str}.
     """
     import json as _json
     home = os.path.expanduser("~")
     atype = (agent_type or "").lower()
-    entry = _mcp_entry(python_exe)
+    try:
+        entry = _mcp_entry(python_exe)
+    except RuntimeError as e:
+        return {"registered": False, "path": None, "reason": str(e)}
 
     def _merge(path, *keys, name, extra=None):
         data = {}
@@ -138,7 +170,22 @@ def register_swda_mcp(agent_type, python_exe=None):
                 node[k] = {}
             node = node[k]
         if name in node and isinstance(node[name], dict):
-            return {"registered": True, "path": path, "reason": "already registered"}
+            # Already registered: verify the recorded interpreter can actually
+            # run the server. A stale entry (e.g. written by a bare system
+            # python without the mcp SDK) is repaired in place.
+            current = node[name].get("command")
+            if current and check_swda_mcp(python_exe=current)["ok"]:
+                return {"registered": True, "path": path, "reason": "already registered"}
+            try:
+                fresh = _mcp_entry(python_exe)
+            except RuntimeError as e:
+                return {"registered": False, "path": path,
+                        "reason": f"existing entry broken ({current}) and {e}; left untouched"}
+            node[name] = {**fresh, **(extra or {})}
+            _backup_file(path)
+            _write_json_atomic(path, data)
+            return {"registered": True, "path": path,
+                    "reason": f"repaired broken entry ({current} -> {fresh['command']})"}
         node[name] = {**entry, **(extra or {})}
         _backup_file(path)
         _write_json_atomic(path, data)
@@ -150,8 +197,8 @@ def register_swda_mcp(agent_type, python_exe=None):
         return _merge(os.path.join(home, ".omp", "agent", "mcp.json"),
                       "mcpServers", name="swda-mcp")
     if atype == "pi":
-        return _merge(os.path.join(home, ".pi", "agent", "mcp.json"),
-                      "mcpServers", name="swda-mcp")
+        return {"registered": False, "path": None,
+                "reason": "pi has no MCP client (bundle has no MCP support); gate runs via swda CLI, no mcp.json entry"}
     if atype in ("openclaw", "openclaw-workspace"):
         return {"registered": False, "path": None,
                 "reason": "openclaw uses contract + skill (see install_swda_skill); no MCP entry"}
@@ -169,6 +216,8 @@ def install_swda_skill(agent_type, agent_dir=None):
       hermes:   <agent_dir>/skills/swda/  (agent workspace layout)
       openclaw: <agent_dir>/skills/swda/
     Source: swda-mcp/agent-skill/swda-skill/ (SKILL.md + references/).
+    OMP/Pi do NOT use this package; they get the host-neutral workflow pack
+    from install_swda_workflow (see WORKFLOW_LAYOUT).
     Idempotent: existing files are overwritten with identical content;
     the skill dir is created as needed. User skills alongside are untouched.
     Returns {"installed": bool, "path": str|None, "reason": str}.
@@ -188,7 +237,8 @@ def install_swda_skill(agent_type, agent_dir=None):
         dest = os.path.join(base, "skills", "swda")
     else:
         return {"installed": False, "path": None,
-                "reason": f"type '{agent_type}' uses contract + MCP; no skill install"}
+                "reason": f"type '{agent_type}' uses contract + workflow "
+                          f"(MCP is OMP-only); see install_swda_workflow"}
     try:
         copied = 0
         for root, _dirs, files in os.walk(src):
@@ -214,6 +264,348 @@ def install_swda_skill(agent_type, agent_dir=None):
                 "reason": f"installed ({copied} files)"}
     except Exception as e:
         return {"installed": False, "path": dest, "reason": f"skill install failed: {e}"}
+
+# Per-host workflow surfaces. `commands`/`agents` are None when the host has no
+# such slot: OMP discovers commands/ and task agents/, Pi discovers prompts/
+# only (its legacy commands/ dir is migrated to prompts/ at startup).
+WORKFLOW_LAYOUT = {
+    "omp": {"commands": "commands", "agents": "agents"},
+    "pi": {"commands": "prompts", "agents": None},
+}
+
+# Team-mandated Pi subagent runtime. Without this package Pi has no task-agent
+# surface, so the SWDA research/crucible agents cannot run there. Installation
+# is forced for Pi: the package source is pinned, and the entry point is
+# selected by probing the host pi instead of guessing a settings.json shape.
+PI_SUBAGENTS_SOURCE = "git:github.com/HazAT/pi-interactive-subagents"
+PI_SUBAGENTS_ENTRY = "pi-extension/subagents/index.ts"
+
+
+def _pi_package_dir():
+    """Returns the on-disk dir of the pi-interactive-subagents package, or None."""
+    root = os.path.join(os.path.expanduser("~"), ".pi", "agent", "git", "github.com", "HazAT",
+                        "pi-interactive-subagents")
+    if os.path.isdir(root):
+        return root
+    return None
+
+
+def check_pi_subagents():
+    """Reports whether the Pi subagent runtime is registered and on disk.
+
+    Returns {"registered": bool, "present": bool, "source": str|None}.
+    Never raises; a missing/broken pi binary or settings.json reads as absent.
+    """
+    import json as _json
+    import shutil as _shutil
+    import subprocess as _sp
+    out = {"registered": False, "present": False, "source": None}
+    if _pi_package_dir() is not None:
+        out["present"] = True
+    pj = os.path.join(os.path.expanduser("~"), ".pi", "agent", "settings.json")
+    try:
+        with open(pj, "r", encoding="utf-8") as f:
+            data = _json.load(f)
+        for entry in data.get("packages", []) or []:
+            src = entry if isinstance(entry, str) else entry.get("source", "")
+            if "HazAT/pi-interactive-subagents" in (src or ""):
+                out["registered"] = True
+                out["source"] = src
+                break
+    except (OSError, ValueError):
+        pass
+    if not out["registered"] and _shutil.which("pi") and _pi_package_dir() is not None:
+        try:
+            res = _sp.run(["pi", "list"], capture_output=True, text=True, timeout=60)
+            if "pi-interactive-subagents" in (res.stdout or ""):
+                out["registered"] = True
+                out["source"] = out["source"] or PI_SUBAGENTS_SOURCE
+        except Exception:
+            pass
+    return out
+
+
+def ensure_pi_subagents(timeout=600):
+    """Forces the Pi subagent runtime into place (team-mandated spec).
+
+    Runs only `pi install <pinned source>`; the registration shape in
+    settings.json and the on-disk layout are whatever the host pi writes, so
+    SWDA never hand-edits the package entry. Re-running while installed is a
+    no-op. Returns {"ok": bool, "reason": str}. Never raises.
+    """
+    import shutil as _shutil
+    import subprocess as _sp
+    state = check_pi_subagents()
+    if state["registered"] and state["present"]:
+        return {"ok": True, "reason": "already installed"}
+    if os.environ.get("SWDA_TEST_MODE") == "1":
+        return {"ok": False,
+                "reason": "skipped (SWDA_TEST_MODE; network install disabled in tests)"}
+    pi = _shutil.which("pi")
+    if not pi:
+        return {"ok": False, "reason": "pi binary not found on PATH; install pi first"}
+    try:
+        res = _sp.run([pi, "install", PI_SUBAGENTS_SOURCE],
+                      capture_output=True, text=True, timeout=timeout)
+    except Exception as e:
+        return {"ok": False, "reason": f"pi install failed to launch: {e}"}
+    tail = ((res.stdout or "") + (res.stderr or "")).strip()[-500:]
+    state = check_pi_subagents()
+    if res.returncode == 0 and state["registered"] and state["present"]:
+        return {"ok": True, "reason": "installed"}
+    return {"ok": False, "reason": f"pi install exit={res.returncode}: {tail}"}
+
+
+def _workflow_dest(agent_type, agent_dir=None):
+    """Resolves the workflow pack base dir and layout for a host type.
+
+    Returns (base_dir, layout); (None, None) when the host has no workflow
+    surface.
+    """
+    atype = (agent_type or "").lower()
+    layout = WORKFLOW_LAYOUT.get(atype)
+    if layout is None:
+        return None, None
+    if agent_dir:
+        return agent_dir, layout
+    return os.path.join(os.path.expanduser("~"), f".{atype}", "agent"), layout
+
+
+def _workflow_pairs(base, layout, pi_subagents_present=None):
+    """Yields (src, dest) for the pack's skill, command/prompt, and agent files."""
+    is_pi = (base or "").rstrip("/").endswith(".pi/agent")
+    # Pi has no MCP client, so its skill variant drives the gate through the
+    # swda CLI instead of MCP tools.
+    skill_root = os.path.join(WORKFLOW_SOURCE, "pi-skills" if is_pi else "skills")
+    for root, _dirs, files in os.walk(skill_root):
+        if "__pycache__" in root:
+            continue
+        rel = os.path.relpath(root, skill_root)
+        dest_root = os.path.join(base, "skills") if rel == "." else os.path.join(base, "skills", rel)
+        for skill_fn in sorted(files):
+            if skill_fn.endswith(".pyc"):
+                continue
+            yield os.path.join(root, skill_fn), os.path.join(dest_root, skill_fn)
+    for surface, sub in (("commands", layout.get("commands")), ("agents", layout.get("agents"))):
+        if not sub:
+            # Pi has no task-agent surface of its own. Once the mandated
+            # pi-interactive-subagents runtime is present, Pi gains agents/
+            # discovery and the Pi-native variant of our agents lands there.
+            if surface != "agents" or not is_pi:
+                continue
+            present = (pi_subagents_present if pi_subagents_present is not None
+                       else check_pi_subagents()["present"] is True)
+            if not present:
+                continue
+            src_dir = os.path.join(WORKFLOW_SOURCE, "pi-agents")
+            dest_sub = "agents"
+        else:
+            # Pi prompts come from pi-prompts/ (CLI-driven gate/status),
+            # falling back to commands/ for the host-neutral prompts
+            # (intent, crucible). OMP commands come from commands/.
+            if is_pi and surface == "commands":
+                yielded = set()
+                for src_dir in (os.path.join(WORKFLOW_SOURCE, "pi-prompts"),
+                                os.path.join(WORKFLOW_SOURCE, "commands")):
+                    if not os.path.isdir(src_dir):
+                        continue
+                    for md_fn in sorted(os.listdir(src_dir)):
+                        if md_fn.endswith(".md") and md_fn not in yielded:
+                            yielded.add(md_fn)
+                            yield os.path.join(src_dir, md_fn), os.path.join(base, sub, md_fn)
+                continue
+            src_dir = os.path.join(WORKFLOW_SOURCE, surface)
+            dest_sub = sub
+        if not os.path.isdir(src_dir):
+            continue
+        for md_fn in sorted(os.listdir(src_dir)):
+            if md_fn.endswith(".md"):
+                yield os.path.join(src_dir, md_fn), os.path.join(base, dest_sub, md_fn)
+
+
+def install_swda_workflow(agent_type, agent_dir=None, pi_subagents_present=None):
+    """Installs the SWDA workflow pack for OMP/Pi (skill + commands + agents).
+
+    This is the host-facing shape of the SWDD workflow: a discoverable skill,
+    one command per FSM entry point, and the named research/crucible subagents.
+    Only OMP and Pi have these surfaces (see WORKFLOW_LAYOUT).
+
+    Every installed file carries WORKFLOW_MARKER so uninstall removes exactly
+    what SWDA wrote, never a user's own skill, command, or agent. Content
+    identical files are left untouched; neighbors are never rewritten.
+    Returns {"installed": bool, "path": str|None, "reason": str, "files": [str]}.
+    """
+    atype = (agent_type or "").lower()
+    base, layout = _workflow_dest(agent_type, agent_dir)
+    if base is None:
+        return {"installed": False, "path": None, "files": [],
+                "reason": f"type '{agent_type}' has no workflow surface (contract + skill only)"}
+    if not os.path.isdir(WORKFLOW_SOURCE):
+        return {"installed": False, "path": None, "files": [],
+                "reason": f"workflow source missing: {WORKFLOW_SOURCE}"}
+    pairs = list(_workflow_pairs(base, layout, pi_subagents_present=pi_subagents_present))
+    try:
+        copied = 0
+        for src, dest in pairs:
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(src, "rb") as f:
+                content = f.read()
+            old = None
+            if os.path.exists(dest):
+                with open(dest, "rb") as f:
+                    old = f.read()
+            if old != content:
+                _backup_file(dest)
+                with open(dest, "wb") as f:
+                    f.write(content)
+            copied += 1
+        return {"installed": True, "path": base, "files": [d for _, d in pairs],
+                "reason": f"installed ({copied} files)"}
+    except Exception as e:
+        return {"installed": False, "path": base, "files": [],
+                "reason": f"workflow install failed: {e}"}
+
+
+def uninstall_swda_workflow(agent_type, agent_dir=None):
+    """Removes the workflow pack, touching only WORKFLOW_MARKER-carrying files.
+
+    A user's own skill, command, or agent file that happens to sit in the same
+    directory is left in place. Directories are pruned only once empty.
+    Returns {"removed": [str], "path": str|None}.
+    """
+    base, layout = _workflow_dest(agent_type, agent_dir)
+    if base is None:
+        return {"removed": [], "path": None}
+    roots = [os.path.join(base, "skills", "swda")]
+    for sub in (layout.get("commands"), layout.get("agents"), "agents"):
+        if sub and os.path.isdir(os.path.join(base, sub)):
+            roots.append(os.path.join(base, sub))
+    roots = list(dict.fromkeys(roots))
+    removed = []
+    for root in roots:
+        if not os.path.isdir(root):
+            continue
+        for cur, _dirs, files in os.walk(root):
+            for fn in files:
+                path = os.path.join(cur, fn)
+                try:
+                    with open(path, "r", encoding="utf-8", errors="replace") as f:
+                        if WORKFLOW_MARKER not in f.read():
+                            continue
+                    os.remove(path)
+                    removed.append(path)
+                except OSError:
+                    continue
+        # Prune only directories the pack created and that are now empty.
+        for cur, dirs, _files in os.walk(root, topdown=False):
+            for d in dirs:
+                try:
+                    os.rmdir(os.path.join(cur, d))
+                except OSError:
+                    pass
+        try:
+            os.rmdir(root)
+        except OSError:
+            pass
+    # The skill root is the only dir the pack always creates itself.
+    try:
+        os.rmdir(os.path.join(base, "skills"))
+    except OSError:
+        pass
+    return {"removed": removed, "path": base}
+
+
+def report_agent_surfaces(agent_type, agent_dir):
+    """Registers MCP, installs the per-type surface, and runs the host doctor.
+
+    Every surface is printed truthfully: a skipped or failed step says so and
+    never blocks the contract install that already succeeded.
+    """
+    atype = (agent_type or "").lower()
+    pi_plug_ok = None
+    if atype == "pi":
+        # Team-mandated runtime: Pi cannot run swarm agents without it, so it
+        # is forced here (not optional). Runs before the workflow pack so the
+        # Pi-native agents land in the same pass. In SWDA_TEST_MODE the network
+        # install short-circuits inside ensure_pi_subagents (tests stay hermetic).
+        try:
+            plug = ensure_pi_subagents()
+            print(f"    Pi-Subagents: {plug['reason']}")
+            pi_plug_ok = plug["ok"]
+            if not plug["ok"]:
+                print("      Pi workflow agents will be skipped until the runtime installs; "
+                      "contract + skill/prompts are unaffected")
+        except Exception as e:
+            print(f"    Pi-Subagents: ensure failed ({e}); contract install unaffected")
+    try:
+        if atype == "omp":
+            mcp_res = register_swda_mcp(agent_type)
+        elif atype == "pi":
+            # Pi has no MCP client; remove our own stale mcp.json entry if an
+            # earlier SWDA version wrote one (dead config Pi never reads).
+            mcp_res = register_swda_mcp(agent_type)
+            stale = os.path.join(os.path.expanduser("~"), ".pi", "agent", "mcp.json")
+            try:
+                import json as _json
+                if os.path.exists(stale):
+                    with open(stale, "r", encoding="utf-8") as f:
+                        data = _json.load(f)
+                    node = data.get("mcpServers", {})
+                    entry = node.get("swda-mcp", {})
+                    if isinstance(entry, dict) and "swda_mcp.server" in str(entry.get("args", "")):
+                        del node["swda-mcp"]
+                        _backup_file(stale)
+                        if node:
+                            _write_json_atomic(stale, data)
+                        else:
+                            os.remove(stale)
+                        print(f"    MCP: removed stale Pi swda-mcp entry ({stale})")
+            except Exception as e:
+                print(f"    MCP: stale Pi entry cleanup failed ({e}); left untouched")
+        else:
+            mcp_res = {"registered": False, "path": None,
+                       "reason": "contract + skill mode; no MCP entry"}
+        if mcp_res["registered"]:
+            print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
+        else:
+            print(f"    MCP: skipped - {mcp_res['reason']}")
+    except Exception as e:
+        print(f"    MCP: registration failed ({e}); contract install unaffected")
+        mcp_res = {"registered": False}
+
+    if atype in WORKFLOW_LAYOUT:
+        try:
+            wf_res = install_swda_workflow(agent_type, agent_dir, pi_subagents_present=pi_plug_ok)
+            label = "Workflow"
+            if wf_res["installed"]:
+                print(f"    {label}: {wf_res['reason']}" + (f" ({wf_res['path']})" if wf_res["path"] else ""))
+                for dest in wf_res.get("files", []):
+                    print(f"      - {os.path.relpath(dest, agent_dir)}")
+            else:
+                print(f"    {label}: skipped - {wf_res['reason']}")
+        except Exception as e:
+            print(f"    Workflow: install failed ({e}); contract install unaffected")
+
+    try:
+        skill_res = install_swda_skill(agent_type, agent_dir)
+        if skill_res["installed"]:
+            print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
+        else:
+            print(f"    Skill: skipped - {skill_res['reason']}")
+    except Exception as e:
+        print(f"    Skill: install failed ({e}); contract install unaffected")
+
+    if mcp_res.get("registered"):
+        try:
+            doc = verify_agent_doctor(agent_type)
+            if doc["supported"]:
+                print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
+                if not doc["ok"]:
+                    print(f"      {doc['output'][:300]}")
+            else:
+                print(f"    Doctor: skipped ({doc['output']})")
+        except Exception as e:
+            print(f"    Doctor: check failed ({e})")
 
 
 def verify_agent_doctor(agent_type, timeout=30):
@@ -776,11 +1168,29 @@ def get_agent_status(agent, template_versions):
     skill_path = os.path.join(agent['dir_path'], "skills", "swarm", "SKILL.md")
     soul_path = agent['soul_path']
     is_integrated = (agent.get('type') == "OMP" or os.path.basename(soul_path) == "APPEND_SYSTEM.md")
-    
+
     soul_ver = extract_version(soul_path)
     rule_ver = extract_version(rule_path) if os.path.exists(rule_path) else None
     skill_ver = extract_version(skill_path) if os.path.exists(skill_path) else None
-    
+
+    # OMP/Pi carry the workflow pack (skill + commands/prompts + agents) on top
+    # of the integrated contract; the pack version is the skill's own version.
+    workflow_ver = None
+    workflow_status = "n/a"
+    atype_lower = (agent.get("type") or "").lower()
+    if atype_lower in WORKFLOW_LAYOUT:
+        base, layout = _workflow_dest(atype_lower, agent['dir_path'])
+        pack_skill = os.path.join(base, "skills", "swda", "SKILL.md")
+        workflow_ver = extract_version(pack_skill)
+        pairs = list(_workflow_pairs(base, layout))
+        present = sum(1 for _, dest in pairs if os.path.exists(dest))
+        if present == 0:
+            workflow_status = "missing"
+        elif present < len(pairs):
+            workflow_status = "partial"
+        else:
+            workflow_status = "ok"
+
     if is_integrated:
         is_installed = os.path.exists(soul_path)
         t_soul_ver = template_versions.get("ALL_IN_RULE.md")
@@ -796,35 +1206,39 @@ def get_agent_status(agent, template_versions):
         t_soul_ver = template_versions.get("SOUL.md")
         t_rule_ver = template_versions.get("RULE.md")
         t_skill_ver = template_versions.get("SKILL.md")
-        
+
         p_t_soul = parse_semver(t_soul_ver)
         p_t_rule = parse_semver(t_rule_ver)
         p_t_skill = parse_semver(t_skill_ver)
-        
+
         p_soul = parse_semver(soul_ver)
         p_rule = parse_semver(rule_ver)
         p_skill = parse_semver(skill_ver)
-        
+
         soul_status = "ok" if (soul_ver and p_soul >= p_t_soul) else ("update" if soul_ver else "missing")
         rule_status = "missing" if not os.path.exists(rule_path) else ("ok" if p_rule >= p_t_rule else "update")
         skill_status = "missing" if not os.path.exists(skill_path) else ("ok" if p_skill >= p_t_skill else "update")
-        
+
     if not is_installed:
         status = "Not Installed"
     elif soul_status == "update" or rule_status == "update" or skill_status == "update":
         status = "Update Available"
+    elif workflow_status in ("missing", "partial"):
+        status = "Update Available"
     else:
         status = "Up-to-date"
-        
+
     return {
         "status": status,
         "is_integrated": is_integrated,
         "soul_ver": soul_ver,
         "rule_ver": rule_ver,
         "skill_ver": skill_ver,
+        "workflow_ver": workflow_ver,
         "soul_status": soul_status,
         "rule_status": rule_status,
-        "skill_status": skill_status
+        "skill_status": skill_status,
+        "workflow_status": workflow_status,
     }
 
 def get_installed_agents_config_path():
@@ -1312,34 +1726,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
             
         print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
         record_agent_installed(dest_dir)
-        try:
-            mcp_res = register_swda_mcp(agent_type) if agent_type.lower() in ("omp", "pi") else {"registered": False, "path": None, "reason": "contract + skill mode; no MCP entry"}
-            if mcp_res["registered"]:
-                print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
-            else:
-                print(f"    MCP: skipped - {mcp_res['reason']}")
-        except Exception as e:
-            print(f"    MCP: registration failed ({e}); contract install unaffected")
-            mcp_res = {"registered": False}
-        try:
-            skill_res = install_swda_skill(agent_type, dest_dir)
-            if skill_res["installed"]:
-                print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
-            else:
-                print(f"    Skill: skipped - {skill_res['reason']}")
-        except Exception as e:
-            print(f"    Skill: install failed ({e}); contract install unaffected")
-        if mcp_res.get("registered"):
-            try:
-                doc = verify_agent_doctor(agent_type)
-                if doc["supported"]:
-                    print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
-                    if not doc["ok"]:
-                        print(f"      {doc['output'][:300]}")
-                else:
-                    print(f"    Doctor: skipped ({doc['output']})")
-            except Exception as e:
-                print(f"    Doctor: check failed ({e})")
+        report_agent_surfaces(agent_type, dest_dir)
         return
 
     soul_dest_path = os.path.join(dest_dir, "SOUL.md")
@@ -1406,34 +1793,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
         
     print(f"\nSuccessfully created and installed SWDA workflow for new agent: {name}!")
     record_agent_installed(dest_dir)
-    try:
-        mcp_res = register_swda_mcp(agent_type) if agent_type.lower() in ("omp", "pi") else {"registered": False, "path": None, "reason": "contract + skill mode; no MCP entry"}
-        if mcp_res["registered"]:
-            print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
-        else:
-            print(f"    MCP: skipped - {mcp_res['reason']}")
-    except Exception as e:
-        print(f"    MCP: registration failed ({e}); contract install unaffected")
-        mcp_res = {"registered": False}
-    try:
-        skill_res = install_swda_skill(agent_type, dest_dir)
-        if skill_res["installed"]:
-            print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
-        else:
-            print(f"    Skill: skipped - {skill_res['reason']}")
-    except Exception as e:
-        print(f"    Skill: install failed ({e}); contract install unaffected")
-    if mcp_res.get("registered"):
-        try:
-            doc = verify_agent_doctor(agent_type)
-            if doc["supported"]:
-                print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
-                if not doc["ok"]:
-                    print(f"      {doc['output'][:300]}")
-            else:
-                print(f"    Doctor: skipped ({doc['output']})")
-        except Exception as e:
-            print(f"    Doctor: check failed ({e})")
+    report_agent_surfaces(agent_type, dest_dir)
 
 def upgrade_swda():
     """Performs self-upgrade of swda CLI by pulling from git and re-installing."""
@@ -1803,7 +2163,10 @@ def main():
         # Format details
         if status_info.get('is_integrated'):
             contract_detail = f"{status_info['soul_ver'] or 'missing'} -> {template_versions['ALL_IN_RULE.md']}" if status_info['soul_status'] == 'update' else f"{status_info['soul_ver'] or 'missing'}"
-            print(f"     Details: CONTRACT: {contract_detail} (Integrated ALL_IN_RULE)")
+            line = f"     Details: CONTRACT: {contract_detail} (Integrated ALL_IN_RULE)"
+            if status_info.get('workflow_status') != 'n/a':
+                line += f" | WORKFLOW: {status_info['workflow_ver'] or 'missing'} ({status_info['workflow_status']})"
+            print(line)
         else:
             soul_detail = f"{status_info['soul_ver'] or 'missing'} -> {template_versions['SOUL.md']}" if status_info['soul_status'] == 'update' else f"{status_info['soul_ver']}"
             rule_detail = f"{status_info['rule_ver'] or 'missing'} -> {template_versions['RULE.md']}" if status_info['rule_status'] in ('update', 'missing') else f"{status_info['rule_ver']}"
@@ -1960,15 +2323,31 @@ def main():
                 except Exception as e:
                     print(f"    Failed to remove SKILL.md: {e}")
 
-            # 5b. Remove swda skill package (installed by install_swda_skill)
-            swda_skill_dir = os.path.join(agent['dir_path'], "skills", "swda")
-            if os.path.isdir(swda_skill_dir):
-                print(" -> Removing swda skill package...")
+            # 5b. Remove the swda skill package (installed by install_swda_skill).
+            # OMP/Pi never receive this package (they get the workflow pack), so
+            # an rmtree would risk deleting a user's own skills/swda directory.
+            if agent['type'].lower() not in WORKFLOW_LAYOUT:
+                swda_skill_dir = os.path.join(agent['dir_path'], "skills", "swda")
+                if os.path.isdir(swda_skill_dir):
+                    print(" -> Removing swda skill package...")
+                    try:
+                        shutil.rmtree(swda_skill_dir)
+                        print("    swda skill package removed.")
+                    except Exception as e:
+                        print(f"    Failed to remove swda skill package: {e}")
+            # 5c. Remove the workflow pack (OMP/Pi), marker-scoped only: a user's
+            # own skill/command/agent next to ours is never deleted.
+            if agent['type'].lower() in WORKFLOW_LAYOUT:
                 try:
-                    shutil.rmtree(swda_skill_dir)
-                    print("    swda skill package removed.")
+                    wf_un = uninstall_swda_workflow(agent['type'], agent['dir_path'])
+                    if wf_un["removed"]:
+                        print(f" -> Removing workflow pack ({len(wf_un['removed'])} files)...")
+                        for path in wf_un["removed"]:
+                            print(f"    removed {os.path.relpath(path, agent['dir_path'])}")
+                    else:
+                        print(" -> Workflow pack: nothing installed")
                 except Exception as e:
-                    print(f"    Failed to remove swda skill package: {e}")
+                    print(f"    Failed to remove workflow pack: {e}")
             # 6. Clean up directories if empty
             swarm_dir = os.path.join(agent['dir_path'], "skills", "swarm")
             if os.path.exists(swarm_dir) and not os.listdir(swarm_dir):
@@ -2026,34 +2405,7 @@ def main():
                     
                 print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
                 record_agent_installed(agent['dir_path'])
-                try:
-                    mcp_res = register_swda_mcp(agent['type']) if agent['type'].lower() in ("omp", "pi") else {"registered": False, "path": None, "reason": "contract + skill mode; no MCP entry"}
-                    if mcp_res["registered"]:
-                        print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
-                    else:
-                        print(f"    MCP: skipped - {mcp_res['reason']}")
-                except Exception as e:
-                    print(f"    MCP: registration failed ({e}); contract install unaffected")
-                    mcp_res = {"registered": False}
-                try:
-                    skill_res = install_swda_skill(agent['type'], agent['dir_path'])
-                    if skill_res["installed"]:
-                        print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
-                    else:
-                        print(f"    Skill: skipped - {skill_res['reason']}")
-                except Exception as e:
-                    print(f"    Skill: install failed ({e}); contract install unaffected")
-                if mcp_res.get("registered"):
-                    try:
-                        doc = verify_agent_doctor(agent["type"])
-                        if doc["supported"]:
-                            print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
-                            if not doc["ok"]:
-                                print(f"      {doc['output'][:300]}")
-                        else:
-                            print(f"    Doctor: skipped ({doc['output']})")
-                    except Exception as e:
-                        print(f"    Doctor: check failed ({e})")
+                report_agent_surfaces(agent['type'], agent['dir_path'])
             else:
                 # 1. Back up target SOUL.md if it exists
                 if os.path.exists(agent['soul_path']):
@@ -2144,34 +2496,7 @@ def main():
                     
                 print(f" Successfully installed/upgraded SWDA for: {agent['name']}")
                 record_agent_installed(agent['dir_path'])
-                try:
-                    mcp_res = register_swda_mcp(agent['type']) if agent['type'].lower() in ("omp", "pi") else {"registered": False, "path": None, "reason": "contract + skill mode; no MCP entry"}
-                    if mcp_res["registered"]:
-                        print(f"    MCP: {mcp_res['reason']}" + (f" ({mcp_res['path']})" if mcp_res["path"] else ""))
-                    else:
-                        print(f"    MCP: skipped - {mcp_res['reason']}")
-                except Exception as e:
-                    print(f"    MCP: registration failed ({e}); contract install unaffected")
-                    mcp_res = {"registered": False}
-                try:
-                    skill_res = install_swda_skill(agent['type'], agent['dir_path'])
-                    if skill_res["installed"]:
-                        print(f"    Skill: {skill_res['reason']}" + (f" ({skill_res['path']})" if skill_res["path"] else ""))
-                    else:
-                        print(f"    Skill: skipped - {skill_res['reason']}")
-                except Exception as e:
-                    print(f"    Skill: install failed ({e}); contract install unaffected")
-                if mcp_res.get("registered"):
-                    try:
-                        doc = verify_agent_doctor(agent["type"])
-                        if doc["supported"]:
-                            print(f"    Doctor: {'OK' if doc['ok'] else 'FAILED'}")
-                            if not doc["ok"]:
-                                print(f"      {doc['output'][:300]}")
-                        else:
-                            print(f"    Doctor: skipped ({doc['output']})")
-                    except Exception as e:
-                        print(f"    Doctor: check failed ({e})")
+                report_agent_surfaces(agent['type'], agent['dir_path'])
             
     print("\nAll done!")
 
