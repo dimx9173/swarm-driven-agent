@@ -29,12 +29,20 @@ class TestSwdaMcpHelpers(unittest.TestCase):
         self.assertIn("swda_mcp.server", r.stdout)
 
     def test_mcp_entry_selects_capable_interpreter(self):
+        try:
+            entry = installer._mcp_entry()
+        except RuntimeError as e:
+            self.skipTest(f"no python with mcp SDK on this host: {e}")
         entry = installer._mcp_entry()
         self.assertEqual(entry["args"], ["-m", "swda_mcp.server"])
         probe = installer.check_swda_mcp(python_exe=entry["command"])
         self.assertTrue(probe["ok"], probe["reasons"])
 
     def test_register_repairs_broken_entry(self):
+        try:
+            installer._mcp_entry()
+        except RuntimeError as e:
+            self.skipTest(f"no python with mcp SDK on this host: {e}")
         import json as _json
         import tempfile as _tf
         real_home = os.environ.get("HOME")

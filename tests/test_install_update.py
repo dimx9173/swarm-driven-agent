@@ -117,6 +117,10 @@ class UpdateScopeTest(unittest.TestCase):
 
     def test_omp_uses_mcp_no_skill(self):
         import installer as _installer
+        try:
+            _installer._mcp_entry()
+        except RuntimeError as e:
+            self.skipTest(f"no python with mcp SDK on this host: {e}")
         omp_dir = os.path.join(self.mock_home, ".omp", "agent")
         os.makedirs(omp_dir, exist_ok=True)
         with open(os.path.join(omp_dir, "APPEND_SYSTEM.md"), "w", encoding="utf-8") as f:

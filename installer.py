@@ -84,12 +84,14 @@ def _backup_file(path):
     return bak
 def _mcp_python_candidates(explicit=None):
     """Candidate interpreters that could run the swda-mcp server, best first."""
+    import shutil as _shutil
     import sys as _sys
     seen = []
-    for cand in [explicit, _sys.executable,
-                 "/Users/carlos/miniconda3/bin/python3",
-                 os.path.join(os.path.expanduser("~"), "miniconda3", "bin", "python3")]:
-        if cand and cand not in seen:
+    cands = [explicit, _sys.executable,
+             os.path.join(os.path.expanduser("~"), "miniconda3", "bin", "python3"),
+             _shutil.which("python3"), _shutil.which("python")]
+    for cand in cands:
+        if cand and cand not in seen and os.path.exists(cand):
             seen.append(cand)
     return seen
 
@@ -147,10 +149,6 @@ def register_swda_mcp(agent_type, python_exe=None):
     import json as _json
     home = os.path.expanduser("~")
     atype = (agent_type or "").lower()
-    try:
-        entry = _mcp_entry(python_exe)
-    except RuntimeError as e:
-        return {"registered": False, "path": None, "reason": str(e)}
 
     def _merge(path, *keys, name, extra=None):
         data = {}
@@ -186,6 +184,10 @@ def register_swda_mcp(agent_type, python_exe=None):
             _write_json_atomic(path, data)
             return {"registered": True, "path": path,
                     "reason": f"repaired broken entry ({current} -> {fresh['command']})"}
+        try:
+            entry = _mcp_entry(python_exe)
+        except RuntimeError as e:
+            return {"registered": False, "path": path, "reason": str(e)}
         node[name] = {**entry, **(extra or {})}
         _backup_file(path)
         _write_json_atomic(path, data)
