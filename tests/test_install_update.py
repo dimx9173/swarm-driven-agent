@@ -636,6 +636,30 @@ class CliDelegationTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr[-500:])
         self.assertIn("Test mode: upgrade_swda executed successfully.", r.stdout)
 
+    def test_swda_venv_python_path_shape(self):
+        """The unified runtime is the repo-local .venv interpreter."""
+        import installer
+        self.assertEqual(installer.SWDA_VENV_DIR,
+                         os.path.join(installer.SCRIPT_DIR, ".venv"))
+        self.assertTrue(installer.swda_venv_python().startswith(installer.SWDA_VENV_DIR))
+
+    def test_mcp_candidates_include_repo_venv_when_present(self):
+        """The repo venv is offered as the first MCP candidate whenever it
+        exists; nonexistent paths are filtered out."""
+        import installer
+        venv_py = installer.swda_venv_python()
+        cands = installer._mcp_python_candidates()
+        if os.path.exists(venv_py):
+            self.assertEqual(cands[0], venv_py)
+        else:
+            self.assertNotIn(venv_py, cands)
+
+    def test_shim_dir_is_on_path_contract(self):
+        """~/.local/bin is the single shim location (set in ~/.zshenv)."""
+        import installer
+        self.assertEqual(installer.SWDA_BIN_DIR,
+                         os.path.join(os.path.expanduser("~"), ".local", "bin"))
+
 
 if __name__ == "__main__":
     unittest.main()

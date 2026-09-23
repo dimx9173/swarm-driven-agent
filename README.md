@@ -88,16 +88,28 @@ The retention function `R(t) = P · F^c · e^(−λ·t)` plotted as a glowing de
 
 單一入口 `swda` 同時提供兩套功能：**Prime 執行引擎**（`run`/`reconcile`/`models`/`stats`/`scan`/`repl`/`refine`）與**安裝器**（`install`/`update`/`doctor`/`version`/`self-update`/`discover`/`learn`）。安裝器命令會自動轉交 `installer.main()`，行為與 `python3 installer.py …` 完全一致。
 
-### 0. 安裝 `swda` 指令
-在 repo 根目錄執行一次：
-```bash
-pip install -e .
-# macOS 若被 externally-managed-environment 擋下：
-pip install --break-system-packages -e .
-```
-裝好後 `swda` 全域可用。驗證：`swda version` 顯示 `3.0.0` 且 `[UP TO DATE]`。
+### 0. 安裝 `swda` 指令（統一安裝）
+**唯一安裝模型**：repo 內的 `.venv` 是唯一 runtime，`~/.local/bin/swda` 是唯一入口（shim → venv）。
 
-> 雙入口對照：`swda <cmd>` ≡ `python3 installer.py <cmd>`（安裝器類）≡ `python3 -m swda.cli <cmd>`（兩類皆可）。
+```bash
+cd <repo root>
+swda update --cli        # 若尚未有 swda：見下方「首次 bootstrap」
+```
+
+首次 bootstrap（尚無 `swda` 指令時）：
+```bash
+cd <repo root>
+uv venv .venv && uv pip install --python .venv/bin/python -e .   # 有 uv（建議）
+# 無 uv：
+python3 -m venv .venv && .venv/bin/python -m pip install -e .
+# 最後把入口接到已在 PATH 的 ~/.local/bin：
+mkdir -p ~/.local/bin && ln -sf "$PWD/.venv/bin/swda" ~/.local/bin/swda
+```
+之後任何更新只需 `swda update --cli`（會 `git pull` 並刷新 venv + shim，見第 4 節）。
+
+> 為何是 `~/.local/bin`：非互動 shell（agent hook、CI、OMP/Pi 呼叫）只讀 `~/.zshenv`；該檔已把 `~/.local/bin` 前置到 PATH，所以 shim 在互動與非互動都解析得到。**不要**再用 `pip install -e .` 裝進系統/conda/brew python——那會產生第二份入口並版本漂移。
+
+> 三種等價呼叫（同一份程式碼）：`swda <cmd>` ≡ `python3 installer.py <cmd>`（安裝器類）≡ `<repo>/.venv/bin/python -m swda.cli <cmd>`（兩類皆可）。
 
 ### 1. 首次安裝（install）
 ```bash
@@ -157,10 +169,14 @@ Pi 原生沒有 task-agent 槽位（`RESOURCE_TYPES` 僅 extensions/skills/promp
 
 ### 4. 自升級 CLI（self-update）
 ```bash
-swda self-update    # = swda update --cli：git pull + pip install -e . 重裝
+swda self-update    # = swda update --cli
 swda version        # 查本地 vs 遠端版本
 ```
-`self-update` 需在有 git remote 的 repo 目錄執行；測試模式可用 `SWDA_TEST_MODE=1` 跳過真實 pull。
+`swda update --cli`（≡ `self-update`）做兩件事，且只碰**統一 runtime**：
+1. `git pull` 拉最新程式碼；
+2. 刷新 repo `.venv`（建立/`uv pip install -e .`）並重指 `~/.local/bin/swda` shim。
+
+輸出會印出實際的 `runtime:`（venv python 路徑）與 `command:`（shim 路徑），可直接核對是否唯一入口。缺 `uv` 時回退 `python -m venv` + `pip`。需在有 git remote 的 repo 目錄執行；`SWDA_TEST_MODE=1` 可跳過真實 pull 做測試。
 
 ### 5. 新建 agent（--create）
 ```bash

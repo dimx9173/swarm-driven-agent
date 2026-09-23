@@ -102,7 +102,9 @@ def _mcp_python_candidates(explicit=None):
     import shutil as _shutil
     import sys as _sys
     seen = []
-    cands = [explicit, _sys.executable,
+    # The unified repo venv comes first: it is the runtime we install swda
+    # (and its MCP SDK) into, so it is the correct interpreter by default.
+    cands = [explicit, swda_venv_python(), _sys.executable,
              os.path.join(os.path.expanduser("~"), "miniconda3", "bin", "python3"),
              _shutil.which("python3"), _shutil.which("python")]
     for cand in cands:
@@ -1927,87 +1929,118 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
     record_agent_installed(dest_dir)
     report_agent_surfaces(agent_type, dest_dir)
 
-def upgrade_swda():
-    """Performs self-upgrade of swda CLI by pulling from git and re-installing."""
+#: Where the unified `swda` command lives: a shim on PATH pointing at the
+#: repo-local virtualenv. One install target, one entry point.
+SWDA_BIN_DIR = os.path.join(os.path.expanduser("~"), ".local", "bin")
+SWDA_VENV_DIR = os.path.join(SCRIPT_DIR, ".venv")
+
+
+def swda_venv_python():
+    """Path to the repo venv interpreter (the single swda runtime)."""
+    exe = "python.exe" if os.name == "nt" else "python"
+    return os.path.join(SWDA_VENV_DIR, "Scripts" if os.name == "nt" else "bin", exe)
+
+
+def ensure_swda_runtime():
+    """Creates/refreshes the repo venv, installs swda into it, and links the
+    `swda` shim onto PATH. Returns {"ok", "python", "shim", "reasons"}.
+
+    Unified install model: the repo `.venv` is the only runtime; `~/.local/bin`
+    (already on PATH in non-interactive shells via ~/.zshenv) is the only shim.
+    """
     import subprocess
-    import sys
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    print("="*60)
+    reasons = []
+    python = swda_venv_python()
+    if not os.path.exists(python):
+        venv_cmd = None
+        uv = shutil.which("uv")
+        if uv:
+            venv_cmd = [uv, "venv", SWDA_VENV_DIR]
+        else:
+            try:
+                subprocess.run([sys.executable, "-m", "venv", SWDA_VENV_DIR],
+                               capture_output=True, text=True, timeout=180)
+                venv_cmd = None if os.path.exists(python) else ["FAILED"]
+            except Exception as e:
+                reasons.append(f"venv creation failed: {e}")
+                return {"ok": False, "python": python, "shim": None, "reasons": reasons}
+        if venv_cmd and venv_cmd != ["FAILED"]:
+            res = subprocess.run(venv_cmd, capture_output=True, text=True)
+            if res.returncode != 0 or not os.path.exists(python):
+                reasons.append(f"venv creation failed: {res.stderr.strip()[:200]}")
+                return {"ok": False, "python": python, "shim": None, "reasons": reasons}
+
+    # Install swda (editable) into the venv. uv is preferred when present
+    # because the venv has no pip by default.
+    uv = shutil.which("uv")
+    if uv:
+        install_cmd = [uv, "pip", "install", "--python", python, "-e", SCRIPT_DIR]
+    else:
+        install_cmd = [python, "-m", "pip", "install", "-e", SCRIPT_DIR]
+    res = subprocess.run(install_cmd, capture_output=True, text=True)
+    if res.returncode != 0:
+        reasons.append(f"install failed: {(res.stderr or res.stdout).strip()[:200]}")
+        return {"ok": False, "python": python, "shim": None, "reasons": reasons}
+
+    venv_swda = os.path.join(os.path.dirname(python), "swda")
+    if not os.path.exists(venv_swda):
+        reasons.append(f"venv entry point missing: {venv_swda}")
+        return {"ok": False, "python": python, "shim": None, "reasons": reasons}
+
+    # Link the shim onto PATH. ~/.local/bin precedes system dirs and is set in
+    # ~/.zshenv, so non-interactive shells (agent hooks, CI) resolve it too.
+    shim = None
+    try:
+        os.makedirs(SWDA_BIN_DIR, exist_ok=True)
+        shim = os.path.join(SWDA_BIN_DIR, "swda")
+        if os.path.islink(shim) or os.path.exists(shim):
+            os.remove(shim)
+        os.symlink(venv_swda, shim)
+    except OSError as e:
+        reasons.append(f"shim creation failed: {e}")
+        return {"ok": False, "python": python, "shim": None, "reasons": reasons}
+
+    return {"ok": True, "python": python, "shim": shim, "reasons": reasons}
+
+
+def upgrade_swda():
+    """Self-upgrades swda: git pull, then refresh the unified venv + PATH shim."""
+    import subprocess
+    script_dir = SCRIPT_DIR
+    print("=" * 60)
     print("             Self-Upgrading swda CLI Tool")
-    print("="*60)
+    print("=" * 60)
     print(f"Repository directory: {script_dir}\n")
-    
+
     if os.environ.get("SWDA_TEST_MODE") == "1":
         print("Test mode: upgrade_swda executed successfully.")
         sys.exit(0)
-    
-    # 1. Run git pull
+
     print(" -> Pulling latest changes from git remote...")
     try:
         result = subprocess.run(["git", "pull"], cwd=script_dir, capture_output=True, text=True)
-        if result.returncode == 0:
-            print(result.stdout)
-        else:
+        if result.returncode != 0:
             print(f"Error pulling from git:\n{result.stderr}", file=sys.stderr)
             sys.exit(1)
+        print(result.stdout)
     except Exception as e:
         print(f"Failed to execute git pull: {e}", file=sys.stderr)
         sys.exit(1)
-        
-    # 2. Re-install using pip in editable mode
-    print(" -> Re-installing the package...")
-    
-    # Check if pip is available
-    has_pip = True
-    try:
-        pip_check = subprocess.run([sys.executable, "-m", "pip", "--version"], capture_output=True, text=True)
-        if pip_check.returncode != 0:
-            has_pip = False
-    except Exception:
-        has_pip = False
-        
-    if not has_pip:
-        if "pipx" in sys.executable:
-            pipx_path = shutil.which("pipx")
-            if pipx_path:
-                print(" -> Missing 'pip' inside the virtualenv. Trying 'pipx reinstall swda' as fallback...")
-                try:
-                    result = subprocess.run([pipx_path, "reinstall", "swda"])
-                    if result.returncode == 0:
-                        new_ver = get_on_disk_version()
-                        print(f"\nswda upgraded successfully via pipx to version {new_ver}!")
-                        sys.exit(0)
-                except Exception as e:
-                    print(f"Failed to run pipx reinstall: {e}", file=sys.stderr)
-                    
-        print("\n[Error] Python environment is missing the 'pip' module.", file=sys.stderr)
-        if "pipx" in sys.executable:
-            print("This happens because swda was installed via pipx, which prunes pip by default.", file=sys.stderr)
-            print("Please run the following command in your terminal to fix this:", file=sys.stderr)
-            print("  pipx inject swda pip", file=sys.stderr)
-            print("Then try 'swda update' again.\n", file=sys.stderr)
-        else:
-            print("Please install pip in your current Python environment.\n", file=sys.stderr)
+
+    print(" -> Refreshing the unified runtime (repo .venv) and PATH shim...")
+    res = ensure_swda_runtime()
+    if not res["ok"]:
+        print("\n[Error] Could not refresh the swda runtime:", file=sys.stderr)
+        for r in res["reasons"]:
+            print(f"  - {r}", file=sys.stderr)
         sys.exit(1)
-        
-    try:
-        result = subprocess.run([sys.executable, "-m", "pip", "install", "-e", "."], cwd=script_dir, capture_output=True, text=True)
-        if result.returncode != 0:
-            if "externally-managed-environment" in result.stderr or "break-system-packages" in result.stderr:
-                print(" -> Retrying with --break-system-packages...")
-                result = subprocess.run([sys.executable, "-m", "pip", "install", "--break-system-packages", "-e", "."], cwd=script_dir, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            new_ver = get_on_disk_version()
-            print(f"\nswda upgraded successfully to version {new_ver}!")
-            print("swda-mcp runs from the source tree (no reinstall needed); restart MCP hosts to reload it.")
-            sys.exit(0)
-        else:
-            print(f"Error during package re-installation:\n{result.stderr}", file=sys.stderr)
-            sys.exit(1)
-    except Exception as e:
-        print(f"Failed to run pip install: {e}", file=sys.stderr)
-        sys.exit(1)
+
+    new_ver = get_on_disk_version()
+    print(f"\nswda upgraded successfully to version {new_ver}!")
+    print(f"  runtime: {res['python']}")
+    print(f"  command: {res['shim']}")
+    print("swda-mcp runs from the source tree (no reinstall needed); restart MCP hosts to reload it.")
+
 
 def main():
     import argparse
