@@ -240,6 +240,16 @@ class RLMDispatcher:
                 return data["choices"][0]["message"]["content"]
         except TimeoutError as err:
             raise RuntimeError(f"RLM Timeout connecting to {url} after 120s: {err}")
+        except urllib.error.HTTPError as err:
+            # Preserve the response body: the fallback chain keys on
+            # "model_not_allowed", which only appears in the body text.
+            body = ""
+            try:
+                body = err.read().decode("utf-8", "replace")[:300]
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"RLM HTTP {err.code} connecting to {url}: {body or err.reason}")
         except urllib.error.URLError as err:
             raise RuntimeError(f"RLM Network error connecting to {url}: {err}")
 

@@ -3,6 +3,7 @@ Unit tests for SWDA Workflows, Prime REPL, and Continual Harness.
 """
 
 import unittest
+import json
 import os
 import tempfile
 import shutil
@@ -351,6 +352,50 @@ class TestWorkflows(unittest.TestCase):
                 rlm._call_endpoint({"model": "x", "messages": []})
             with self.assertRaisesRegex(RuntimeError, "RLM Timeout"):
                 rlm.list_models(timeout=1)
+
+    def test_rlm_http_error_keeps_body_for_fallback(self):
+        """A gateway rejection must surface its body: the model fallback chain
+        keys on 'model_not_allowed', which only exists in the response text."""
+        import io as _io
+        import urllib.error
+        from unittest import mock
+
+        body = b'{"error":{"code":"model_not_allowed","message":"model \\"x\\" is not allowed"}}'
+        err = urllib.error.HTTPError("http://gw/v1/chat/completions", 400,
+                                     "Bad Request", None, _io.BytesIO(body))
+        rlm = RLMDispatcher(default_model="x", api_base="http://gw/v1")
+        with mock.patch("urllib.request.urlopen", side_effect=err):
+            with self.assertRaisesRegex(RuntimeError, "model_not_allowed"):
+                rlm._call_endpoint({"model": "x", "messages": []})
+
+    def test_rlm_spawn_walks_fallback_on_model_not_allowed(self):
+        """spawn() retries the fallback chain when the primary model is rejected."""
+        import io as _io
+        import urllib.error
+        from unittest import mock
+
+        body = b'{"error":{"code":"model_not_allowed"}}'
+        calls = []
+
+        def fake_urlopen(req, timeout=None):
+            payload = json.loads(req.data.decode())
+            calls.append(payload["model"])
+            if payload["model"] == "primary":
+                raise urllib.error.HTTPError(req.full_url, 400, "Bad Request",
+                                             None, _io.BytesIO(body))
+            resp = mock.MagicMock()
+            resp.read.return_value = json.dumps(
+                {"choices": [{"message": {"content": "ok"}}]}).encode()
+            resp.__enter__.return_value = resp
+            resp.__exit__.return_value = False
+            return resp
+
+        rlm = RLMDispatcher(default_model="primary", api_base="http://gw/v1",
+                            fallback_models=["backup"])
+        with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            out = rlm.spawn(role="builder", prompt="hi")
+        self.assertEqual(out, "ok")
+        self.assertEqual(calls, ["primary", "backup"])
 
 if __name__ == "__main__":
     unittest.main()
