@@ -128,43 +128,45 @@ def _threshold() -> float:
 # === Question builders (the three Jev primitives) ===
 
 def pick(question: str, options: Dict[str, str]) -> Dict[str, Any]:
-    """Choice primitive: select one option key from {key: description}."""
-    return {"type": "choice", "question": str(question), "options": dict(options)}
+    """Choice primitive: select one option key from {key: description}.
+    Wire shape (per /primitives/choice): instructions + criteria dict."""
+    return {"type": "choice", "instructions": str(question), "criteria": dict(options)}
 
 
 def rate(question: str, levels: List[str]) -> Dict[str, Any]:
     """Score primitive: rate on an ordered rubric of levels."""
-    return {"type": "score", "question": str(question), "levels": list(levels)}
+    return {"type": "score", "instructions": str(question), "criteria": list(levels)}
 
 
 def check(statement: str) -> Dict[str, Any]:
     """Noul primitive: probability the statement is true (0.0 - 1.0)."""
-    return {"type": "noul", "question": str(statement)}
+    return {"type": "noul", "instructions": str(statement)}
 
 
 def judge(state: Dict[str, Any], questions: Dict[str, Any]) -> Dict[str, JevAnswer]:
     """
     One batched request to Jev for all questions about the same state.
-
-    Returns {} when disabled, on timeout/network failure, or on any shape
-    mismatch. Never raises.
     """
     config = _provider_config()
     if not config:
         return {}
     base_url, api_key, model, judge_path = config
 
+    wire_questions = {
+        qid: spec
+        for qid, spec in questions.items()
+        if isinstance(spec, dict)
+        and spec.get("type") in ("choice", "score", "noul")
+        and "instructions" in spec
+    }
+    if not wire_questions:
+        return {}
+
     payload = {
         "model": model,
         "state": json.dumps(state, default=str),
-        "questions": [
-            {"id": qid, **spec}
-            for qid, spec in questions.items()
-            if isinstance(spec, dict) and spec.get("type") in ("choice", "score", "noul")
-        ],
+        "questions": wire_questions,
     }
-    if not payload["questions"]:
-        return {}
 
     req = urllib.request.Request(
         f"{base_url.rstrip('/')}{judge_path}",
@@ -185,18 +187,24 @@ def judge(state: Dict[str, Any], questions: Dict[str, Any]) -> Dict[str, JevAnsw
 
 
 def _parse_answers(body: Any, questions: Dict[str, Any]) -> Dict[str, JevAnswer]:
-    """Defensive parse of the /v1/judge response; anything unexpected -> {}."""
-    rows = body.get("answers") if isinstance(body, dict) else None
-    if not isinstance(rows, list):
+    """Defensive parse of the /v1/systemone response; unexpected shapes -> {}.
+
+    Wire shape (per /introduction/quickstart): answers is a dict keyed by
+    question id; choice answers carry {choice, confidence?, probabilities?},
+    score answers {score, confidence?, probabilities?}, noul answers {noul}.
+    """
+    answers = body.get("answers") if isinstance(body, dict) else None
+    if not isinstance(answers, dict):
         return {}
     out: Dict[str, JevAnswer] = {}
-    for row in rows:
-        if not isinstance(row, dict):
+    for qid, row in answers.items():
+        if qid not in questions or not isinstance(row, dict):
             continue
-        qid = row.get("id")
-        if qid not in questions or row.get("answer") is None:
+        qtype = questions[qid].get("type") if isinstance(questions[qid], dict) else None
+        raw = row.get(qtype) if qtype else None
+        if raw is None:
             continue
-        answer = str(row["answer"])
+        answer = str(raw)
         confidence, from_head = _confidence(row, answer)
         out[qid] = JevAnswer(
             answer=answer,
@@ -208,11 +216,11 @@ def _parse_answers(body: Any, questions: Dict[str, Any]) -> Dict[str, JevAnswer]
 
 
 def _confidence(row: Dict[str, Any], answer: str) -> tuple:
-    """Reported head when present; else estimated from distribution/noul."""
+    """Reported head when present; else estimated from probabilities/noul."""
     head = row.get("confidence")
     if isinstance(head, (int, float)) and not isinstance(head, bool):
         return float(head), "reported"
-    dist = row.get("distribution")
+    dist = row.get("probabilities") or row.get("distribution")
     values = list(dist.values()) if isinstance(dist, dict) else (dist if isinstance(dist, list) else [])
     probs = [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
     if probs:

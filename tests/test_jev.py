@@ -84,11 +84,11 @@ class TestJevMockBackend(unittest.TestCase):
 
     @patch("swda.prime.jev.urllib.request.urlopen")
     def test_single_request_for_multiple_questions(self, mock_urlopen):
-        mock_urlopen.return_value = http_response({"answers": [
-            {"id": "next", "answer": "merge", "confidence": 0.93},
-            {"id": "risk", "answer": "routine", "confidence": 0.8},
-            {"id": "passed", "answer": 0.9},
-        ]})
+        mock_urlopen.return_value = http_response({"answers": {
+            "next": {"type": "choice", "choice": "merge", "confidence": 0.93},
+            "risk": {"type": "score", "score": 0, "confidence": 0.8},
+            "passed": {"type": "noul", "noul": 0.9},
+        }})
         answers = judge(
             {"tool": "t"},
             {
@@ -101,14 +101,21 @@ class TestJevMockBackend(unittest.TestCase):
         req = mock_urlopen.call_args[0][0]
         payload = json.loads(req.data.decode("utf-8"))
         self.assertEqual(len(payload["questions"]), 3)
+        # Official wire shape: questions is a dict keyed by id, choice/score
+        # carry instructions + criteria, noul carries instructions.
+        self.assertEqual(set(payload["questions"]), {"next", "risk", "passed"})
+        self.assertEqual(payload["questions"]["next"]["criteria"], {"merge": "m", "hold": "h"})
+        self.assertEqual(payload["questions"]["risk"]["criteria"], ["routine", "incident"])
+        self.assertEqual(payload["questions"]["passed"]["type"], "noul")
         self.assertEqual(req.full_url, "https://api.typesafe.ai/v1/systemone")
         self.assertEqual(req.headers["Authorization"], "Bearer test-key")
         self.assertEqual(set(answers), {"next", "risk", "passed"})
+        self.assertEqual(answers["passed"].answer, "0.9")
 
     @patch("swda.prime.jev.urllib.request.urlopen")
     def test_parse_choice_answer(self, mock_urlopen):
         mock_urlopen.return_value = http_response(
-            {"answers": [{"id": "gate", "answer": "deny", "confidence": 0.87}]}
+            {"answers": {"gate": {"type": "choice", "choice": "deny", "confidence": 0.87}}}
         )
         answers = judge({}, {"gate": pick("Run?", {"allow": "a", "deny": "d"})})
         gate = answers["gate"]
@@ -120,16 +127,19 @@ class TestJevMockBackend(unittest.TestCase):
     @patch("swda.prime.jev.urllib.request.urlopen")
     def test_parse_score_answer(self, mock_urlopen):
         mock_urlopen.return_value = http_response(
-            {"answers": [{"id": "risk", "answer": "incident", "distribution": {"routine": 0.1, "incident": 0.6}}]}
+            {"answers": {"risk": {"type": "score", "score": 1,
+                                  "probabilities": {"0": 0.1, "1": 0.6}}}}
         )
         risk = judge({}, {"risk": rate("How risky?", ["routine", "incident"])})["risk"]
-        self.assertEqual(risk.answer, "incident")
+        self.assertEqual(risk.answer, "1")
         self.assertEqual(risk.confidence, 0.6)
         self.assertEqual(risk.confidence_from, "estimated")
 
     @patch("swda.prime.jev.urllib.request.urlopen")
     def test_parse_noul_answer(self, mock_urlopen):
-        mock_urlopen.return_value = http_response({"answers": [{"id": "passed", "answer": 0.9}]})
+        mock_urlopen.return_value = http_response(
+            {"answers": {"passed": {"type": "noul", "noul": 0.9}}}
+        )
         passed = judge({}, {"passed": check("Did it pass?")})["passed"]
         self.assertEqual(passed.answer, "0.9")
         self.assertAlmostEqual(passed.confidence, 0.8)
@@ -137,11 +147,12 @@ class TestJevMockBackend(unittest.TestCase):
 
     @patch("swda.prime.jev.urllib.request.urlopen")
     def test_low_confidence_and_unsure_escalate(self, mock_urlopen):
-        mock_urlopen.return_value = http_response({"answers": [
-            {"id": "a", "answer": "allow", "confidence": 0.2},
-            {"id": "b", "answer": "unsure", "confidence": 0.9},
-        ]})
-        answers = judge({}, {"a": check("x?"), "b": pick("y?", {"unsure": "u", "implement": "i"})})
+        mock_urlopen.return_value = http_response({"answers": {
+            "a": {"type": "choice", "choice": "allow", "confidence": 0.2},
+            "b": {"type": "choice", "choice": "unsure", "confidence": 0.9},
+        }})
+        answers = judge({}, {"a": pick("x?", {"allow": "a", "deny": "d"}),
+                             "b": pick("y?", {"unsure": "u", "implement": "i"})})
         self.assertTrue(answers["a"].escalate)
         self.assertTrue(answers["b"].escalate)
 
