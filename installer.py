@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "3.5.0"
+CLI_VERSION = "3.5.1"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -185,12 +185,21 @@ def register_swda_mcp(agent_type, python_exe=None):
                 node[k] = {}
             node = node[k]
         if name in node and isinstance(node[name], dict):
-            # Already registered: verify the recorded interpreter can actually
-            # run the server. A stale entry (e.g. written by a bare system
-            # python without the mcp SDK) is repaired in place.
+            # Already registered: the recorded interpreter must both run the
+            # server AND be the unified repo venv (one runtime for CLI + MCP).
+            # Anything else is repaired in place, so versions cannot drift.
             current = node[name].get("command")
-            if current and check_swda_mcp(python_exe=current)["ok"]:
+            unified = swda_venv_python()
+            if current and current == unified and check_swda_mcp(python_exe=current)["ok"]:
                 return {"registered": True, "path": path, "reason": "already registered"}
+            if current and current != unified and os.path.exists(unified) and \
+                    check_swda_mcp(python_exe=unified)["ok"]:
+                fresh = _mcp_entry(python_exe=unified)
+                node[name] = {**fresh, **(extra or {})}
+                _backup_file(path)
+                _write_json_atomic(path, data)
+                return {"registered": True, "path": path,
+                        "reason": f"repaired broken entry ({current} -> {fresh['command']})"}
             try:
                 fresh = _mcp_entry(python_exe)
             except RuntimeError as e:
@@ -1970,13 +1979,16 @@ def ensure_swda_runtime():
                 reasons.append(f"venv creation failed: {res.stderr.strip()[:200]}")
                 return {"ok": False, "python": python, "shim": None, "reasons": reasons}
 
-    # Install swda (editable) into the venv. uv is preferred when present
-    # because the venv has no pip by default.
+    # Install swda (editable) plus the MCP SDK into the venv. The SDK is
+    # pinned <2 (2.x renamed FastMCP and breaks our server module); installing
+    # it here keeps CLI and MCP on one interpreter, so they cannot drift.
     uv = shutil.which("uv")
     if uv:
-        install_cmd = [uv, "pip", "install", "--python", python, "-e", SCRIPT_DIR]
+        install_cmd = [uv, "pip", "install", "--python", python,
+                       "-e", SCRIPT_DIR, "mcp>=1.0.0,<2"]
     else:
-        install_cmd = [python, "-m", "pip", "install", "-e", SCRIPT_DIR]
+        install_cmd = [python, "-m", "pip", "install",
+                       "-e", SCRIPT_DIR, "mcp>=1.0.0,<2"]
     res = subprocess.run(install_cmd, capture_output=True, text=True)
     if res.returncode != 0:
         reasons.append(f"install failed: {(res.stderr or res.stdout).strip()[:200]}")
