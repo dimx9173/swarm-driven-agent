@@ -49,7 +49,22 @@ def check_swda_mcp(python_exe=None):
     version = get_mcp_version()
     if version is None:
         reasons.append("swda-mcp pyproject.toml unreadable")
-    exe = python_exe or _sys.executable
+    exe = python_exe
+    if exe is None:
+        # Prefer the interpreter registered in an OMP mcp.json entry: the
+        # doctor should judge the bridge as deployed, not as a bare shell.
+        import json as _json
+        for mcp_path in (os.path.join(os.path.expanduser("~"), ".omp", "agent", "mcp.json"),):
+            try:
+                with open(mcp_path, "r", encoding="utf-8") as f:
+                    node = _json.load(f).get("mcpServers", {}).get("swda-mcp", {})
+                registered = node.get("command") if isinstance(node, dict) else None
+                if registered and os.path.exists(registered):
+                    exe = registered
+                break
+            except (OSError, ValueError):
+                break
+    exe = exe or _sys.executable
     probe = (
         "import sys; sys.path.insert(0, %r); sys.path.insert(0, %r); "
         "import mcp.server.fastmcp; from swda_mcp.server import "
