@@ -228,7 +228,7 @@ class TestJevCustomEndpoint(unittest.TestCase):
             JEV_BASE_URL="https://my-jev.example.com",
             JEV_MODEL="my-model",
         )
-        self.assertEqual(req.full_url, "https://my-jev.example.com/v1/judge")
+        self.assertEqual(req.full_url, "https://my-jev.example.com/v1/systemone")
         self.assertEqual(req.headers["Authorization"], "Bearer custom-key")
         self.assertEqual(json.loads(req.data)["model"], "my-model")
 

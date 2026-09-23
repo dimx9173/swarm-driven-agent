@@ -54,7 +54,7 @@ _DEFAULT_BASE_URL = "https://api.typesafe.ai"
 _DEFAULT_MODEL = "jev-1.13"
 
 #: Request path appended to the base URL; override with JEV_JUDGE_PATH.
-_DEFAULT_JUDGE_PATH = "/v1/judge"
+_DEFAULT_JUDGE_PATH = "/v1/systemone"
 
 #: Tools the PreToolUse gate inspects (shell-like execution surfaces only).
 #: Matched per dot-segment: event tool "repl.execute" -> {"repl","execute"}.
