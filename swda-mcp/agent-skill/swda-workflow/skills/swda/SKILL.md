@@ -17,6 +17,10 @@ negotiate it with the user.
 | LITE_MODE | single-file tweak, syntax fix, one doc edit | skip phases 1-3; go to SYNTHESIS plus verification |
 | SWARM_MODE | full refactor, feature dev, security audit | full FSM below |
 
+Optional hint: `swda jev-intent "<request>"` prints a classification, `unsure`,
+or `none` (no Jev key). A hint never overrides your track selection; when it is
+`none` or `unsure`, classify as above.
+
 On conflicting instructions: safety firewall (TC-01..TC-10) > track scope >
 simplicity > full TDD and crucible detail. Simplicity means minimum code that
 solves the problem; nothing speculative.

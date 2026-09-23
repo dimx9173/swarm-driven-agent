@@ -12,6 +12,8 @@ from typing import Optional
 from swda.core.blackboard import Blackboard, AgentRole
 from swda.core.fsm import FSMEngine, FSMPhase
 from swda.core.circuit_breaker import CircuitBreakerException, StepCounter
+from swda.core.hooks import HookRegistry, PRE_TOOL_USE
+from swda.prime.jev import is_enabled, intent_hint, jev_pre_tool_hook
 from swda.prime.repl import PrimeREPL
 from swda.prime.rlm import RLMDispatcher
 from swda.prime.harness import ContinualHarness
@@ -21,11 +23,32 @@ from swda.workflows.harness_walk import check_contract_binding, check_mcp_regist
 from swda.telemetry import TelemetryLogger
 
 
+def _jev_gate_registry(enabled: bool) -> Optional[HookRegistry]:
+    """Builds the Jev PreToolUse guard registry; None when the gate is off."""
+    if not enabled:
+        return None
+    registry = HookRegistry()
+    registry.register(PRE_TOOL_USE, jev_pre_tool_hook)
+    return registry
+
+
+def _print_jev_banner():
+    """Prints the active Jev status so users can see which path runs."""
+    from swda.prime.jev import _provider_config, is_enabled
+    if is_enabled():
+        base_url, _key, model, _path = _provider_config()
+        print(f"Jev: ON (provider={base_url}, model={model})")
+    else:
+        print("Jev: OFF (default agent judgment)")
+
+
 def cmd_repl(args):
     """Starts interactive stateful REPL."""
     print("Initializing SWDA Prime REPL (Persistent Session with AI Firewall Guard)...")
+    _print_jev_banner()
     blackboard = Blackboard()
-    repl = PrimeREPL(blackboard)
+    hooks = _jev_gate_registry(getattr(args, "jev_gate", False))
+    repl = PrimeREPL(blackboard, hooks=hooks)
     print("REPL active. Type Python expressions or statements. Type 'exit()' to quit.")
     while True:
         try:
@@ -174,9 +197,16 @@ def _mock_rlm_handler(role: str, prompt: str):
     return {}
 
 
+def cmd_jev_intent(args):
+    """Classifies a request intent via Jev (optional, graceful degradation)."""
+    _print_jev_banner()
+    hint = intent_hint(args.request)
+    print(hint if hint is not None else "none")
+
 def cmd_run(args):
     """Runs a task through the SWDD lifecycle with Crucible review."""
     print(f"Starting SWDA autonomous execution for task: {args.task}")
+    _print_jev_banner()
     telemetry = TelemetryLogger()
     telemetry.start_span("full_run")
 
@@ -185,6 +215,10 @@ def cmd_run(args):
     # whole run (FSM transitions and Crucible rounds share one budget clock).
     step_counter = StepCounter()
     fsm = FSMEngine(blackboard, step_counter=step_counter)
+    from swda.workflows.tdd_runner import set_default_hooks
+    # Process-wide hooks must reflect THIS run: install when --jev-gate is
+    # passed, clear otherwise (sequential in-process runs stay isolated).
+    set_default_hooks(_jev_gate_registry(getattr(args, "jev_gate", False)))
     rlm = RLMDispatcher(
         default_model=getattr(args, "model", None),
         mock_handler=_mock_rlm_handler if getattr(args, "mock", False) else None,
@@ -262,13 +296,17 @@ def main():
     subparsers = parser.add_subparsers(dest="subcommand", help="Subcommand to execute")
 
     # Prime-SWDA commands
-    subparsers.add_parser("repl", help="Start persistent stateful REPL with SWDA AI Firewall")
-    
+    repl_p = subparsers.add_parser("repl", help="Start persistent stateful REPL with SWDA AI Firewall")
+    repl_p.add_argument("--jev-gate", action="store_true",
+                        help="Enable Jev probabilistic guard for tool execution")
+
     run_p = subparsers.add_parser("run", help="Run a task through SWDD lifecycle with Crucible")
     run_p.add_argument("task", type=str, help="Task description or specification")
     run_p.add_argument("--mock", action="store_true", help="Use deterministic mock subagents (offline e2e smoke)")
     run_p.add_argument("--json", action="store_true", help="Emit machine-readable result JSON (for CI)")
     run_p.add_argument("--model", type=str, default=None, help="Override RLM model id (or SWDA_MODEL env)")
+    run_p.add_argument("--jev-gate", action="store_true",
+                       help="Enable Jev probabilistic guard for tool execution")
 
     refine_p = subparsers.add_parser("refine", help="Refine a failure trajectory into an anti-pattern")
     refine_p.add_argument("--summary", type=str, required=True, help="Summary of failed execution trajectory")
@@ -288,6 +326,10 @@ def main():
     ver_p.add_argument("session", type=str, help="OMP session .jsonl file to scan")
     ver_p.add_argument("--contract", type=str, default=None, help="Also verify the delivery-gate binding in this contract file")
     ver_p.add_argument("--strict", action="store_true", help="Fail on any unverified gate (needs human confirmation)")
+
+    jev_intent_p = subparsers.add_parser("jev-intent",
+                                         help="Classify request intent via Jev (optional)")
+    jev_intent_p.add_argument("request", type=str, help="User request to classify")
 
     # Check if first arg is an installer command (install, update, check, version, discover, learn, remove)
     installer_subcommands = {"install", "update", "self-update", "doctor", "version", "discover", "learn"}
@@ -314,6 +356,8 @@ def main():
         cmd_scan(args)
     elif args.subcommand == "verify-session":
         cmd_verify_session(args)
+    elif args.subcommand == "jev-intent":
+        cmd_jev_intent(args)
     else:
         # Fallback to installer if no specific prime-swda command matched
         import installer

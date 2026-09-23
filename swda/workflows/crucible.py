@@ -8,7 +8,44 @@ import re
 from typing import Dict, Any, Optional, List
 from swda.core.blackboard import Blackboard, AgentRole
 from swda.core.circuit_breaker import StepCounter, CircuitBreakerException
+from swda.prime import jev
 from swda.prime.rlm import RLMDispatcher
+
+
+def _arbitrate_verdict(verdict: Dict[str, Any], jev_answers: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Applies Jev arbitration: fail closed ONLY when Jev actively disagrees
+    with an LLM-passed verdict. An LLM-failed verdict stays failed; empty or
+    unreachable Jev never changes the verdict.
+    """
+    if not jev_answers:
+        return verdict
+    answer = jev_answers.get("pass")
+    if answer is None:
+        return verdict
+    raw = str(getattr(answer, "answer", "")).strip().lower()
+    if raw in ("pass", "yes", "true"):
+        jev_passed: Optional[bool] = True
+    elif raw in ("fail", "no", "false"):
+        jev_passed = False
+    else:
+        try:  # noul primitive answers with a 0.0-1.0 float
+            jev_passed = float(raw) >= 0.5
+        except ValueError:
+            jev_passed = None
+    if jev_passed is None or not verdict.get("passed") or jev_passed:
+        return verdict
+    outcome = dict(verdict)
+    try:
+        outcome["jev_score"] = float(raw)  # noul 0.0-1.0 pass probability
+    except ValueError:
+        outcome["jev_score"] = 1.0 if jev_passed else 0.0
+    outcome["jev_confidence"] = getattr(answer, "confidence", None)
+    outcome["passed"] = False
+    base = str(verdict.get("reason", ""))
+    suffix = " | Jev disagreed with the pass verdict - LLM re-review required."
+    outcome["reason"] = (base + suffix).strip() if base else suffix.lstrip(" |")
+    return outcome
 
 
 class CrucibleResult:
@@ -103,6 +140,20 @@ class CrucibleWorkflow:
                 context=self._role_context(context, AgentRole.REFEREE.value),
             )
             verdict = self._parse_verdict(raw_verdict, round_idx)
+            if jev.is_enabled() and verdict.get("passed"):
+                try:
+                    jev_answers = jev.judge(
+                        {
+                            "task_spec": task_spec,
+                            "proposal": self._proposal_brief(current_proposal),
+                            "critique": self._digest_critiques([critique]),
+                            "verdict": verdict,
+                        },
+                        {"pass": jev.check("Does this proposal fully satisfy the task spec?")},
+                    )
+                except Exception:
+                    jev_answers = None  # degrade silently; LLM verdict stands
+                verdict = _arbitrate_verdict(verdict, jev_answers)
             self.blackboard.write(AgentRole.REFEREE, "crucible_verdict", verdict)
 
             if verdict.get("passed", False):
@@ -208,6 +259,8 @@ class CrucibleWorkflow:
                 "score": raw_verdict.get("score", 0),
                 "reason": str(raw_verdict.get("reason", "")),
                 "round": round_idx,
+                "jev_score": None,  # only _arbitrate_verdict sets these (spoof guard)
+                "jev_confidence": None,
             }
         if isinstance(raw_verdict, str):
             match = re.search(r"\{.*\}", raw_verdict, re.DOTALL)
@@ -220,6 +273,8 @@ class CrucibleWorkflow:
                             "score": data.get("score", 0),
                             "reason": str(data.get("reason", raw_verdict[:200])),
                             "round": round_idx,
+                            "jev_score": None,  # arbitration sets these, not the referee
+                            "jev_confidence": None,
                         }
                 except Exception:
                     pass
@@ -228,4 +283,6 @@ class CrucibleWorkflow:
             "score": 0,
             "reason": f"Unparseable referee output in round {round_idx}; failing closed for re-review.",
             "round": round_idx,
+            "jev_score": None,
+            "jev_confidence": None,
         }

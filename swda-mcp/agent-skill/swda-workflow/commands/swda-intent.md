@@ -21,4 +21,8 @@ STRATEGY_TRACK: [the concrete path that will be taken]
 
 Track rules: FAST_PASS answers directly, LITE_MODE skips to SYNTHESIS, and
 SWARM_MODE runs the full FSM.
+
+Optional hint: run `swda jev-intent "$ARGUMENTS"`. It prints a classification
+string, `unsure`, or `none` (no Jev key configured). Treat the output as a
+hint only; `none` or `unsure` means classify with your own judgment as above.
 <!-- swda-workflow:v1 -->

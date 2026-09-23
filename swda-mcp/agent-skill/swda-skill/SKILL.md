@@ -32,3 +32,9 @@ prime-agent mcp add swda --cwd /Users/carlos/pywork/swarm-driven-agent/swda-mcp 
 ```
 
 See `references/wiring.md` for the settings.json shape and troubleshooting.
+
+## Optional: Jev intent hint (CLI)
+
+`swda jev-intent "<request>"` prints a classification string, `unsure`, or
+`none` (no Jev key configured). Treat it as an optional hint for INTENT_GATE;
+`none` or `unsure` means classify with your own judgment as before.
