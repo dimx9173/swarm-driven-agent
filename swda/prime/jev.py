@@ -143,13 +143,36 @@ def check(statement: str) -> Dict[str, Any]:
     return {"type": "noul", "instructions": str(statement)}
 
 
+#: Last degradation reason, for `swda --verbose` diagnostics. Set by judge()
+#: on any path that returns {} while a key is configured. Never raised.
+_last_error: Optional[str] = None
+
+
+def last_error() -> Optional[str]:
+    """Why the last judge() call degraded (None when it succeeded or was disabled)."""
+    return _last_error
+
+
+def _degrade(reason: str) -> Dict[str, JevAnswer]:
+    global _last_error
+    _last_error = reason
+    return {}
+
+
 def judge(state: Dict[str, Any], questions: Dict[str, Any]) -> Dict[str, JevAnswer]:
     """
     One batched request to Jev for all questions about the same state.
+
+    Returns {} when disabled, on timeout/network failure, or on any shape
+    mismatch. Never raises; the reason for a degradation is available via
+    last_error() (e.g. for `swda --verbose`).
     """
+    global _last_error
+    _last_error = None
+
     config = _provider_config()
     if not config:
-        return {}
+        return _degrade("no Jev API key configured (default agent judgment)")
     base_url, api_key, model, judge_path = config
 
     wire_questions = {
@@ -160,7 +183,7 @@ def judge(state: Dict[str, Any], questions: Dict[str, Any]) -> Dict[str, JevAnsw
         and "instructions" in spec
     }
     if not wire_questions:
-        return {}
+        return _degrade("no valid questions to send (need type + instructions)")
 
     payload = {
         "model": model,
@@ -180,10 +203,22 @@ def judge(state: Dict[str, Any], questions: Dict[str, Any]) -> Dict[str, JevAnsw
     try:
         with urllib.request.urlopen(req, timeout=_TIMEOUT_SECONDS) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError, ValueError):
-        return {}
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", "replace")[:200]
+        except Exception:
+            pass
+        return _degrade(f"HTTP {e.code} from {base_url}{judge_path}: {detail}")
+    except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as e:
+        return _degrade(f"network error calling {base_url}{judge_path}: {e}")
+    except ValueError as e:
+        return _degrade(f"invalid JSON response from {base_url}{judge_path}: {e}")
 
-    return _parse_answers(body, questions)
+    answers = _parse_answers(body, questions)
+    if not answers:
+        return _degrade(f"response had no usable answers (keys: {sorted(body.keys()) if isinstance(body, dict) else type(body).__name__})")
+    return answers
 
 
 def _parse_answers(body: Any, questions: Dict[str, Any]) -> Dict[str, JevAnswer]:

@@ -6,6 +6,7 @@ import http.client
 import os
 import sys
 import unittest
+import io
 import urllib.error
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
@@ -17,6 +18,7 @@ from swda.prime.jev import (
     is_enabled,
     jev_pre_tool_hook,
     judge,
+    last_error,
     pick,
     rate,
 )
@@ -184,6 +186,32 @@ class TestJevTimeoutDegrade(unittest.TestCase):
     def test_network_error_returns_empty_dict(self, mock_urlopen):
         mock_urlopen.side_effect = urllib.error.URLError("connection refused")
         self.assertEqual(judge({"tool": "test"}, {"q": check("ok?")}), {})
+
+
+    def test_last_error_reports_disabled(self):
+        with jev_env():
+            self.assertEqual(judge({}, {"q": check("ok?")}), {})
+            self.assertIn("no Jev API key", last_error() or "")
+
+    def test_last_error_reports_http_detail(self):
+        """An HTTP error (e.g. unknown model) surfaces status + body, so a
+        silent 'none' can be diagnosed instead of guessed."""
+        import swda.prime.jev as jev
+        err = urllib.error.HTTPError(
+            url="https://api.typesafe.ai/v1/systemone", code=400, msg="Bad Request",
+            hdrs=None, fp=io.BytesIO(b'{"detail":"Unknown model: jev-bogus"}'))
+        with patch("swda.prime.jev.urllib.request.urlopen", side_effect=err):
+            self.assertEqual(judge({}, {"q": check("ok?")}), {})
+        detail = last_error() or ""
+        self.assertIn("HTTP 400", detail)
+        self.assertIn("Unknown model", detail)
+
+    def test_last_error_cleared_on_success(self):
+        with patch("swda.prime.jev.urllib.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value = http_response(
+                {"answers": {"q": {"type": "noul", "noul": 0.9}}})
+            self.assertTrue(judge({}, {"q": check("ok?")}))
+        self.assertIsNone(last_error())
 
     def test_hook_continues_when_jev_unreachable(self):
         with patch("swda.prime.jev.judge", return_value={}):

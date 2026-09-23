@@ -42,6 +42,14 @@ def _print_jev_banner():
         print("Jev: OFF (default agent judgment)")
 
 
+def _print_jev_detail():
+    """With --verbose, reports why the last judge() call degraded."""
+    from swda.prime.jev import last_error
+    reason = last_error()
+    if reason:
+        print(f"Jev detail: {reason}")
+
+
 def cmd_repl(args):
     """Starts interactive stateful REPL."""
     print("Initializing SWDA Prime REPL (Persistent Session with AI Firewall Guard)...")
@@ -202,6 +210,9 @@ def cmd_jev_intent(args):
     _print_jev_banner()
     hint = intent_hint(args.request)
     print(hint if hint is not None else "none")
+    if getattr(args, "verbose", False):
+        _print_jev_detail()
+
 
 def cmd_run(args):
     """Runs a task through the SWDD lifecycle with Crucible review."""
@@ -286,6 +297,8 @@ def cmd_run(args):
             "mock": bool(getattr(args, "mock", False)),
             "model": getattr(args, "model", None) or rlm.default_model,
         }, ensure_ascii=False))
+    if getattr(args, "verbose", False):
+        _print_jev_detail()
 
 
 def main():
@@ -299,6 +312,8 @@ def main():
     repl_p = subparsers.add_parser("repl", help="Start persistent stateful REPL with SWDA AI Firewall")
     repl_p.add_argument("--jev-gate", action="store_true",
                         help="Enable Jev probabilistic guard for tool execution")
+    repl_p.add_argument("--verbose", action="store_true",
+                        help="Explain why Jev degraded (HTTP status, unknown model, network)")
 
     run_p = subparsers.add_parser("run", help="Run a task through SWDD lifecycle with Crucible")
     run_p.add_argument("task", type=str, help="Task description or specification")
@@ -307,6 +322,8 @@ def main():
     run_p.add_argument("--model", type=str, default=None, help="Override RLM model id (or SWDA_MODEL env)")
     run_p.add_argument("--jev-gate", action="store_true",
                        help="Enable Jev probabilistic guard for tool execution")
+    run_p.add_argument("--verbose", action="store_true",
+                       help="Explain why Jev degraded (HTTP status, unknown model, network)")
 
     refine_p = subparsers.add_parser("refine", help="Refine a failure trajectory into an anti-pattern")
     refine_p.add_argument("--summary", type=str, required=True, help="Summary of failed execution trajectory")
@@ -330,6 +347,8 @@ def main():
     jev_intent_p = subparsers.add_parser("jev-intent",
                                          help="Classify request intent via Jev (optional)")
     jev_intent_p.add_argument("request", type=str, help="User request to classify")
+    jev_intent_p.add_argument("--verbose", action="store_true",
+                              help="Explain why Jev degraded (HTTP status, unknown model, network)")
 
     # Check if first arg is an installer command (install, update, check, version, discover, learn, remove)
     installer_subcommands = {"install", "update", "self-update", "doctor", "version", "discover", "learn"}
