@@ -60,7 +60,11 @@ def _jev_round_reporter():
             return
         answer = info.get("jev_verdict")
         if answer is None:
-            print(f"Jev round {rnd}: no answer ({info.get('jev_error') or 'not consulted'})")
+            reason = info.get("jev_error")
+            if not reason:
+                reason = ("LLM verdict already failed; Jev not consulted"
+                          if not info.get("passed") else "no answer returned")
+            print(f"Jev round {rnd}: skipped ({reason})")
             return
         print(f"Jev round {rnd}: answer={getattr(answer, 'answer', answer)!r} "
               f"conf={getattr(answer, 'confidence', 0):.2f} "
