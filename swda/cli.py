@@ -50,6 +50,24 @@ def _print_jev_detail():
         print(f"Jev detail: {reason}")
 
 
+
+def _jev_round_reporter():
+    """Builds the per-round Crucible observer used by --verbose."""
+    def report(info):
+        rnd = info.get("round")
+        if not info.get("jev_enabled"):
+            print(f"Jev round {rnd}: OFF (LLM verdict only, passed={info.get('passed')})")
+            return
+        answer = info.get("jev_verdict")
+        if answer is None:
+            print(f"Jev round {rnd}: no answer ({info.get('jev_error') or 'not consulted'})")
+            return
+        print(f"Jev round {rnd}: answer={getattr(answer, 'answer', answer)!r} "
+              f"conf={getattr(answer, 'confidence', 0):.2f} "
+              f"score={info.get('jev_score')} passed={info.get('passed')}")
+    return report
+
+
 def cmd_repl(args):
     """Starts interactive stateful REPL."""
     print("Initializing SWDA Prime REPL (Persistent Session with AI Firewall Guard)...")
@@ -234,7 +252,10 @@ def cmd_run(args):
         default_model=getattr(args, "model", None),
         mock_handler=_mock_rlm_handler if getattr(args, "mock", False) else None,
     )
-    crucible = CrucibleWorkflow(rlm=rlm, blackboard=blackboard, step_counter=step_counter)
+    crucible = CrucibleWorkflow(
+        rlm=rlm, blackboard=blackboard, step_counter=step_counter,
+        on_round=_jev_round_reporter() if getattr(args, "verbose", False) else None,
+    )
 
     try:
         # 1. Advance to GATHER

@@ -76,11 +76,16 @@ class CrucibleWorkflow:
         blackboard: Blackboard,
         step_counter: Optional[StepCounter] = None,
         max_rounds: int = 3,
+        on_round: Optional[Any] = None,
     ):
         self.rlm = rlm
         self.blackboard = blackboard
         self.step_counter = step_counter or StepCounter()
         self.max_rounds = max_rounds
+        # Optional observer called after each round's arbitration with a dict
+        # {round, passed, jev_enabled, jev_verdict, jev_score, jev_confidence,
+        #  jev_error}. Default None = zero behavior change.
+        self.on_round = on_round
 
     def run_crucible(self, task_spec: str, context: Optional[Dict[str, Any]] = None) -> CrucibleResult:
         """
@@ -140,6 +145,7 @@ class CrucibleWorkflow:
                 context=self._role_context(context, AgentRole.REFEREE.value),
             )
             verdict = self._parse_verdict(raw_verdict, round_idx)
+            jev_answers: Optional[Dict[str, Any]] = None
             if jev.is_enabled() and verdict.get("passed"):
                 try:
                     jev_answers = jev.judge(
@@ -154,6 +160,16 @@ class CrucibleWorkflow:
                 except Exception:
                     jev_answers = None  # degrade silently; LLM verdict stands
                 verdict = _arbitrate_verdict(verdict, jev_answers)
+            if self.on_round is not None:
+                self.on_round({
+                    "round": round_idx,
+                    "passed": bool(verdict.get("passed", False)),
+                    "jev_enabled": jev.is_enabled(),
+                    "jev_verdict": (jev_answers or {}).get("pass"),
+                    "jev_score": verdict.get("jev_score"),
+                    "jev_confidence": verdict.get("jev_confidence"),
+                    "jev_error": jev.last_error(),
+                })
             self.blackboard.write(AgentRole.REFEREE, "crucible_verdict", verdict)
 
             if verdict.get("passed", False):

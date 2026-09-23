@@ -402,6 +402,51 @@ class TestJevRefereeArbitration(unittest.TestCase):
             self.assertTrue(res.passed)
             mock_urlopen.assert_not_called()
 
+    def test_on_round_observer_reports_each_round_disabled(self):
+        """Observer fires once per round with jev_enabled=False and no key."""
+        from swda.core.blackboard import Blackboard
+        from swda.prime.rlm import RLMDispatcher
+
+        def mock_llm(role, prompt):
+            if role == "referee":
+                return {"passed": True, "score": 9, "reason": "ok"}
+            return {"content": "p"}
+
+        seen = []
+        with jev_env(), patch("swda.prime.jev.urllib.request.urlopen"):
+            crucible = CrucibleWorkflow(rlm=RLMDispatcher(mock_handler=mock_llm),
+                                        blackboard=Blackboard(), max_rounds=1,
+                                        on_round=seen.append)
+            crucible.run_crucible("t")
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0]["round"], 1)
+        self.assertFalse(seen[0]["jev_enabled"])
+        self.assertTrue(seen[0]["passed"])
+
+    def test_on_round_observer_reports_jev_answer(self):
+        """Observer carries the Jev answer when arbitration ran."""
+        from swda.core.blackboard import Blackboard
+        from swda.prime.rlm import RLMDispatcher
+
+        def mock_llm(role, prompt):
+            if role == "referee":
+                return {"passed": True, "score": 9, "reason": "ok"}
+            return {"content": "p"}
+
+        seen = []
+        with jev_env(TYPESAFE_API_KEY="k"), \
+                patch("swda.prime.jev.judge",
+                      return_value={"pass": JevAnswer("fail", 0.9, "reported", False)}):
+            crucible = CrucibleWorkflow(rlm=RLMDispatcher(mock_handler=mock_llm),
+                                        blackboard=Blackboard(), max_rounds=1,
+                                        on_round=seen.append)
+            with self.assertRaises(Exception):
+                crucible.run_crucible("t")
+        self.assertEqual(len(seen), 1)
+        self.assertTrue(seen[0]["jev_enabled"])
+        self.assertFalse(seen[0]["passed"])          # Jev overturned the pass
+        self.assertEqual(seen[0]["jev_score"], 0.0)  # non-numeric -> 0.0/1.0
+
 
 class TestJevIntentHint(unittest.TestCase):
     def test_returns_none_when_disabled(self):
@@ -509,6 +554,65 @@ class TestJevCLIGate(unittest.TestCase):
             registry = swda.cli._jev_gate_registry(True)
             with self.assertRaises(HookBlocked):
                 registry.run_pre("bash", {"command": "rm -rf /"})
+
+    def test_round_reporter_formats_off_and_answer(self):
+        """--verbose reporter prints one line per round, ON or OFF."""
+        import io
+        from contextlib import redirect_stdout
+
+        import swda.cli
+        report = swda.cli._jev_round_reporter()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            report({"round": 1, "passed": True, "jev_enabled": False})
+        self.assertIn("Jev round 1: OFF", buf.getvalue())
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            report({"round": 2, "passed": False, "jev_enabled": True,
+                    "jev_verdict": JevAnswer("fail", 0.9, "reported", False),
+                    "jev_score": 0.0, "jev_confidence": 0.9})
+        out = buf.getvalue()
+        self.assertIn("Jev round 2: answer='fail'", out)
+        self.assertIn("conf=0.90", out)
+
+    def test_run_verbose_passes_round_observer(self):
+        """swda run --verbose wires the observer into CrucibleWorkflow."""
+        import io
+        from contextlib import redirect_stdout
+        from unittest.mock import MagicMock, patch
+
+        import swda.cli
+        with patch.object(sys, "argv", ["swda", "run", "t", "--verbose"]), \
+                patch.object(swda.cli, "TelemetryLogger", MagicMock()), \
+                patch.object(swda.cli, "FSMEngine", MagicMock()), \
+                patch.object(swda.cli, "RLMDispatcher", MagicMock()), \
+                patch.object(swda.cli, "CrucibleWorkflow") as mock_crucible, \
+                patch("swda.workflows.tdd_runner.set_default_hooks"), \
+                redirect_stdout(io.StringIO()):
+            mock_crucible.return_value.run_crucible.return_value = MagicMock(
+                rounds_executed=1, verdict={"score": 8}, proposal={})
+            swda.cli.main()
+        self.assertIsNotNone(mock_crucible.call_args.kwargs.get("on_round"))
+
+    def test_run_without_verbose_passes_no_observer(self):
+        import io
+        from contextlib import redirect_stdout
+        from unittest.mock import MagicMock, patch
+
+        import swda.cli
+        with patch.object(sys, "argv", ["swda", "run", "t"]), \
+                patch.object(swda.cli, "TelemetryLogger", MagicMock()), \
+                patch.object(swda.cli, "FSMEngine", MagicMock()), \
+                patch.object(swda.cli, "RLMDispatcher", MagicMock()), \
+                patch.object(swda.cli, "CrucibleWorkflow") as mock_crucible, \
+                patch("swda.workflows.tdd_runner.set_default_hooks"), \
+                redirect_stdout(io.StringIO()):
+            mock_crucible.return_value.run_crucible.return_value = MagicMock(
+                rounds_executed=1, verdict={"score": 8}, proposal={})
+            swda.cli.main()
+        self.assertIsNone(mock_crucible.call_args.kwargs.get("on_round"))
 
 
 class TestJevCLIIntent(unittest.TestCase):
