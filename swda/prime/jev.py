@@ -5,9 +5,9 @@ decisions out).
 
 Enabled by presence of an API key in the environment (first match wins):
   1. JEV_API_KEY          -> custom endpoint (JEV_BASE_URL, JEV_MODEL)
-  2. TYPESAFE_API_KEY     -> https://api.typesafe.ai        (model jev-1.13)
-  3. OPENROUTER_API_KEY   -> https://openrouter.ai/api/v1   (model typesafe/jev-1.13)
-  4. AI_GATEWAY_API_KEY   -> https://ai-gateway.vercel.sh/v1 (model typesafe-ai/jev)
+  2. TYPESAFE_API_KEY     -> https://api.typesafe.ai        (model jev-latest)
+  3. OPENROUTER_API_KEY   -> https://openrouter.ai          (model typesafe/jev-1.13)
+  4. AI_GATEWAY_API_KEY   -> https://ai-gateway.vercel.sh   (model typesafe-ai/jev)
 
 Everything is overridable, so any Jev-compatible endpoint works:
   JEV_BASE_URL / JEV_MODEL / JEV_JUDGE_PATH   global (base URL, model, path)
@@ -42,7 +42,7 @@ from typing import Any, Dict, List, Optional
 #: JEV_JUDGE_PATH overrides whichever path is selected.
 _PROVIDERS = (
     ("TYPESAFE_API_KEY", "TYPESAFE_BASE_URL", "https://api.typesafe.ai",
-     "/v1/systemone", "TYPESAFE_MODEL", "jev-1.13"),
+     "/v1/systemone", "TYPESAFE_MODEL", "jev-latest"),
     ("OPENROUTER_API_KEY", "OPENROUTER_BASE_URL", "https://openrouter.ai",
      "/api/alpha/decisions", "OPENROUTER_MODEL", "typesafe/jev-1.13"),
     ("AI_GATEWAY_API_KEY", "AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh",
@@ -51,7 +51,7 @@ _PROVIDERS = (
 
 #: Defaults for the fully custom endpoint (JEV_API_KEY + JEV_BASE_URL).
 _DEFAULT_BASE_URL = "https://api.typesafe.ai"
-_DEFAULT_MODEL = "jev-1.13"
+_DEFAULT_MODEL = "jev-latest"
 
 #: Request path appended to the base URL; override with JEV_JUDGE_PATH.
 _DEFAULT_JUDGE_PATH = "/v1/systemone"
