@@ -33,6 +33,7 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 *   **Alpha 建構子代理 (The Standard)**：研究業界最佳實踐、標準庫框架與主流 canonical 解法。
 *   **Beta 破壞子代理 (The Adversary)**：專職挖掘潛在破壞點，包含併發 race conditions、極限邊界漏洞、技術債與安全威脅。
 *   **Gamma 創新子代理 (The Innovator)**：尋求跨領域技術類比與非常規的 Alternative 替代方案。
+*   **Diversity 路由 (INTENT_GATE 契約)**：這個 Swarm 是多樣性引擎——只派遣能**新增視角**的研究。INTENT_GATE 的多樣性評分依問題類型選名單（見 RULE.md §5.1）；PHASE 1/3 同步呼應：安全類開 Beta+Destroyer 且 Gamma 保留查 prior art；無重現的性能問題將 Builder 插樁提升為一級交付；方案選型由 Gamma+Referee 配 Destroyer 對不可逆選項做威脅建模。缺 oracle（`VERIFIABILITY=none`）時，對抗組合更重要而非更少。
 
 ### PHASE 2: GATHER (資訊探測與彙整)
 彙整來自 Alpha、Beta 和 Gamma 的研調事實。指派 4 個並行檢索子代理：

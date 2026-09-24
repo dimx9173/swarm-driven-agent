@@ -33,6 +33,7 @@ Dispatch parallel and completely isolated research swarm subagents (Alpha/Beta/G
 *   **Alpha Subagent (The Standard)**: Research industry best practices, standard frameworks, and mainstream canonical solutions.
 *   **Beta Subagent (The Adversary)**: Focus on finding potential breaking points, including concurrency race conditions, edge-case vulnerabilities, resource leaks, technical debt, and security threats.
 *   **Gamma Subagent (The Innovator)**: Seek cross-domain technical analogies and unconventional alternative solutions.
+*   **Diversity routing (INTENT_GATE contract)**: the swarm is a diversity engine — dispatch research that would *add* a lens. The INTENT_GATE's diversity scores pick the roster per problem type (see RULE.md §5.1); PHASE 1/3 echo it: safety rows open Beta+Destroyer with Gamma kept on prior-art lookup; performance without a repro promotes Builder instrumentation to first-class; option selection pairs Gamma with Referee and a Destroyer threat pass on irreversible picks. Missing an oracle (`VERIFIABILITY=none`) makes the adversarial pair matter more, not less.
 
 ### PHASE 2: GATHER (Information Retrieval & Consolidation)
 Consolidate the findings from Alpha, Beta, and Gamma. Dispatch 4 parallel retrieval subagents:

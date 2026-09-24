@@ -109,8 +109,9 @@ You must strictly match the current state Hook and output XML blocks that confor
 1.  `[INTENT_GATE]`: Analyze intent and execution track upon receiving new task or user input. Max budget: 1 step.
     - **Three-Tier Execution Tracks**:
       - `FAST_PASS`: Pure greetings (e.g. "hi"), casual pleasantries, or non-code queries. No subagents or crucible dispatched; direct concise response.
-      - `LITE_MODE`: Single-file tweaks, simple syntax fixes, or single doc edits. Skip PHASE_1~3, go directly to PHASE_5 SYNTHESIS and physical validation.
-      - `SWARM_MODE`: Complex refactoring, feature development, security audits. Triggers full 5-Phase SWDD FSM workflow and Builder/Destroyer crucible.
+      - `LITE_MODE`: Verified low-diversity work. Skip PHASE_1~3, go directly to PHASE_5 SYNTHESIS and physical validation.
+      - `SWARM_MODE`: Full 5-Phase SWDD FSM workflow; roster and crucible weighting follow Diversity Routing.
+    - **Diversity Routing**: score `AMBIGUITY_WIDTH` (merged signal), `RISK`, `IRREVERSIBILITY_SCOPE` (blast radius + rollback cost; auth/crypto/migrations/external contracts/production data form the **hard touchlist**), `VERIFIABILITY` (cheap oracle available?). Hard floor: touchlist ⇒ Destroyer + Referee at minimum weight, never closable. LITE requires all scores low **plus** one cheap falsification artifact (test/repro/measurement) on record. Perspective table: refactor→Alpha+Gamma+Builder; security→Beta+Destroyer+Referee with Gamma kept on prior-art/search; perf-without-repro→Alpha+Beta+Builder-early+Destroyer; selection/POC→Gamma+Referee+Builder-spike+Destroyer threat pass. Referee may revise crucible weights once after round 1.
 ```xml
 <INTENT_GATE_RESULT>
 INTENT_CLASSIFICATION: [CASUAL_CHAT | QUICK_QUERY | FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]

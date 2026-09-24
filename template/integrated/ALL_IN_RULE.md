@@ -130,8 +130,23 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
 1.  `[INTENT_GATE]`：接收到新任務或使用者輸入時進行意圖與執行軌道分析。預算上限 1 步。
     - **三層級執行軌道 (Execution Tracks)**：
       - `FAST_PASS` (Tier 1 自然對話模式)：純問候（如 "hi"）、社交寒暄或無代碼變更之諮詢。直接以自然語言回復，不產生 XML 標籤與 FSM 狀態轉移。
-      - `LITE_MODE` (Tier 2 狀態機模式)：單檔微調、簡單語法修復或單一文件編輯。發出 `<INTENT_GATE_RESULT>` 並直接進入 PHASE_5 SYNTHESIS 與實體驗證。
-      - `SWARM_MODE` (Tier 2 狀態機模式)：複雜重構、新功能開發、安全性審計。發出 `<INTENT_GATE_RESULT>` 並觸發完整 5-Phase SWDD 狀態機與 Builder/Destroyer 熔爐對抗。
+      - `LITE_MODE` (Tier 2 狀態機模式)：經「多樣性路由」驗證的低多樣性工作（見下）。發出 `<INTENT_GATE_RESULT>` 並直接進入 PHASE_5 SYNTHESIS 與實體驗證。
+      - `SWARM_MODE` (Tier 2 狀態機模式)：發出 `<INTENT_GATE_RESULT>` 並觸發完整 5-Phase SWDD 狀態機；開啟哪些子代理與熔爐權重依「多樣性路由」決定。
+    - **多樣性路由 (Diversity Routing — 決定多視角何時值得花)**：派發任何子代理前，先對任務評四維：
+      - `AMBIGUITY_WIDTH`：多種合理解讀，或多條可行做法（同一信號——歧義幾乎必然伴隨解空間寬）。
+      - `RISK`：做錯的代價（資料損毀、安全、對使用者造成傷害）。
+      - `IRREVERSIBILITY_SCOPE`：影響面 + 回滾成本——一行改動 auth 中間件比跨 40 檔的機械重構**更需要**對抗視角；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單 (hard touchlist)**。
+      - `VERIFIABILITY`：有沒有便宜的 oracle（測試、基準、查詢）能抓出錯誤？
+      **硬地板 (覆蓋其他一切規則)**：觸點清單上的任務 ⇒ Destroyer + Referee 至少以最低權重開啟；地板只能加碼對抗權重，永遠不得歸零。
+      **LITE 前置反證**：降入 LITE_MODE 需同時滿足 (a) 四維全低 且 (b) 已落實至少一個便宜的反證物（一個測試、一個重現、或一次測量）——沒有反證物不得降軌。開錯「開」只費 token；開錯「關」則把看不見的問題直接上線。
+      **按問題類型選視角 (open = 全權重，assist = 精簡配置)：**
+      | 問題 | 開啟 | 輔助 |
+      |---|---|---|
+      | 重構/功能 | Alpha + Gamma + Builder | Destroyer（觸點清單地板仍適用） |
+      | 安全審計/關鍵 bug | Beta + Destroyer + Referee | Gamma 保持開啟——prior art 與規格對照是 Gamma 的活（新型攻擊類正是） |
+      | 性能/疑難雜症 | Alpha + Beta + **Builder 提前**（插樁本身就是交付物） | 無重現 ⇒ Destroyer 開啟——沒有 oracle 時對抗組合更重要 |
+      | 方案選型/POC | Gamma + Referee | 入圍者跑 Builder spike；不可逆選擇（儲存引擎、auth 庫、遷移格式）由 Destroyer 威脅建模 |
+      **權重修訂**：第 1 輪後 Referee 可修訂熔爐權重一次，之後鎖定。僵持以 typed 理由解決（`writing`/`open_ended`/`oversized`/`unsure`），不得以重置輪數代替。
 ```xml
 <INTENT_GATE_RESULT>
 INTENT_CLASSIFICATION: [CASUAL_CHAT | QUICK_QUERY | FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]

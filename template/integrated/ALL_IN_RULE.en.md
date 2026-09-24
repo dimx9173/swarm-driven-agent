@@ -130,8 +130,24 @@ You must strictly match the current state Hook, wrap your output in the correspo
 1.  `[INTENT_GATE]`: Analyze intent and execution track upon receiving new task or user input. Max budget: 1 step.
     - **Three-Tier Execution Tracks**:
       - `FAST_PASS`: Pure greetings (e.g. "hi"), casual pleasantries, or non-code queries. No subagents or crucible dispatched; direct concise response.
-      - `LITE_MODE`: Single-file tweaks, simple syntax fixes, or single doc edits. Skip PHASE_1~3, go directly to PHASE_5 SYNTHESIS and physical validation.
-      - `SWARM_MODE`: Complex refactoring, feature development, security audits. Triggers full 5-Phase SWDD FSM workflow and Builder/Destroyer crucible.
+      - `LITE_MODE`: Verified low-diversity work (see Diversity Routing below). Skip PHASE_1~3, go directly to PHASE_5 SYNTHESIS and physical validation.
+      - `SWARM_MODE`: Full 5-Phase SWDD FSM workflow; which subagents open and the crucible weighting follow Diversity Routing.
+    - **Diversity Routing (decides where multiple perspectives pay off)**:
+      Score the task on four dimensions at intake, before any subagent dispatch:
+      - `AMBIGUITY_WIDTH`: multiple valid readings OR many plausible approaches (one signal — ambiguity nearly always entails width).
+      - `RISK`: severity of being wrong (data corruption, security, user-facing harm).
+      - `IRREVERSIBILITY_SCOPE`: blast radius + rollback cost — a one-line auth-middleware change ranks HIGHER than a 40-file mechanical refactor; touches to auth/crypto/migrations/external contracts/production data are on the **hard touchlist**.
+      - `VERIFIABILITY`: is there a cheap oracle (test, benchmark, query) that would catch a mistake?
+      **Hard floor (overrides every other rule):** anything on the touchlist ⇒ Destroyer + Referee open at minimum weight; the floor can raise adversarial weight, never zero it.
+      **Probes before LITE:** LITE_MODE requires (a) all four scores low AND (b) at least one cheap falsification artifact committed (a test, a repro, or a measurement) — no artifact, no downgrade. A wrong "close" ships unseen; a wrong "open" only costs tokens.
+      **Perspective selection by problem type (open = full weight, assist = reduced crew):**
+      | Problem | Open | Assist |
+      |---|---|---|
+      | Refactor/feature | Alpha + Gamma + Builder | Destroyer (weight floor still applies on touchlist) |
+      | Security audit / critical bug | Beta + Destroyer + Referee | Gamma stays ON for prior art & spec-conformance lookup (novel attack classes are Gamma's job) |
+      | Performance / heisenbug | Alpha + Beta + **Builder early** (instrumentation is the deliverable) | without a repro, Destroyer opens — no oracle means the adversarial pair matters MORE |
+      | Option selection / POC | Gamma + Referee | Builder spike for the finalists; Destroyer threat-models irreversible picks (storage engine, auth library, migration format) |
+      **Weight revision:** the Referee may revise crucible weights once after round 1; after that they lock. Stalls resolve via typed reasons (`writing`/`open_ended`/`oversized`/`unsure`), not by resetting rounds.
 ```xml
 <INTENT_GATE_RESULT>
 INTENT_CLASSIFICATION: [CASUAL_CHAT | QUICK_QUERY | FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]
@@ -144,7 +160,6 @@ STRATEGY_TRACK: [Scheduling path agreed upon by dispatch/audit subagents; "Direc
 [NEXT_STATE: FAST_PASS_EXIT | LITE_MODE | PHASE_1_DESTRUCT | Zero-Chat Contract Active]
 ```
 
-2.  `[PHASE_1_DESTRUCT]`: Deconstruct the task and dispatch research.
 ```xml
 <DESTRUCT_RESULT>
 INCIDENT_SUMMARY: [A sentence defining the core requirement or bug precisely]

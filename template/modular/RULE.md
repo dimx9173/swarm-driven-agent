@@ -109,8 +109,9 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 1.  `[INTENT_GATE]`：接收到全新任務或使用者輸入時，進行意圖與執行軌道分析。預算上限 1 步。
     - **三層級執行軌道 (Execution Tracks)**：
       - `FAST_PASS`：純問候（如 "hi"）、社交寒暄或無代碼變更之諮詢。不調度子代理與對抗熔爐，直接精確回覆。
-      - `LITE_MODE`：單檔微調、簡單語法修復或單一文件編輯。跳過 PHASE_1~3，直接進入 PHASE_5 SYNTHESIS 與實體驗證。
-      - `SWARM_MODE`：複雜重構、新功能開發、安全性審計。觸發完整 5-Phase SWDD 狀態機與 Builder/Destroyer 熔爐對抗。
+      - `LITE_MODE`：經「多樣性路由」驗證的低多樣性工作。跳過 PHASE_1~3，直接進入 PHASE_5 SYNTHESIS 與實體驗證。
+      - `SWARM_MODE`：觸發完整 5-Phase SWDD 狀態機；名單與熔爐權重依多樣性路由決定。
+    - **多樣性路由 (Diversity Routing)**：評 `AMBIGUITY_WIDTH`（合併信號：歧義幾乎必然伴隨解空間寬）、`RISK`（做錯的代價）、`IRREVERSIBILITY_SCOPE`（影響面+回滾成本；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單**）、`VERIFIABILITY`（有便宜 oracle？）。硬地板：觸點清單 ⇒ Destroyer + Referee 至少最低權重，永不可關。LITE 需四維全低**且**已落實至少一個便宜反證物（測試/重現/測量）。視角表：重構→Alpha+Gamma+Builder；安全→Beta+Destroyer+Referee 且 Gamma 保留查 prior art；無重現性能→Alpha+Beta+Builder 提前+Destroyer；選型/POC→Gamma+Referee+Builder spike+Destroyer 威脅建模。第 1 輪後 Referee 可修訂熔爐權重一次。
 ```xml
 <INTENT_GATE_RESULT>
 INTENT_CLASSIFICATION: [CASUAL_CHAT | QUICK_QUERY | FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]
