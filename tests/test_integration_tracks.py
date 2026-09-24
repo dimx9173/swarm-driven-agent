@@ -115,10 +115,14 @@ class FSMGraphValidator:
     @staticmethod
     def extract_phase_budgets(contract_text: str) -> dict[str, int]:
         budgets = {}
-        intent_match = re.search(r"INTENT_GATE.*?(?:預算|Budget).*?(\d+)", contract_text, re.IGNORECASE)
-        gather_match = re.search(r"GATHER.*?(?:預算|Budget).*?(\d+)", contract_text, re.IGNORECASE)
-        hyperplan_match = re.search(r"(?:HYPERPLAN|Crucible).*?(?:預算|Budget|上限|rounds).*?(\d+)", contract_text, re.IGNORECASE)
-        compile_match = re.search(r"(?:PHASE_6_IMPLEMENT|DYNAMIC_COMPILE|修復|test).*?(?:預算|Budget|上限|attempts).*?(\d+)", contract_text, re.IGNORECASE)
+        # Scope to the §7.0 budget section: elsewhere the phase names appear in
+        # unrelated prose (e.g. §0 cascade rules) whose numbers are not budgets.
+        marker = re.search(r"(?:階段步驟預算|Phase Step Budgets)", contract_text)
+        section = contract_text[marker.start():] if marker else contract_text
+        intent_match = re.search(r"INTENT_GATE.*?(?:預算|Budget).*?(\d+)", section, re.IGNORECASE)
+        gather_match = re.search(r"(?:GATHER|PHASE_2).*?(?:預算|Budget).*?(\d+)", section, re.IGNORECASE)
+        hyperplan_match = re.search(r"(?:HYPERPLAN|Crucible|PHASE_3).*?(?:預算|Budget|上限|rounds).*?(\d+)", section, re.IGNORECASE)
+        compile_match = re.search(r"(?:PHASE_6_IMPLEMENT|DYNAMIC_COMPILE|修復|test).*?(?:預算|Budget|上限|attempts).*?(\d+)", section, re.IGNORECASE)
         
         if intent_match:
             budgets["INTENT_GATE"] = int(intent_match.group(1))

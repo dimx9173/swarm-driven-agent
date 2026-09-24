@@ -120,6 +120,31 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
             self.assertIn("State Hygiene Rollback Protocol", content, f"Missing State Hygiene Rollback in {rule_path}")
             self.assertIn("arXiv:2605.22166", content, f"Missing Life-Harness citation in {rule_path}")
 
+    def test_auto_advance_cascade_across_all_templates(self):
+        """Verifies AUTO_ADVANCE cascade no-stop semantics exist in every contract template."""
+        for rule_path in [self.rule_zh, self.rule_en, self.all_in_zh, self.all_in_en]:
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("AUTO_ADVANCE", content, f"Missing AUTO_ADVANCE in {rule_path}")
+            self.assertIn("Continuous Cascade", content, f"Missing Continuous Cascade section in {rule_path}")
+            self.assertNotIn("following seven iron rules", content,
+                             f"Anchor count not bumped to nine in {rule_path}")
+            self.assertNotIn("以下七條鐵律", content,
+                             f"Anchor count not bumped to nine in {rule_path}")
+            self.assertTrue("nine iron rules" in content or "九條鐵律" in content,
+                            f"Missing nine-rule preamble in {rule_path}")
+
+    def test_output_schemas_document_cascade(self):
+        """Verifies neither output-schema contract drifts: cascade section + AUTO_ADVANCE field."""
+        for schema_path in [
+            os.path.join(ROOT_DIR, "docs", "contracts", "output-schema.md"),
+            os.path.join(ROOT_DIR, "docs", "contracts", "output-schema-modular.md"),
+        ]:
+            with open(schema_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("AUTO_ADVANCE", content, f"Missing AUTO_ADVANCE in {schema_path}")
+            self.assertIn("Continuous Cascade", content, f"Missing cascade section in {schema_path}")
+
     def test_installed_local_omp_agent_integrity(self):
         """Verifies that if ~/.omp/agent/APPEND_SYSTEM.md exists, it matches the latest template version."""
         home_dir = os.path.expanduser("~")
@@ -129,7 +154,9 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
                 omp_content = f.read()
             with open(self.all_in_en, "r", encoding="utf-8") as f:
                 expected_content = f.read()
-            self.assertIn("version: 14.4.0-deterministic", omp_content)
+            m = re.search(r"^version: (.+)$", expected_content, re.MULTILINE)
+            self.assertIsNotNone(m, "ALL_IN_RULE.en.md is missing a version frontmatter line")
+            self.assertIn(f"version: {m.group(1)}", omp_content)
             self.assertIn("Three-Tier Topology Hierarchy", omp_content)
             self.assertIn("find_references", omp_content)
             self.assertIn("State Hygiene Rollback Protocol", omp_content)

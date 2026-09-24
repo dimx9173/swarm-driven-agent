@@ -41,7 +41,7 @@ swarm-driven-agent/
 │   └── telemetry.py # mock/real split metrics
 ├── swda-mcp/        # thin MCP bridge (only non-stdlib package): 4 stateless tools
 ├── template/
-│   ├── integrated/  # ALL_IN_RULE.{md,en.md} — single-file bundle (contract v14.4.0)
+│   ├── integrated/  # ALL_IN_RULE.{md,en.md} — single-file bundle (contract v14.5.0)
 │   └── modular/     # SOUL/RULE/SKILL (+ .en) — script-installed bundle
 ├── docs/
 │   ├── contracts/   # output-schema{,-modular}.md

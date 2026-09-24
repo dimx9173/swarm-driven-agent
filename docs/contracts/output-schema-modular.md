@@ -1,8 +1,8 @@
-# SWDD Modular Output Schema Contract v1.6.1
+# SWDD Modular Output Schema Contract v1.7.0
 
 > **用途**：本檔為 `template/modular/RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**，專供 **openclaw / hermes agent runtime** 使用。SOUL 應在每次大版本變更時同步更新本檔，並與 `SOUL.md` 的 swda-begin/end 標記區塊保持版本一致。
-> **生效日**：2026-08-14
-> **版本**：v1.6.1（同步 modular/RULE.md v2.13.0）
+> **生效日**：2026-09-25
+> **版本**：v1.7.0（同步 modular/RULE.md v2.14.0）
 > **與 integrated 套餐的關係**：本檔為 modular 套餐專屬，**不與 `output-schema.md`（integrated）共用**。兩者根標籤名稱與 FSM 轉移定義保持同步。
 
 ---
@@ -14,6 +14,25 @@
 1. **第一個非空字元**必須是某個允許的根標籤。
 2. 根標籤**閉合後**，必須緊接一行 `[NEXT_STATE: PHASE_NAME | Zero-Chat Contract Active]`（無空行、無前後綴）。`PHASE_NAME` 採用 RULE.md §5.1 定義的名稱（例：`PHASE_3_HYPERPLAN`）。
 3. 標籤外**任何字元**（包括空格、換行、Markdown 反引號、表情符號）皆屬違規。
+
+### 1.1 級聯輸出（Continuous Cascade / AUTO_ADVANCE）
+
+當 `INTENT_GATE` 判定 `AUTO_ADVANCE=True`（SWARM_MODE / LITE_MODE 預設）時，單輪輸出**必須**是連續多個「根標籤區塊 + 緊接一行 `[NEXT_STATE]`」單元的無縫串接：
+
+```
+<INTENT_GATE_RESULT>...</INTENT_GATE_RESULT>
+[NEXT_STATE: PHASE_1_DESTRUCT | Zero-Chat Contract Active]
+<DESTRUCT_RESULT>...</DESTRUCT_RESULT>
+[NEXT_STATE: PHASE_2_GATHER | Zero-Chat Contract Active]
+...（依 DAG 續推）
+```
+
+- 單元之間**不得**夾帶任何字元（空行、分隔線、說明文字皆違規），規則同 §1 第 3 條。
+- 每個階段區塊必須**完整**後方可進入下一階段；嚴禁預佔尚未完成前置階段的標籤。
+- `[NEXT_STATE]` 某行存在**不構成**停止輸出或交還控制權的理由。
+- **僅**下列情形可停止：(a) 輸出 `<ACTION_REALIZATION_BLOCK>`；(b) `[NEXT_STATE: HITL_SUSPEND]`；(c) 抵達 `PHASE_6_IMPLEMENT` 並輸出 `<TASK_SUMMARY_REPORT>`；(d) 執行軌道為 `FAST_PASS`。
+- 級聯**不**改變任何階段的預算計數、驗證閘門與工具權限。
+- `AUTO_ADVANCE=False` 時回復單階段輸出模式。
 
 ---
 
@@ -28,8 +47,8 @@ INTENT_CLASSIFICATION: [CASUAL_CHAT | QUICK_QUERY | FULL_REFACTOR | BUG_FIX | FE
 EXECUTION_TRACK: [FAST_PASS | LITE_MODE | SWARM_MODE]
 RESOURCE_LOCK_REQUIRED: [True | False]
 USE_SWARM_WORKFLOW: [True | False]
+AUTO_ADVANCE: [True | False]
 AUDITOR_SAFETY_STATUS: [PASSED | BLOCKED_INJECTION | RE_CLASSIFY]
-STRATEGY_TRACK: [描述分發子代理與審計子代理達成共識的調度路徑，FAST_PASS 填 Direct Response]
 </INTENT_GATE_RESULT>
 [NEXT_STATE: FAST_PASS_EXIT | LITE_MODE | PHASE_1_DESTRUCT | Zero-Chat Contract Active]
 ```

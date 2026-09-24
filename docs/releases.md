@@ -127,12 +127,14 @@ git describe --tags --exact-match
 **版本對應表（Integrated 套餐）：**
 | output-schema.md | ALL_IN_RULE.md |
 |---|---|
+| v1.7.0 | v14.5.0-deterministic |
 | v1.4.0 | v14.1.0-deterministic |
 | v1.3.2 | v14.0.0-deterministic |
 
 **版本對應表（Modular 套餐）：**
 | output-schema-modular.md | modular/RULE.md |
 |---|---|
+| v1.7.0 | v2.14.0-engineering-hardened |
 | v1.4.0 | v2.10.0-engineering-hardened |
 | v1.3.2 | v2.9.0-engineering-hardened |
 
