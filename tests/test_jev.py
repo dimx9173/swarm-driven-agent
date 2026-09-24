@@ -383,6 +383,30 @@ class TestJevRefereeArbitration(unittest.TestCase):
         with self.assertRaises(CircuitBreakerException):
             crucible.run_crucible("t")
 
+    @patch("swda.prime.jev.is_enabled", return_value=True)
+    @patch("swda.prime.jev.judge")
+    def test_use_jev_false_never_consults_judge(self, mock_judge, _enabled):
+        """use_jev=False keeps a run hermetic even with a Jev key configured:
+        the judge is never called, so a live verdict cannot deadlock a
+        deterministic/mock run (the --mock offline-smoke contract)."""
+        from swda.core.blackboard import Blackboard
+        from swda.prime.rlm import RLMDispatcher
+
+        def mock_llm(role, prompt):
+            if role == "referee":
+                return {"passed": True, "score": 9, "reason": "ok"}
+            return {"content": "p"}
+
+        seen = []
+        crucible = CrucibleWorkflow(rlm=RLMDispatcher(mock_handler=mock_llm),
+                                    blackboard=Blackboard(), max_rounds=3,
+                                    use_jev=False, on_round=seen.append)
+        res = crucible.run_crucible("t")
+        self.assertTrue(res.passed)
+        self.assertEqual(res.rounds_executed, 1)
+        mock_judge.assert_not_called()
+        self.assertFalse(seen[0]["jev_enabled"])
+
     def test_run_crucible_unchanged_when_disabled(self):
         # No env keys -> is_enabled() False -> arbitration skipped entirely.
         # urlopen is also patched so a stray .env key could never hit network here.
@@ -613,6 +637,35 @@ class TestJevCLIGate(unittest.TestCase):
                 rounds_executed=1, verdict={"score": 8}, proposal={})
             swda.cli.main()
         self.assertIsNone(mock_crucible.call_args.kwargs.get("on_round"))
+
+    def _run_main_capturing_crucible(self, argv):
+        import io
+        from contextlib import redirect_stdout
+        from unittest.mock import MagicMock, patch
+
+        import swda.cli
+        with patch.object(sys, "argv", argv), \
+                patch.object(swda.cli, "TelemetryLogger", MagicMock()), \
+                patch.object(swda.cli, "FSMEngine", MagicMock()), \
+                patch.object(swda.cli, "RLMDispatcher", MagicMock()), \
+                patch.object(swda.cli, "CrucibleWorkflow") as mock_crucible, \
+                patch("swda.workflows.tdd_runner.set_default_hooks"), \
+                redirect_stdout(io.StringIO()):
+            mock_crucible.return_value.run_crucible.return_value = MagicMock(
+                rounds_executed=1, verdict={"score": 8}, proposal={})
+            swda.cli.main()
+        return mock_crucible
+
+    def test_run_mock_forces_hermetic_crucible(self):
+        """`swda run --mock` promises an offline smoke run, so it must disable
+        Jev arbitration: a configured key would otherwise overturn the stub
+        verdicts and deadlock the Crucible."""
+        mock_crucible = self._run_main_capturing_crucible(["swda", "run", "t", "--mock"])
+        self.assertIs(mock_crucible.call_args.kwargs.get("use_jev"), False)
+
+    def test_run_without_mock_leaves_jev_auto(self):
+        mock_crucible = self._run_main_capturing_crucible(["swda", "run", "t"])
+        self.assertIsNone(mock_crucible.call_args.kwargs.get("use_jev"))
 
 
 class TestJevCLIIntent(unittest.TestCase):

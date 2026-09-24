@@ -81,7 +81,7 @@ class TestWorkflows(unittest.TestCase):
             return {}
 
         rlm = RLMDispatcher(mock_handler=mock_llm_handler)
-        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=3)
+        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=3, use_jev=False)
         res = crucible.run_crucible("Optimize database queries")
 
         self.assertTrue(res.passed)
@@ -156,7 +156,7 @@ class TestWorkflows(unittest.TestCase):
         bb = Blackboard()
         bb.as_role(AgentRole.BUILDER).write("active_proposal", {"spec": "x", "draft": True})
         rlm = RLMDispatcher(mock_handler=mock_garbage)
-        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=2)
+        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=2, use_jev=False)
         with self.assertRaises(CircuitBreakerException):
             crucible.run_crucible("task needing review")
     def test_reverse_reconciliation(self):

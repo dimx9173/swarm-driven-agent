@@ -77,6 +77,7 @@ class CrucibleWorkflow:
         step_counter: Optional[StepCounter] = None,
         max_rounds: int = 3,
         on_round: Optional[Any] = None,
+        use_jev: Optional[bool] = None,
     ):
         self.rlm = rlm
         self.blackboard = blackboard
@@ -86,6 +87,15 @@ class CrucibleWorkflow:
         # {round, passed, jev_enabled, jev_verdict, jev_score, jev_confidence,
         #  jev_error}. Default None = zero behavior change.
         self.on_round = on_round
+        # None = auto (arbitrate whenever a Jev key is configured). False forces
+        # the run hermetic, so offline/mock runs never call the live judge.
+        self.use_jev = use_jev
+
+    def _jev_active(self) -> bool:
+        """True when this run may consult the Jev judge."""
+        if self.use_jev is False:
+            return False
+        return jev.is_enabled()
 
     def run_crucible(self, task_spec: str, context: Optional[Dict[str, Any]] = None) -> CrucibleResult:
         """
@@ -146,7 +156,7 @@ class CrucibleWorkflow:
             )
             verdict = self._parse_verdict(raw_verdict, round_idx)
             jev_answers: Optional[Dict[str, Any]] = None
-            if jev.is_enabled() and verdict.get("passed"):
+            if self._jev_active() and verdict.get("passed"):
                 try:
                     jev_answers = jev.judge(
                         {
@@ -164,7 +174,7 @@ class CrucibleWorkflow:
                 self.on_round({
                     "round": round_idx,
                     "passed": bool(verdict.get("passed", False)),
-                    "jev_enabled": jev.is_enabled(),
+                    "jev_enabled": self._jev_active(),
                     "jev_verdict": (jev_answers or {}).get("pass"),
                     "jev_score": verdict.get("jev_score"),
                     "jev_confidence": verdict.get("jev_confidence"),

@@ -105,7 +105,7 @@ class TestEngineMockE2E(unittest.TestCase):
         bb = Blackboard()
         fsm = FSMEngine(bb)
         rlm = RLMDispatcher(mock_handler=_mock_rlm_handler)
-        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb)
+        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, use_jev=False)
 
         fsm.advance_to(FSMPhase.PHASE_2_GATHER)
         fsm.advance_to(FSMPhase.PHASE_3_HYPERPLAN)

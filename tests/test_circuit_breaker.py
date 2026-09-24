@@ -45,7 +45,7 @@ class TestCircuitBreaker(unittest.TestCase):
         shared = StepCounter()
         fsm = FSMEngine(bb, step_counter=shared)
         rlm = RLMDispatcher(mock_handler=lambda role, prompt: {"content": "x"} if role != "referee" else {"passed": True, "score": 8, "reason": "ok"})
-        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, step_counter=shared)
+        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, step_counter=shared, use_jev=False)
         self.assertIs(fsm.step_counter, crucible.step_counter)
 
         fsm.advance_to(FSMPhase.PHASE_2_GATHER)
@@ -74,7 +74,7 @@ class TestCircuitBreaker(unittest.TestCase):
         bb = Blackboard()
         shared = StepCounter()
         fsm = FSMEngine(bb, step_counter=shared)
-        crucible = CrucibleWorkflow(rlm=RLMDispatcher(mock_handler=handler), blackboard=bb, step_counter=shared)
+        crucible = CrucibleWorkflow(rlm=RLMDispatcher(mock_handler=handler), blackboard=bb, step_counter=shared, use_jev=False)
         fsm.advance_to(FSMPhase.PHASE_2_GATHER)
         fsm.advance_to(FSMPhase.PHASE_3_HYPERPLAN)
         bb.write(AgentRole.SYSTEM, "active_proposal", {"spec": "x", "draft": True})

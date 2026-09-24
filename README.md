@@ -200,7 +200,7 @@ swda stats                       # telemetry 儀表板（.swda/metrics.jsonl 聚
 swda verify-session <session.jsonl> [--mcp-json ...] [--contract ...] [--strict]  # 證明某 OMP session 真走過 harness（--strict：unverified 即失敗）
 swda run [--mock] [--json] "task desc"  # 走 GATHER→HYPERPLAN→CRUCIBLE→SYNTHESIS（真 LLM 需 .env；--json 给 CI）
 swda models                      # 列出 gateway live model ids
-python3 -m unittest discover -s tests  # 全套迴歸（目前 211 tests）
+python3 -m unittest discover -s tests  # 全套迴歸（目前 285 tests）
 ```
 
 ### 7c. 記憶 scope（local/global）
@@ -226,6 +226,7 @@ Pi 無 MCP client（實測其 binary 全文零 `mcp` 字串），`register_swda_
 ### 8. 常見問題
 - `APPEND_SYSTEM.md` 異常變大（如破千行）→ 舊版堆疊殘留，重跑一次 `swda update -y` 即 dedup 為單份（~300 行）；見 `tests/test_effectiveness.py`。
 - `swda run` 真 LLM 很慢 → 正常：1 輪 Crucible = builder/destroyer/referee 共 3 次 gateway call，最多 3 輪；先用 `--mock` 驗流程。
+- `--mock` 是 hermetic 的：不呼叫真 LLM，也**完全不呼叫 Jev**（即使 `JEV_API_KEY` 已設）。否則真 Jev 會否決 stub 的 `passed`，導致 3 輪後 `HITL_SUSPEND`。要在真跑時跳過 Jev 仲裁，用 `CrucibleWorkflow(use_jev=False)`。
 
 ---
 

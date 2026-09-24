@@ -239,7 +239,10 @@ def cmd_jev_intent(args):
 def cmd_run(args):
     """Runs a task through the SWDD lifecycle with Crucible review."""
     print(f"Starting SWDA autonomous execution for task: {args.task}")
-    _print_jev_banner()
+    if getattr(args, "mock", False):
+        print("Jev: OFF (hermetic --mock run; live judge never consulted)")
+    else:
+        _print_jev_banner()
     telemetry = TelemetryLogger()
     telemetry.start_span("full_run")
 
@@ -256,9 +259,13 @@ def cmd_run(args):
         default_model=getattr(args, "model", None),
         mock_handler=_mock_rlm_handler if getattr(args, "mock", False) else None,
     )
+    # --mock promises an offline smoke run, so it must never reach the live Jev
+    # judge; a configured JEV_API_KEY would otherwise overturn the stub verdicts
+    # and deadlock the Crucible.
     crucible = CrucibleWorkflow(
         rlm=rlm, blackboard=blackboard, step_counter=step_counter,
         on_round=_jev_round_reporter() if getattr(args, "verbose", False) else None,
+        use_jev=False if getattr(args, "mock", False) else None,
     )
 
     try:
