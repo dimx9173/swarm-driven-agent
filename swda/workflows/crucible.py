@@ -5,42 +5,71 @@ Executes Builder vs. Destroyer vs. Referee inside an RLM loop, bounded by circui
 
 import json
 import re
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from swda.core.blackboard import Blackboard, AgentRole
 from swda.core.circuit_breaker import StepCounter, CircuitBreakerException
 from swda.prime import jev
 from swda.prime.rlm import RLMDispatcher
 
 
+_PASS_TOKENS = frozenset({"pass", "yes", "true"})
+_FAIL_TOKENS = frozenset({"fail", "no", "false"})
+
+
+def _classify_jev_answer(answer: Optional[dict]) -> Tuple[str, str]:
+    """Three-valued classification of the Jev 'pass' answer.
+
+    Returns (action, reason_code) with action in {"support", "contest",
+    "abstain"}: abstain covers missing, malformed, low-confidence (escalated)
+    and unsure answers, so a degraded or flaky judge can never move a
+    verdict. Uses only signals the model already emits (answer, noul,
+    escalate) — no new threshold machinery.
+    """
+    if not answer:
+        return "abstain", "missing_answer"
+    raw = str(getattr(answer, "answer", "")).strip().lower()
+    recognized = raw in _PASS_TOKENS or raw in _FAIL_TOKENS or raw == "unsure"
+    noul: Optional[float] = None
+    if not recognized:
+        try:
+            noul = float(raw)  # check() primitive answers with a 0.0-1.0 float
+        except ValueError:
+            return "abstain", "malformed_answer"
+    if getattr(answer, "escalate", False) is True:
+        return "abstain", "low_confidence"
+    if raw in _PASS_TOKENS:
+        return "support", "choice_yes"
+    if raw in _FAIL_TOKENS:
+        return "contest", "choice_no"
+    if noul is not None:
+        if noul >= 0.5:
+            return "support", "noul_above_threshold"
+        return "contest", "noul_below_threshold"
+    return "abstain", "unsure_no_escalate"  # well-formed "unsure" below the confidence gate
+
+
 def _arbitrate_verdict(verdict: Dict[str, Any], jev_answers: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Applies Jev arbitration: fail closed ONLY when Jev actively disagrees
-    with an LLM-passed verdict. An LLM-failed verdict stays failed; empty or
-    unreachable Jev never changes the verdict.
+    Applies Jev arbitration: fail closed ONLY when Jev actively and confidently
+    disagrees with an LLM-passed verdict. Support and abstain (missing,
+    malformed, or escalated/low-confidence answers) return the original
+    verdict object unchanged; an LLM-failed verdict stays failed.
     """
     if not jev_answers:
         return verdict
     answer = jev_answers.get("pass")
-    if answer is None:
-        return verdict
-    raw = str(getattr(answer, "answer", "")).strip().lower()
-    if raw in ("pass", "yes", "true"):
-        jev_passed: Optional[bool] = True
-    elif raw in ("fail", "no", "false"):
-        jev_passed = False
-    else:
-        try:  # noul primitive answers with a 0.0-1.0 float
-            jev_passed = float(raw) >= 0.5
-        except ValueError:
-            jev_passed = None
-    if jev_passed is None or not verdict.get("passed") or jev_passed:
+    action, reason_code = _classify_jev_answer(answer)
+    if action != "contest" or not verdict.get("passed"):
         return verdict
     outcome = dict(verdict)
+    raw = str(getattr(answer, "answer", "")).strip().lower()
     try:
         outcome["jev_score"] = float(raw)  # noul 0.0-1.0 pass probability
     except ValueError:
-        outcome["jev_score"] = 1.0 if jev_passed else 0.0
+        outcome["jev_score"] = 0.0
     outcome["jev_confidence"] = getattr(answer, "confidence", None)
+    outcome["jev_action"] = action
+    outcome["jev_reason"] = reason_code
     outcome["passed"] = False
     base = str(verdict.get("reason", ""))
     suffix = " | Jev disagreed with the pass verdict - LLM re-review required."

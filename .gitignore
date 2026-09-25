@@ -36,3 +36,4 @@ dist/
 
 # Local reviewer drafts (claude/codex critique artifacts)
 local/
+temp
