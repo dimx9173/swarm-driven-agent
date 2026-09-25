@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="swda",
-    version="3.5.3",
+    version="3.5.4",
     packages=find_packages(),
     py_modules=["installer"],
     entry_points={

@@ -56,6 +56,7 @@ SWDA_TOOL_NAMES = (
     "swda_firewall_audit",
     "swda_stats",
     "swda_models",
+    "swda_judge",
 )
 
 FSM_TAGS = (
