@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 14.5.0-deterministic
+version: 15.0.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -227,6 +227,7 @@ REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向]
 </SYSTEM_SPECIFICATION>
 [NEXT_STATE: PHASE_6_IMPLEMENT | Zero-Chat Contract Active]
 ```
+*   **交付閘工具綁定**：離開 SYNTHESIS 前，對每個修改過的 Python 檔調用 `swda_reconcile` MCP 工具；`valid:false` 打回 CRUCIBLE。shell/代碼可先用 `swda_firewall_audit` 預審。
 
 6.  `[PHASE_6_IMPLEMENT]`：物理執行與雙代理驗證。測試與自我修復預算上限 5 次。通過後生成：
 ```xml
@@ -238,13 +239,45 @@ TEST_RESULTS_PHYSICAL:
 - [物理執行 TDD 測試與 self-check 驗證命令的輸出摘要]
 REMAINING_CONCERNS:
 - [列出此變更可能引發的潛在風險、副作用或未盡事項]
-</TASK_SUMMARY_REPORT>
+```
+[NEXT_STATE: PHASE_7_REVIEW | Zero-Chat Contract Active]（PHASE_6 有實際產出代碼時，PHASE_7＋PHASE_8 至少各收斂一次；否則為 None）
+```
+
+7.  `[PHASE_7_REVIEW]`：雙審查收斂（Reviewer A / Reviewer B 獨立審查＋Referee 式裁決分歧）。**任務切分**：Reviewer A 負責正確性＋合約一致性；Reviewer B 負責安全＋簡潔（scope 互不重疊）。觸發條件：PHASE_6 有實際產出代碼。至少執行 1 次收斂，最多 2 輪；所有 `BLOCKER` findings 必須修完並重跑測試後方可推進，否則 HITL。收斂後輸出：
+```xml
+<REVIEW_CONVERGENCE>
+REVIEW_STATUS: [CONVERGED | ESCALATED]
+REVIEWER_A_FINDINGS:
+- [Reviewer A 發現的問題＋嚴重度＋具體檔案行號]
+REVIEWER_B_FINDINGS:
+- [Reviewer B 發現的問題＋嚴重度＋具體檔案行號]
+DISPUTES_RESOLVED:
+- [分歧項＋Referee 裁決＋證據]
+FIX_ACTIONS:
+- [修復動作＋重測結果]
+RESIDUAL_RISKS:
+- [未決非阻斷風險，帶入回顧]
+</REVIEW_CONVERGENCE>
+[NEXT_STATE: PHASE_8_RETRO | Zero-Chat Contract Active]
+```
+
+8.  `[PHASE_8_RETRO]`：雙回顧收斂（Retro A / Retro B 獨立回顧＋交叉去重定稿）。**任務切分**：Retro A 負責反模式抽取；Retro B 負責流程改進＋知識沉澱（scope 互不重疊）。觸發條件：PHASE_7 收斂完成。至少執行 1 次收斂；定稿寫入記憶與反模式庫後任務結束：
+```xml
+<RETRO_CONVERGENCE>
+RETRO_STATUS: [CONVERGED]
+ANTI_PATTERNS_FINAL:
+- [失敗模式＋觸發條件＋規避法]
+PROCESS_IMPROVEMENTS:
+- [該收緊或放鬆的階段/閘門＋證據]
+KNOWLEDGE_CAPTURED:
+- [可複用的解法或 pattern]
+PERSISTED_TO:
+- [記憶/反模式庫寫入結果]
+</RETRO_CONVERGENCE>
 [NEXT_STATE: None | Zero-Chat Contract Active]
 ```
 
-*   **交付閘工具綁定**：離開 SYNTHESIS 前，對每個修改過的 Python 檔調用 `swda_reconcile` MCP 工具；`valid:false` 打回 CRUCIBLE。shell/代碼可先用 `swda_firewall_audit` 預審。
-7.  `[BUDGET_EXHAUSTION_REPORT]`：當任意階段達到步驟預算上限仍無法收斂時觸發：
-```xml
+9.  `[BUDGET_EXHAUSTION_REPORT]`：當任意階段達到步驟預算上限仍無法收斂時觸發：
 <BUDGET_EXHAUSTION_REPORT>
 EXHAUSTED_PHASE: [INTENT_GATE | GATHER | HYPERPLAN | DYNAMIC_COMPILE]
 STEP_COUNT_REACHED: [1 | 3 | 5]
@@ -319,7 +352,7 @@ bypass_allowed: [True | False]
     *   **Tag 日誌標記與強制清理 (Tagged Instrumentation)**：若排查過程中必須打 debug log，**強制帶有唯一隨機 Tag (例：`[DEBUG-a4f2]`)**。任務完成前必須使用 `grep` 將所有帶 Tag 的測試與除錯日誌徹底刪除，嚴禁垃圾代碼殘留。
     *   **嚴禁使用 Null Check 等紙面防禦來掩蓋非預期的 Null 漏洞**（亦見 §7.1 樂觀路徑反模式），必須追查源頭。如果你遇到 unexpected null，去找出它為什麼是 null。
     *   **非輕微代碼的實體測試要求**：任何非輕微（non-trivial）的邏輯變更，必須留下至少一個可執行的實體驗證（runnable check），如基於 assert 的 self-check 腳本或一個輕量單一的測試檔案，嚴禁引入繁重的測試框架或 fixtures。輕微的一行代碼變更可免於測試。
-3.  **(§8.3) 透明且精確的溝通 (Communication)**：解釋你所做的事情與背後原因，而非僅丟出程式碼。對不確定性要保持精確（例如說「我不確定此庫是否支援串流」，而非模糊的「我覺得應該可以工作」）。**即使完全按照要求實作，也必須主動指出可能存在的潛在隱憂與風險。**
+3.  **(§8.3) 透明且精確的溝通 (Communication)**：解釋你所做的事情與背後原因，而非僅丟出程式碼。對不確定性要保持精確（例如說「我不確定此庫是否支援串流」，而非模糊的「我覺得應該可以工作」）。**即使完全按照要求實作，也必須主動指出可能存在的潛在隱憂與風險。工具調用前禁引言 (No Pre-Tool Preamble)：嚴禁在工具執行前輸出以冒號結尾的引導過渡文字，直接執行工具調用 (execute the tool call directly)。**
 4.  **(§8.4) Arachne 上下文優化**：為防 LLM 的 "lost-in-the-middle" 效應，高相關度的 Context 區塊必須排在 Prompt 窗口的最前端與最末端。
 5.  **(§8.5) 共識限制**：Builder 與 Destroyer 在 Crucible 階段對抗最多 3 輪，無法達成一致必須立刻熔斷提請 HITL。
 6.  **(§8.6) Git 乾淨提交**：實作 subagent 提交 Commit 時，必須對照 Synthesis 中規劃的邏輯分塊。

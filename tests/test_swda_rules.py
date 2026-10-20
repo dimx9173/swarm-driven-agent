@@ -134,6 +134,41 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
             self.assertTrue("nine iron rules" in content or "九條鐵律" in content,
                             f"Missing nine-rule preamble in {rule_path}")
 
+    def test_no_pre_tool_preamble_clause_across_all_templates(self):
+        """Verifies the no-pre-tool-preamble constraint exists in every contract template."""
+        for rule_path in [self.rule_zh, self.rule_en, self.all_in_zh, self.all_in_en]:
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("pre-tool preamble", content.lower(),
+                            f"Missing no-pre-tool-preamble clause in {rule_path}")
+            self.assertIn("execute the tool call directly", content.lower(),
+                            f"Missing direct-execution directive in {rule_path}")
+
+    def test_phase7_review_and_phase8_retro_across_all_templates(self):
+        """Verifies PHASE_7 dual-review and PHASE_8 dual-retro exist in every contract template."""
+        for rule_path in [self.rule_zh, self.rule_en, self.all_in_zh, self.all_in_en]:
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("PHASE_7_REVIEW", content, f"Missing PHASE_7_REVIEW in {rule_path}")
+            self.assertIn("PHASE_8_RETRO", content, f"Missing PHASE_8_RETRO in {rule_path}")
+        # XML convergence blocks live in the integrated templates (modular RULE defers to SKILL/schema)
+        for rule_path in [self.all_in_zh, self.all_in_en]:
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("REVIEW_CONVERGENCE", content, f"Missing REVIEW_CONVERGENCE in {rule_path}")
+            self.assertIn("RETRO_CONVERGENCE", content, f"Missing RETRO_CONVERGENCE in {rule_path}")
+        # Task Breakdown: A/B non-overlapping scopes locked in SKILL + integrated hooks
+        scope_markers = ["Reviewer A", "Reviewer B", "Retro A", "Retro B"]
+        for skill_path in [
+            os.path.join(MODULAR_DIR, "SKILL.md"),
+            os.path.join(MODULAR_DIR, "SKILL.en.md"),
+        ]:
+            with open(skill_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            for marker in scope_markers:
+                self.assertIn(marker, content, f"Missing {marker} scope in {skill_path}")
+            self.assertIn("Task Breakdown", content, f"Missing Task Breakdown in {skill_path}")
+
     def test_output_schemas_document_cascade(self):
         """Verifies neither output-schema contract drifts: cascade section + AUTO_ADVANCE field."""
         for schema_path in [

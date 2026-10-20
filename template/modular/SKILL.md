@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - 多代理協同開發框架
 description: 一個用於高質量軟體工程的多代理群體智能工作流程。具有並行規劃、對抗式規格審查（熔爐 Crucible）以及規格驅動實作的特點。
-version: 2.8.0-self-evolving
+version: 3.0.0-self-evolving
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL 認知引擎運行時: [SOUL.md](SOUL.md)"
@@ -64,6 +64,17 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
     *   **代碼開發子代理 (Developer - 極致微創簡潔)**：嚴格遵循 §2.3 極簡階梯，在嚴禁修改測試腳本的前提下，編寫最小可用業務代碼以通過所有測試 (Green State)。
 4.  **審查與驗證 (Reviewer)**：審查測試覆蓋率與代碼簡潔度，測試失敗則自動修復（重試上限 3 次，超限則觸發 HITL 介入）。**強制掃描並清理所有 `[DEBUG-xxxx]` 偵錯日誌標籤，確認無除錯垃圾殘留後方可通過。**
 
+### PHASE 7: REVIEW（雙審查收斂）
+凡 PHASE_6 有實際產出代碼（非純文檔任務），必須執行至少一次雙審查收斂：
+1.  **雙審查子代理 (Reviewer A / Reviewer B)**：兩個審查子代理在隔離上下文中獨立審查 PHASE_6 產出，維度：正確性（邏輯是否符合 SPEC）、合約一致性（介面/副作用是否偏離藍圖）、安全（注入/越權/敏感外洩）、簡潔（§2.3/§2.4 是否違規）。各自輸出 findings 清單（問題＋嚴重度＋具體檔案行號）。**任務切分 (Task Breakdown)**：Reviewer A 負責正確性＋合約一致性；Reviewer B 負責安全＋簡潔。兩 scope 互不重疊，防範確認偏見與重複 findings。
+2.  **收斂 (Convergence)**：兩份 findings 交叉比對——共識項直接採納；分歧項由 Referee 式裁決（證據＋Rubric＋Occam's Razor），不得和稀泥。所有 `BLOCKER` 級 findings 必須修完並重跑測試後再審一輪；收斂上限 2 輪，仍未收斂觸發 HITL。
+3.  **輸出**：`<REVIEW_CONVERGENCE>`（審查結論＋採納項＋修復動作＋殘留風險），作為 PHASE_8 的輸入。
+
+### PHASE 8: RETRO（雙回顧收斂）
+PHASE_7 收斂完成後，必須執行至少一次雙回顧收斂：
+1.  **雙回顧子代理 (Retro A / Retro B)**：兩個回顧子代理獨立回顧本次任務全軌跡，維度：反模式抽取（失敗模式＋觸發條件＋規避法）、流程改進點（哪個階段浪費最多步數/哪個閘門該收緊或放鬆）、知識沉澱（可複用的解法/pattern）。**任務切分 (Task Breakdown)**：Retro A 負責反模式抽取；Retro B 負責流程改進點＋知識沉澱。兩 scope 互不重疊。
+2.  **收斂 (Convergence)**：交叉去重合併成定稿——重複項合併、矛盾項以證據裁決、無法證實的觀察標記 `<UNCERTAIN>` 而非丟棄。定稿寫入記憶與反模式庫（`mempalace_kg_add` / `mempalace_search`，降級為 `docs/anti-patterns/` YAML）。
+3.  **輸出**：`<RETRO_CONVERGENCE>`（定稿反模式＋流程改進＋知識沉澱），任務至此結束。
 ---
 
 ## 3. 何時啟用 SWDD

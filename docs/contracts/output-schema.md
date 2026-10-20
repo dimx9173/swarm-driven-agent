@@ -1,8 +1,8 @@
-# SWDD Output Schema Contract v1.7.0
+# SWDD Output Schema Contract v2.0.0
 
 > **用途**：本檔為 `template/integrated/ALL_IN_RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**。SOUL 在每次大版本變更時必須同步更新本檔。
 > **生效日**：2026-09-25
-> **版本**：v1.7.0（同步 ALL_IN_RULE.md v14.5.0）
+> **版本**：v2.0.0（同步 ALL_IN_RULE.md v15.0.0）
 
 ---
 
@@ -29,7 +29,7 @@
 - 單元之間**不得**夾帶任何字元（空行、分隔線、說明文字皆違規），規則同 §1 第 3 條。
 - 每個階段區塊必須**完整**（內部欄位齊備）後方可進入下一階段；嚴禁預佔尚未完成前置階段的標籤。
 - `[NEXT_STATE]` 某行存在**不構成**停止輸出或交還控制權的理由。
-- **僅**下列情形可停止並交還控制權：(a) 輸出 `<ACTION_REALIZATION_BLOCK>`；(b) `[NEXT_STATE: HITL_SUSPEND]`；(c) 抵達 `PHASE_6_IMPLEMENT` 並輸出 `<TASK_SUMMARY_REPORT>`；(d) 執行軌道為 `FAST_PASS`。
+- **僅**下列情形可停止並交還控制權：(a) 輸出 `<ACTION_REALIZATION_BLOCK>`；(b) `[NEXT_STATE: HITL_SUSPEND]`；(c) 抵達 `PHASE_8_RETRO` 並輸出 `<RETRO_CONVERGENCE>`（無實作任務則抵達 `PHASE_6_IMPLEMENT` 並輸出 `<TASK_SUMMARY_REPORT>`）；(d) 執行軌道為 `FAST_PASS`。
 - 級聯**不**改變任何階段的預算計數、驗證閘門與工具權限；亦不得用以規避預算或跳過閘門。
 - `AUTO_ADVANCE=False` 時回復單階段輸出模式：每輪僅輸出一個根標籤區塊即結束該輪。
 
@@ -37,7 +37,7 @@
 
 ## 2. 允許的根標籤與內部結構（Allowed Root Tags & Inner Fields）
 
-為確保小模型在長上下文或低難度推理下依然能精確輸出結構，以下為 7 個核心 XML 標籤的內部結構定義。你必須嚴格遵守以下結構與欄位名稱：
+為確保小模型在長上下文或低難度推理下依然能精確輸出結構，以下為 9 個核心 XML 標籤的內部結構定義。你必須嚴格遵守以下結構與欄位名稱：
 
 ### 2.1 `<INTENT_GATE_RESULT>` (意圖與執行軌道分析)
 ```xml
@@ -153,4 +153,38 @@ REMAINING_RISKS: [條列說明未決死角或未通過之測試斷言]
 HITL_DIRECTIVE: [提請人類工程師決策之具體選擇題與處置建議]
 </BUDGET_EXHAUSTION_REPORT>
 [NEXT_STATE: HITL_SUSPEND | Budget Exhausted]
+```
+
+### 2.9 `<REVIEW_CONVERGENCE>` (雙審查收斂)
+```xml
+<REVIEW_CONVERGENCE>
+REVIEW_STATUS: [CONVERGED | ESCALATED]
+REVIEWER_A_FINDINGS:
+- [Reviewer A 發現的問題＋嚴重度＋具體檔案行號]
+REVIEWER_B_FINDINGS:
+- [Reviewer B 發現的問題＋嚴重度＋具體檔案行號]
+DISPUTES_RESOLVED:
+- [分歧項＋Referee 裁決＋證據]
+FIX_ACTIONS:
+- [修復動作＋重測結果]
+RESIDUAL_RISKS:
+- [未決非阻斷風險，帶入回顧]
+</REVIEW_CONVERGENCE>
+[NEXT_STATE: PHASE_8_RETRO | Zero-Chat Contract Active]
+```
+
+### 2.10 `<RETRO_CONVERGENCE>` (雙回顧收斂)
+```xml
+<RETRO_CONVERGENCE>
+RETRO_STATUS: [CONVERGED]
+ANTI_PATTERNS_FINAL:
+- [失敗模式＋觸發條件＋規避法]
+PROCESS_IMPROVEMENTS:
+- [該收緊或放鬆的階段/閘門＋證據]
+KNOWLEDGE_CAPTURED:
+- [可複用的解法或 pattern]
+PERSISTED_TO:
+- [記憶/反模式庫寫入結果]
+</RETRO_CONVERGENCE>
+[NEXT_STATE: None | Zero-Chat Contract Active]
 ```

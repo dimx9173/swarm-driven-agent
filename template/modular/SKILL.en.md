@@ -1,7 +1,7 @@
 ---
 title: Swarm-Driven Development (SWDD) - Universal Framework
 description: A multi-agent swarm intelligence workflow for high-quality software engineering. Features parallel planning, adversarial specification review (Crucible), and spec-driven implementation.
-version: 2.8.0-self-evolving
+version: 3.0.0-self-evolving
 tags: [orchestration, swarm-intelligence, workflow, architecture, quality-assurance, multi-agent]
 related:
   - "SOUL Engine Runtime: [SOUL.md](../../SOUL.md)"
@@ -64,6 +64,17 @@ Encapsulate the Crucible-approved consensus into design documentation and implem
     *   **Developer Subagent (Minimalist Surgical Implementation)**: Strictly adhere to §2.3 Simplicity Rungs, writing minimal viable production code to pass all tests (Green State) without modifying the test script.
 4.  **Review & Verification (Reviewer)**: Review test coverage and code simplicity. If tests fail, run auto-debug (up to 3 retries, then escalate to HITL). **Mandatory scan to purge all `[DEBUG-xxxx]` debug instrumentation tags; verify zero debug cruft remains before passing.**
 
+### PHASE 7: REVIEW (Dual-Review Convergence)
+Whenever PHASE_6 produced actual code (any non-documentation task), run at least one dual-review convergence:
+1.  **Dual Reviewer Subagents (Reviewer A / Reviewer B)**: Two reviewer subagents independently review the PHASE_6 output in isolated contexts along four dimensions: correctness (logic matches SPEC), contract conformance (interfaces/side effects match blueprint), security (injection/privilege-escalation/sensitive leaks), simplicity (§2.3/§2.4 violations). Each outputs its own findings list (issue + severity + exact file:line). **Task Breakdown**: Reviewer A covers correctness + contract conformance; Reviewer B covers security + simplicity. The two scopes are non-overlapping to prevent confirmation bias and duplicate findings.
+2.  **Convergence**: Cross-compare both findings — consensus items adopted directly; disputed items decided Referee-style (evidence + Rubric + Occam's Razor), no invalid compromise. All `BLOCKER` findings must be fixed and re-tested before a second review round; convergence capped at 2 rounds, then HITL.
+3.  **Output**: `<REVIEW_CONVERGENCE>` (verdict + adopted items + fix actions + residual risks), feeding PHASE_8.
+
+### PHASE 8: RETRO (Dual-Retrospective Convergence)
+After PHASE_7 converges, run at least one dual-retrospective convergence:
+1.  **Dual Retro Subagents (Retro A / Retro B)**: Two retro subagents independently review the full task trajectory along three dimensions: anti-pattern extraction (failure mode + trigger + avoidance), process improvements (which phase wasted steps / which gate to tighten or loosen), knowledge capture (reusable solutions/patterns). **Task Breakdown**: Retro A covers anti-pattern extraction; Retro B covers process improvements + knowledge capture. The two scopes are non-overlapping.
+2.  **Convergence**: Cross-deduplicate into a final record — merge duplicates, decide contradictions by evidence, mark unverifiable observations `<UNCERTAIN>` rather than dropping them. Persist the final record to memory and the anti-pattern store (`mempalace_kg_add` / `mempalace_search`, falling back to `docs/anti-patterns/` YAML).
+3.  **Output**: `<RETRO_CONVERGENCE>` (final anti-patterns + process improvements + knowledge captured); the task ends here.
 ---
 
 ## 3. When to Enable SWDD

@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 2.14.0-engineering-hardened
+version: 3.0.0-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -111,7 +111,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
     - **三層級執行軌道 (Execution Tracks)**：
       - `FAST_PASS`：純問候（如 "hi"）、社交寒暄或無代碼變更之諮詢。不調度子代理與對抗熔爐，直接精確回覆。
       - `LITE_MODE`：經「多樣性路由」驗證的低多樣性工作。跳過 PHASE_1~3，直接進入 PHASE_5 SYNTHESIS 與實體驗證。
-      - `SWARM_MODE`：觸發完整 5-Phase SWDD 狀態機；名單與熔爐權重依多樣性路由決定。
+      - `SWARM_MODE`：觸發完整 7-Phase SWDD 狀態機；名單與熔爐權重依多樣性路由決定。凡 PHASE_6 有實際產出代碼，必須續跑 PHASE_7（雙審查收斂）與 PHASE_8（雙回顧收斂）各至少一次。
       - **連續級聯 (Continuous Cascade / AUTO_ADVANCE)**：`SWARM_MODE` 與 `LITE_MODE` 預設 `AUTO_ADVANCE=True`（使用者明示「一步一步」、「每步確認」時改為 False；`FAST_PASS` 一律 False）。語意：同一輪對話內連續輸出多個階段區塊，**不得**在中途停下等待使用者輸入；終止條件僅有 §0 條目 9 所列四種。此欄位只改變「何時交還控制權」，不改變任何階段的預算、驗證閘門或工具權限。
     - **多樣性路由 (Diversity Routing)**：評 `AMBIGUITY_WIDTH`（合併信號：歧義幾乎必然伴隨解空間寬）、`RISK`（做錯的代價）、`IRREVERSIBILITY_SCOPE`（影響面+回滾成本；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單**）、`VERIFIABILITY`（有便宜 oracle？）。硬地板：觸點清單 ⇒ Destroyer + Referee 至少最低權重，永不可關。LITE 需四維全低**且**已落實至少一個便宜反證物（測試/重現/測量）。視角表：重構→Alpha+Gamma+Builder；安全→Beta+Destroyer+Referee 且 Gamma 保留查 prior art；無重現性能→Alpha+Beta+Builder 提前+Destroyer；選型/POC→Gamma+Referee+Builder spike+Destroyer 威脅建模。第 1 輪後 Referee 可修訂熔爐權重一次。
 ```xml
@@ -129,9 +129,10 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
 2.  `[PHASE_1_DESTRUCT]` & `[PHASE_2_GATHER]`：降維拆解與資訊探測。預算上限 3 步。若達 3 步仍未收集完畢，強制使用既存資訊進入 PHASE_3。
 3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**【自適應技能學習閘】你必須主動比對當前任務技術特徵與 `.agents/skills/` 下既存技能，若缺乏則調用 discover/learn，最多嘗試 1 次。**
 4.  `[PHASE_3_HYPERPLAN]`：方案對抗熔爐 (Builder vs. Destroyer)，由 Referee 進行 Rubric 評分與熔斷判定。對抗預算上限 3 輪。第 3 輪若無共識強制由 Referee 取最高分方案進 Phase 5。
-5.  `[PHASE_5_SYNTHESIS]`：共識昇華，輸出規格驅動與測試驅動 (TDD) 的實作藍圖合約。
-6.  `[PHASE_6_IMPLEMENT]`：物理執行閘道，依據 TDD 契約進行雙代理沙箱實作與驗證。測試與自我修復預算上限 5 次。
-7.  `[BUDGET_EXHAUSTION_REPORT]`：預算耗盡報告標籤，當任意階段達步驟上限無法收斂時輸出並轉移至 `[NEXT_STATE: HITL_SUSPEND]`。
+5.  `[PHASE_6_IMPLEMENT]`：物理執行閘道，依據 TDD 契約進行雙代理沙箱實作與驗證。測試與自我修復預算上限 5 次。
+6.  `[PHASE_7_REVIEW]`：雙審查收斂（Reviewer A / Reviewer B 獨立審查＋Referee 式裁決分歧）。觸發條件：PHASE_6 有實際產出代碼。至少執行 1 次收斂，最多 2 輪；`BLOCKER` findings 未清零不得進入 PHASE_8，超限觸發 HITL。
+7.  `[PHASE_8_RETRO]`：雙回顧收斂（Retro A / Retro B 獨立回顧＋交叉去重定稿）。觸發條件：PHASE_7 收斂完成。至少執行 1 次收斂；定稿寫入記憶與反模式庫後任務結束。
+8.  `[BUDGET_EXHAUSTION_REPORT]`：預算耗盡報告標籤，當任意階段達步驟上限無法收斂時輸出並轉移至 `[NEXT_STATE: HITL_SUSPEND]`。
 
 ### 5.2 實體執行三層守門機制
 *   **執行前閘道 (Action Realization Gate)**：派發前預檢 Spec 規格、TDD 失敗腳本以及 `<ANCHORED_MEMORY_AND_CONTEXT>` 記憶包完整性。不符則 Block 回退，回退上限 2 次，超限觸發人類 (HITL) 介入。
@@ -160,6 +161,8 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
 *   **PHASE_1 & PHASE_2 預算**：最多 3 步。若 3 步內資訊未收集完整，強制暫停探測，使用已知資訊轉移至 PHASE_3。
 *   **PHASE_3 預算**：對抗上限 5 輪。若第 3 輪 Builder 與 Destroyer 仍無法達成一致，強制終止對抗，由 Referee 取最高分方案推進至 PHASE_5。
 *   **PHASE_6_IMPLEMENT 預算**：測試修復上限 5 次。若第 5 次測試仍失敗，強制終止修復並觸發 Rollback。
+*   **PHASE_7_REVIEW 預算**：收斂上限 2 輪。若第 2 輪仍有未決 `BLOCKER` findings，觸發 HITL。
+*   **PHASE_8_RETRO 預算**：收斂 1 次即可；定稿寫入記憶庫失敗不阻塞任務結束，僅記錄殘留風險。
 *   **熔斷回應**：任何階段達到預算上限時，必須輸出 `<BUDGET_EXHAUSTION_REPORT>` 並轉移至 `[NEXT_STATE: HITL_SUSPEND]` 提請人類工程師接管。
 *   **級聯與預算的關係**：預算以「階段」為單位計數，單輪級聯推進**不**額外消耗預算，亦**不**構成停止點；只有階段自身達上限才觸發熔斷。反之，級聯模式**不得**被用來規避預算、跳過驗證閘門或預佔尚未完成的前置階段。
 
@@ -181,7 +184,7 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
     *   **Tag 日誌標記與強制清理 (Tagged Instrumentation)**：若排查過程中必須打 debug log，**強制帶有唯一隨機 Tag (例：`[DEBUG-a4f2]`)**。任務完成前必須使用 `grep` 將所有帶 Tag 的測試與除錯日誌徹底刪除，嚴禁垃圾代碼殘留。
     *   **嚴禁使用 Null Check 等紙面防禦來掩蓋非預期的 Null 漏洞**（亦見 §7.1 樂觀路徑反模式），必須追查源頭。如果你遇到 unexpected null，去找出它為什麼是 null。
     *   **非輕微代碼的實體測試要求**：任何非輕微（non-trivial）的邏輯變更，必須留下至少一個可執行的實體驗證（runnable check），如基於 assert 的 self-check 腳本或一個輕量單一的測試檔案，嚴禁引入繁重的測試框架或 fixtures。輕微的一行代碼變更可免於測試。
-3.  **(§8.3) 透明且精確的溝通 (Communication)**：解釋你所做的事情與背後原因，而非僅丟出程式碼。對不確定性要保持精確（例如說「我不確定此庫是否支援串流」，而非模糊的「我覺得應該可以工作」）。**即使完全按照要求實作，也必須主動指出可能存在的潛在隱憂與風險。**
+3.  **(§8.3) 透明且精確的溝通 (Communication)**：解釋你所做的事情與背後原因，而非僅丟出程式碼。對不確定性要保持精確（例如說「我不確定此庫是否支援串流」，而非模糊的「我覺得應該可以工作」）。**即使完全按照要求實作，也必須主動指出可能存在的潛在隱憂與風險。工具調用前禁引言 (No Pre-Tool Preamble)：嚴禁在工具執行前輸出以冒號結尾的引導過渡文字，直接執行工具調用 (execute the tool call directly)。**
 4.  **(§8.4) Arachne 上下文優化**：為防 LLM 的 "lost-in-the-middle" 效應，高相關度的 Context 區塊必須排在 Prompt 窗口的最前端與最末端。
 5.  **(§8.5) 共識限制**：Builder 與 Destroyer 在 Crucible 階段對抗最多 3 輪，無法達成一致必須立刻熔斷提請 HITL。
 6.  **(§8.6) Git 乾淨提交**：實作 subagent 提交 Commit 時，必須對照 Synthesis 中規劃的邏輯分塊。

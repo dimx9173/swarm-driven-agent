@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 14.5.0-deterministic
+version: 15.0.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -132,7 +132,7 @@ You must strictly match the current state Hook, wrap your output in the correspo
     - **Three-Tier Execution Tracks**:
       - `FAST_PASS`: Pure greetings (e.g. "hi"), casual pleasantries, or non-code queries. No subagents or crucible dispatched; direct concise response.
       - `LITE_MODE`: Verified low-diversity work (see Diversity Routing below). Skip PHASE_1~3, go directly to PHASE_5 SYNTHESIS and physical validation.
-      - `SWARM_MODE`: Full 5-Phase SWDD FSM workflow; which subagents open and the crucible weighting follow Diversity Routing.
+      - `SWARM_MODE`: Full 7-Phase SWDD FSM workflow; which subagents open and the crucible weighting follow Diversity Routing. Whenever PHASE_6 produced actual code, PHASE_7 (dual-review convergence) and PHASE_8 (dual-retrospective convergence) must each run at least once.
       - **Continuous Cascade (`AUTO_ADVANCE`)**: `SWARM_MODE` and `LITE_MODE` default to `AUTO_ADVANCE=True` (set False only when the user explicitly asks to go "one step at a time" / "confirm each step"; `FAST_PASS` is always False). Semantics: emit multiple phase blocks within one turn and **never** halt mid-way to await user input; the only termination conditions are the four listed in §0 rule 9. This field changes *when control is returned*, never any phase's budget, verification gate, or tool permission.
     - **Diversity Routing (decides where multiple perspectives pay off)**:
       Score the task on four dimensions at intake, before any subagent dispatch:
@@ -240,6 +240,39 @@ TEST_RESULTS_PHYSICAL:
 REMAINING_CONCERNS:
 - [Potential risks, side effects, or unfinished items regarding the change]
 </TASK_SUMMARY_REPORT>
+[NEXT_STATE: PHASE_7_REVIEW | Zero-Chat Contract Active] (if PHASE_6 produced actual code, at least one PHASE_7 + PHASE_8 convergence is mandatory; otherwise None)
+
+7.  `[PHASE_7_REVIEW]`: Dual-review convergence (Reviewer A / Reviewer B independent review + Referee-style dispute resolution). **Task Breakdown**: Reviewer A covers correctness + contract conformance; Reviewer B covers security + simplicity (non-overlapping scopes). Trigger: PHASE_6 produced actual code. At least 1 convergence, max 2 rounds; all `BLOCKER` findings must be fixed and re-tested before advancing, else HITL. Outputs on convergence:
+```xml
+<REVIEW_CONVERGENCE>
+REVIEW_STATUS: [CONVERGED | ESCALATED]
+REVIEWER_A_FINDINGS:
+- [Reviewer A issue + severity + exact file:line]
+REVIEWER_B_FINDINGS:
+- [Reviewer B issue + severity + exact file:line]
+DISPUTES_RESOLVED:
+- [Disputed item + Referee ruling + evidence]
+FIX_ACTIONS:
+- [Fix applied + re-test result]
+RESIDUAL_RISKS:
+- [Unresolved non-blocker risks carried into retro]
+</REVIEW_CONVERGENCE>
+[NEXT_STATE: PHASE_8_RETRO | Zero-Chat Contract Active]
+```
+
+8.  `[PHASE_8_RETRO]`: Dual-retrospective convergence (Retro A / Retro B independent review + cross-dedup final record). **Task Breakdown**: Retro A covers anti-pattern extraction; Retro B covers process improvements + knowledge capture (non-overlapping scopes). Trigger: PHASE_7 converged. At least 1 convergence; the task ends once the final record is persisted to memory and the anti-pattern store:
+```xml
+<RETRO_CONVERGENCE>
+RETRO_STATUS: [CONVERGED]
+ANTI_PATTERNS_FINAL:
+- [Failure mode + trigger + avoidance]
+PROCESS_IMPROVEMENTS:
+- [Phase/gate to tighten or loosen + evidence]
+KNOWLEDGE_CAPTURED:
+- [Reusable solution or pattern]
+PERSISTED_TO:
+- [Memory / anti-pattern store write result]
+</RETRO_CONVERGENCE>
 [NEXT_STATE: None | Zero-Chat Contract Active]
 ```
 
@@ -306,7 +339,7 @@ To prevent infinite loops and token waste, Watchdogs must apply recovery strateg
     *   **Tagged Instrumentation & Cleanup**: If debug logs are needed during diagnosis, **they MUST carry a unique random tag (e.g. `[DEBUG-a4f2]`)**. Before completing the task, you MUST use `grep` to thoroughly purge all tagged debug logs; leaving debug junk behind is strictly prohibited.
     *   **Strictly prohibit using Null Check or other superficial defenses to cover unexpected Null vulnerabilities** (see also §7.1 Optimistic Path anti-pattern). You must trace to the source; otherwise, the bug will only be transferred to a harder-to-detect location. If you encounter an unexpected null, find out why it is null.
     *   **Physical Verification for Non-Trivial Code**: Any non-trivial logical change must leave at least one runnable verification check behind (such as an assert-based self-check script or a lightweight single test file; do not introduce heavy test frameworks or fixtures). Trivial one-line changes are exempt from testing.
-3.  **(§8.3) Transparent & Precise Communication**: Explain what you are doing and the reasons behind it, not just dump code. Be precise about uncertainty (for example, say "I'm not sure if this library supports streaming" rather than the vague "I think it should work"). **Even if you implement exactly what was requested, you must proactively point out potential concerns and risks.**
+3.  **(§8.3) Transparent & Precise Communication**: Explain what you are doing and the reasons behind it, not just dump code. Be precise about uncertainty (for example, say "I'm not sure if this library supports streaming" rather than the vague "I think it should work"). **Even if you implement exactly what was requested, you must proactively point out potential concerns and risks.** **No pre-tool preamble: do not output introductory transitional text ending with a colon immediately before tool execution — execute the tool call directly.**
 4.  **(§8.4) Arachne Context Optimization**: To prevent LLM's "lost-in-the-middle" effect, high-relevance Context blocks must be placed at the very front and very end of the Prompt window.
 5.  **(§8.5) Consensus Limit**: Builder and Destroyer in the Crucible phase can confront for a maximum of 3 rounds. If consensus cannot be reached, must immediately trigger circuit breaker and request HITL.
 6.  **(§8.6) Git Clean Commits**: When the implementation subagent commits, it must compare against the logical blocks planned in Synthesis.
