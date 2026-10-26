@@ -4,4 +4,4 @@ Fusing Prime Agent's Recursive Language Model (RLM) & Continual Harness
 with SWDA Spec-First Cognitive Governance and Crucible.
 """
 
-__version__ = "3.5.4"
+__version__ = "3.6.0"

@@ -67,14 +67,18 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 ### PHASE 7: REVIEW（雙審查收斂）
 凡 PHASE_6 有實際產出代碼（非純文檔任務），必須執行至少一次雙審查收斂：
 1.  **雙審查子代理 (Reviewer A / Reviewer B)**：兩個審查子代理在隔離上下文中獨立審查 PHASE_6 產出，維度：正確性（邏輯是否符合 SPEC）、合約一致性（介面/副作用是否偏離藍圖）、安全（注入/越權/敏感外洩）、簡潔（§2.3/§2.4 是否違規）。各自輸出 findings 清單（問題＋嚴重度＋具體檔案行號）。**任務切分 (Task Breakdown)**：Reviewer A 負責正確性＋合約一致性；Reviewer B 負責安全＋簡潔。兩 scope 互不重疊，防範確認偏見與重複 findings。
-2.  **收斂 (Convergence)**：兩份 findings 交叉比對——共識項直接採納；分歧項由 Referee 式裁決（證據＋Rubric＋Occam's Razor），不得和稀泥。所有 `BLOCKER` 級 findings 必須修完並重跑測試後再審一輪；收斂上限 2 輪，仍未收斂觸發 HITL。
-3.  **輸出**：`<REVIEW_CONVERGENCE>`（審查結論＋採納項＋修復動作＋殘留風險），作為 PHASE_8 的輸入。
+2.  **子任務生命週期守衛 (Subagent Lifecycle Guards)**：
+    *   **Scope Lockdown**：派發審查任務時，必須明確限定 `path` 或 target files，嚴禁對整個專案進行無邊界的 `glob`/`grep` 遞迴檢索。
+    *   **Immediate Exit Directive**：在派發 Reviewer / Retro 的 Task Prompt 範本中注入生命週期約束：`"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`
+    *   **Wait Progress Visualization**：呼叫 `wait` 工具時，`i`（`intent`）參數必須包含當前等待對象與超時預期（例如：`wait {"i": "Waiting for ReviewerA & ReviewerB (Timeout: 180s, Scope: tools/tri.sh)"}`），避免空泛的 `"Waiting for results"`。
+3.  **收斂 (Convergence)**：兩份 findings 交叉比對——共識項直接採納；分歧項由 Referee 式裁決（證據＋Rubric＋Occam's Razor），不得和稀泥。所有 `BLOCKER` 級 findings 必須修完並重跑測試後再審一輪；收斂上限 2 輪，仍未收斂觸發 HITL。
+4.  **輸出**：`<REVIEW_CONVERGENCE>`（審查結論＋採納項＋修復動作＋殘留風險），並在同一輪次透過 Tool Chaining 立即啟動 PHASE_8。
 
 ### PHASE 8: RETRO（雙回顧收斂）
 PHASE_7 收斂完成後，必須執行至少一次雙回顧收斂：
-1.  **雙回顧子代理 (Retro A / Retro B)**：兩個回顧子代理獨立回顧本次任務全軌跡，維度：反模式抽取（失敗模式＋觸發條件＋規避法）、流程改進點（哪個階段浪費最多步數/哪個閘門該收緊或放鬆）、知識沉澱（可複用的解法/pattern）。**任務切分 (Task Breakdown)**：Retro A 負責反模式抽取；Retro B 負責流程改進點＋知識沉澱。兩 scope 互不重疊。
+1.  **雙回顧子代理 (Retro A / Retro B)**：兩個回顧子代理獨立回顧本次任務全軌跡，維度：反模式抽取（失敗模式＋觸發條件＋規避法）、流程改進點（哪個階段浪費最多步數/哪個閘門該收緊或放鬆）、知識沉澱（可複用的解法/pattern）。**任務切分 (Task Breakdown)**：Retro A 負責反模式抽取；Retro B 負責流程改進點＋知識沉澱。兩 scope 互不重疊。同樣強制遵守 PHASE 7 定義之 **Scope Lockdown**、**Immediate Exit Directive** 與 **Wait Progress Visualization** 守衛。
 2.  **收斂 (Convergence)**：交叉去重合併成定稿——重複項合併、矛盾項以證據裁決、無法證實的觀察標記 `<UNCERTAIN>` 而非丟棄。定稿寫入記憶與反模式庫（`mempalace_kg_add` / `mempalace_search`，降級為 `docs/anti-patterns/` YAML）。
-3.  **輸出**：`<RETRO_CONVERGENCE>`（定稿反模式＋流程改進＋知識沉澱），任務至此結束。
+3.  **輸出**：`<RETRO_CONVERGENCE>`（定稿反模式＋流程改進＋知識沉澱），緊接輸出 `<ALL_PHASES_COMPLETE>` 終結宣告區塊與 `[NEXT_STATE: None | Awaiting User Input]`，任務至此結束。
 ---
 
 ## 3. 何時啟用 SWDD

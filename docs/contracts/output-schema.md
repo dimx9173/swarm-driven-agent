@@ -173,7 +173,7 @@ RESIDUAL_RISKS:
 [NEXT_STATE: PHASE_8_RETRO | Zero-Chat Contract Active]
 ```
 
-### 2.10 `<RETRO_CONVERGENCE>` (雙回顧收斂)
+### 2.10 `<RETRO_CONVERGENCE>` & `<ALL_PHASES_COMPLETE>` (雙回顧收斂與終結宣告)
 ```xml
 <RETRO_CONVERGENCE>
 RETRO_STATUS: [CONVERGED]
@@ -186,5 +186,9 @@ KNOWLEDGE_CAPTURED:
 PERSISTED_TO:
 - [記憶/反模式庫寫入結果]
 </RETRO_CONVERGENCE>
-[NEXT_STATE: None | Zero-Chat Contract Active]
+<ALL_PHASES_COMPLETE>
+STATUS: SUCCESS | 4/4 TASKS VERIFIED
+SUMMARY: [One sentence stating code verified, dual reviews converged, and retro memory persisted]
+</ALL_PHASES_COMPLETE>
+[NEXT_STATE: None | Awaiting User Input]
 ```
