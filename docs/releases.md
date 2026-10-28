@@ -16,7 +16,7 @@
 | **Modular Contract (EN)** | `template/modular/RULE.en.md` | `X.Y.Z-engineering-hardened` | Modular 英文版 |
 | **Modular Output Schema** | `docs/contracts/output-schema-modular.md` | `vX.Y.Z` | 同步版本 |
 
----
+> Integrated（`X.Y.Z-deterministic`）與 Modular（`X.Y.Z-engineering-hardened`）為刻意分叉的獨立套餐，版本號互不對齊、模板與 schema 互不可混用。每次 release 只需保證套餐內四件一致（ZH／EN／schema／對應表 row）。
 
 ## Bump & Release 標準流程
 
@@ -66,29 +66,22 @@ grep -rn "version=" --include="*.py" .
 ### Step 3: 執行 Bump
 
 ```bash
-# 一次性修改所有版本（以 2.5.0 為例）
-NEW_VERSION="2.5.0"
+# 1. 更新單一真相源（唯一需要手動編輯版本號的地方）
+#    package: setup.py / installer.py CLI_VERSION / swda/__init__.py
+#    integrated: template/integrated/ALL_IN_RULE{,.en}.md frontmatter
+#    modular: template/modular/RULE{,.en}.md frontmatter
+#    schema / schema_modular: docs/contracts/output-schema{,-modular}.md 抬頭
+vim versions.json
 
-# setup.py
-sed -i '' "s/version=\"[0-9.]*\"/version=\"$NEW_VERSION\"/" setup.py
+# 2. 單向寫入所有版本位置（原子寫入；對應表只追加新 row，不改歷史 row）
+python3 tools/stamp_versions.py
 
-# output-schema.md / output-schema-modular.md（兩處：抬頭 + 內文 vX.Y.Z）
-sed -i '' "s/v[0-9]\.[0-9]\.[0-9]/v$NEW_VERSION/g" \
-    docs/contracts/output-schema.md \
-    docs/contracts/output-schema-modular.md
-
-# integrated deterministic 版本
-NEW_DET_VERSION="14.2.0-deterministic"  # 視本次變動範圍調整
-sed -i '' "s/version: [0-9]*\.[0-9]*\.[0-9]*-deterministic/version: $NEW_DET_VERSION/" \
-    template/integrated/ALL_IN_RULE.md \
-    template/integrated/ALL_IN_RULE.en.md
-
-# modular engineering-hardened 版本
-NEW_MOD_VERSION="2.11.0-engineering-hardened"  # 視本次變動範圍調整
-sed -i '' "s/version: [0-9]*\.[0-9]*\.[0-9]*-engineering-hardened/version: $NEW_MOD_VERSION/" \
-    template/modular/RULE.md \
-    template/modular/RULE.en.md
+# 3. 零寫入複核（非零退出 + 具名檔案即漂移）
+python3 tools/stamp_versions.py --check
 ```
+
+> 舊 sed 逐檔改寫方式已廢棄：改用 `tools/stamp_versions.py`（單向、原子、可複核）。
+> `docs/releases.md` 版本對應表為追加式歷史，stamp 腳本永不觸碰；新 release 在表頂加 row 即可。
 
 ### Step 4: Commit, Tag, Push
 

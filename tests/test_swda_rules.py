@@ -128,11 +128,11 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
             self.assertIn("AUTO_ADVANCE", content, f"Missing AUTO_ADVANCE in {rule_path}")
             self.assertIn("Continuous Cascade", content, f"Missing Continuous Cascade section in {rule_path}")
             self.assertNotIn("following seven iron rules", content,
-                             f"Anchor count not bumped to nine in {rule_path}")
+                             f"Anchor count not updated from seven in {rule_path}")
             self.assertNotIn("以下七條鐵律", content,
-                             f"Anchor count not bumped to nine in {rule_path}")
-            self.assertTrue("nine iron rules" in content or "九條鐵律" in content,
-                            f"Missing nine-rule preamble in {rule_path}")
+                             f"Anchor count not updated from seven in {rule_path}")
+            self.assertTrue("eight iron rules" in content or "八條鐵律" in content,
+                            f"Missing eight-rule preamble in {rule_path}")
 
     def test_no_pre_tool_preamble_clause_across_all_templates(self):
         """Verifies the no-pre-tool-preamble constraint exists in every contract template."""
@@ -179,6 +179,26 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
                 content = f.read()
             self.assertIn("AUTO_ADVANCE", content, f"Missing AUTO_ADVANCE in {schema_path}")
             self.assertIn("Continuous Cascade", content, f"Missing cascade section in {schema_path}")
+
+    def test_versions_json_in_sync(self):
+        """versions.json is the single source of truth; --check must pass."""
+        import subprocess
+        import sys
+        res = subprocess.run(
+            [sys.executable, os.path.join(ROOT_DIR, "tools", "stamp_versions.py"), "--check"],
+            capture_output=True, text=True, cwd=ROOT_DIR)
+        self.assertEqual(res.returncode, 0,
+                         f"versions.json drift:\n{res.stdout}\n{res.stderr}")
+
+    def test_zh_en_template_parity(self):
+        """ZH/EN contract templates must match structurally (tags, NEXT_STATE, sections)."""
+        import subprocess
+        import sys
+        res = subprocess.run(
+            [sys.executable, os.path.join(ROOT_DIR, "tools", "check_zh_en_parity.py")],
+            capture_output=True, text=True, cwd=ROOT_DIR)
+        self.assertEqual(res.returncode, 0,
+                         f"ZH/EN parity drift:\n{res.stdout}\n{res.stderr}")
 
     def test_installed_local_omp_agent_integrity(self):
         """Verifies that if ~/.omp/agent/APPEND_SYSTEM.md exists, it matches the latest template version."""

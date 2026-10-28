@@ -73,10 +73,9 @@ RELEVANT_MEMORIES_ANTI_PATTERNS:
 - [記憶與知識檢索 Subagent 產出：Mimir / mempalace 反模式與 KIs 指引]
 DATABASE_STATE_SCHEMAS:
 - [資料庫與狀態探針 Subagent 產出：資料表結構、API 與狀態定義]
-DESIGN_DOCUMENTS_AND_SPECS:
-- [設計文件巡檢 Subagent 產出：既存設計規格、歷史架構決策與設計文件約束]
 GLOBAL_CONTEXT_SUMMARY:
 - [主控彙整：當前系統全貌、安全邊界與各子代理探測結論的交叉比對]
+- DYNAMICALLY_LEARNED_SKILLS: [列出本次動態學習並安裝的技能名稱，若無則填 None]
 </GATHER_RESULT>
 [NEXT_STATE: PHASE_3_HYPERPLAN | Zero-Chat Contract Active]
 ```
@@ -129,7 +128,7 @@ TEST_RESULTS_PHYSICAL:
 REMAINING_CONCERNS:
 - [列出此變更可能引發的潛在風險、副作用或未盡事項]
 </TASK_SUMMARY_REPORT>
-[NEXT_STATE: None | Zero-Chat Contract Active]
+[NEXT_STATE: PHASE_7_REVIEW | None | Zero-Chat Contract Active]
 ```
 
 ### 2.7 `<ACTION_REALIZATION_BLOCK>` (預檢攔截阻斷)
@@ -145,8 +144,8 @@ bypass_allowed: [True | False]  # True 表示 HITL 可覆寫
 ### 2.8 `<BUDGET_EXHAUSTION_REPORT>` (預算耗盡熔斷報告)
 ```xml
 <BUDGET_EXHAUSTION_REPORT>
-EXHAUSTED_PHASE: [INTENT_GATE | GATHER | HYPERPLAN | DYNAMIC_COMPILE]
-STEP_COUNT_REACHED: [1 | 3 | 5]
+EXHAUSTED_PHASE: [INTENT_GATE | PHASE_1_DESTRUCT | PHASE_2_GATHER | PHASE_3_HYPERPLAN | PHASE_5_SYNTHESIS | PHASE_6_IMPLEMENT | PHASE_7_REVIEW | PHASE_8_RETRO]
+STEP_COUNT_REACHED: [1 | 2 | 3 | 5]
 REASON: [說明預算耗盡與無法收斂之根因]
 CURRENT_BEST_PROPOSAL: [摘要當前評分最高或最小可用之實作方案]
 REMAINING_RISKS: [條列說明未決死角或未通過之測試斷言]
