@@ -1,1 +1,7 @@
-{"integrated": "15.1.0-deterministic", "modular": "3.1.0-engineering-hardened", "package": "3.6.1", "schema": "2.1.0", "schema_modular": "2.1.0"}
+{
+  "integrated": "15.2.0-deterministic",
+  "modular": "3.1.0-engineering-hardened",
+  "package": "3.7.0",
+  "schema": "2.2.0",
+  "schema_modular": "2.1.0"
+}
