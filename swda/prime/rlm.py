@@ -69,6 +69,15 @@ class RLMDispatcher:
     #: Gateway default when neither --model nor SWDA_MODEL is set.
     AUTO_FREE_MODEL = "auto-free"
 
+    #: Per-category tier defaults (worker/default/strongest grading).
+    #: Only fill the gap when neither SWDA_MODEL_<CATEGORY> env nor the
+    #: SWDA_MODEL/--model default is set; never shadow either of them.
+    TIER_DEFAULTS = {
+        "quick": "auto-librarian",
+        "standard": "auto-sisyphus-no-contributor",
+        "deep": "auto-oracle",
+    }
+
     #: Category->model routing (OMO category matrix, stdlib edition).
     #: Roles map to cost tiers; SWDA_MODEL_<CATEGORY> env overrides each.
     CATEGORY_ROLES = {
@@ -86,7 +95,10 @@ class RLMDispatcher:
         mock_handler: Optional[Callable[[str, str], Any]] = None,
     ):
         load_dotenv()
-        self.default_model = default_model or os.getenv("SWDA_MODEL", self.AUTO_FREE_MODEL)
+        # Explicit user default (CLI --model / SWDA_MODEL); None when unset so
+        # per-category tier defaults can fill the gap ahead of auto-free.
+        self.explicit_default = default_model or os.getenv("SWDA_MODEL")
+        self.default_model = self.explicit_default or self.AUTO_FREE_MODEL
         self.api_base = api_base or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         self.api_key = api_key or os.getenv("OPENAI_API_KEY", "mock-key")
         self.fallback_models = self._normalize_fallbacks(fallback_models)
@@ -103,7 +115,7 @@ class RLMDispatcher:
     @classmethod
     def model_for_category(cls, category: str, default: Optional[str] = None) -> Optional[str]:
         env_key = f"SWDA_MODEL_{category.upper()}"
-        return os.getenv(env_key) or default
+        return os.getenv(env_key) or default or cls.TIER_DEFAULTS.get(category)
 
     @staticmethod
     def _env_fallbacks() -> List[str]:
@@ -135,10 +147,10 @@ class RLMDispatcher:
         Synchronously or asynchronously dispatches a subagent call.
         Returns validated schema instance or parsed JSON/text.
 
-        Model precedence: explicit arg > SWDA_MODEL_<CATEGORY> > default.
+        Model precedence: explicit arg > SWDA_MODEL_<CATEGORY> > SWDA_MODEL/--model default > tier default > auto-free.
         """
         category = self.category_for_role(role)
-        target_model = model or self.model_for_category(category) or self.default_model
+        target_model = model or self.model_for_category(category, default=self.explicit_default) or self.default_model
 
         # 1. Deterministic Mock / Replay Support
         if self.mock_handler:

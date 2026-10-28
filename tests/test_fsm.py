@@ -55,5 +55,20 @@ class TestFSMEngine(unittest.TestCase):
         self.assertEqual(self.fsm.current_phase, FSMPhase.PHASE_5_SYNTHESIS)
 
 
+class TestFSMGraphContract(unittest.TestCase):
+    """Static reachability over the contract's own transition table (step 4)."""
+
+    def test_fsm_graph_reachable_no_dead_ends(self):
+        import os
+        import subprocess
+        import sys
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        res = subprocess.run(
+            [sys.executable, os.path.join(root, "tools", "check_fsm_graph.py")],
+            capture_output=True, text=True, cwd=root)
+        self.assertEqual(res.returncode, 0,
+                         f"FSM graph drift:\n{res.stdout}\n{res.stderr}")
+
+
 if __name__ == "__main__":
     unittest.main()

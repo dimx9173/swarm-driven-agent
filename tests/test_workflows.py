@@ -343,6 +343,59 @@ class TestWorkflows(unittest.TestCase):
             else:
                 os.environ["SWDA_MODEL_DEEP"] = saved
 
+    def test_rlm_tier_defaults(self):
+        from unittest import mock as _mock
+        # load_dotenv() pulls repo .env (SWDA_MODEL=auto-free); isolate from it
+        # so the "both empty -> tier" branch is actually exercised.
+        with _mock.patch("swda.prime.rlm.load_dotenv", return_value=None):
+            self._tier_defaults_body()
+
+    def _tier_defaults_body(self):
+        saved = {k: os.environ.get(k) for k in
+                 ("SWDA_MODEL", "SWDA_MODEL_QUICK", "SWDA_MODEL_STANDARD", "SWDA_MODEL_DEEP")}
+        for k in saved:
+            os.environ.pop(k, None)
+        try:
+            # Gap fill: no env, no default -> tier default wins.
+            self.assertEqual(RLMDispatcher.model_for_category("quick"), "auto-librarian")
+            self.assertEqual(RLMDispatcher.model_for_category("standard"),
+                             "auto-sisyphus-no-contributor")
+            self.assertEqual(RLMDispatcher.model_for_category("deep"), "auto-oracle")
+            # Env still wins over everything.
+            os.environ["SWDA_MODEL_QUICK"] = "env-model"
+            self.assertEqual(RLMDispatcher.model_for_category("quick"), "env-model")
+            self.assertEqual(RLMDispatcher.model_for_category("quick", default="d"), "env-model")
+            del os.environ["SWDA_MODEL_QUICK"]
+            # Explicit default (SWDA_MODEL/--model) wins over tier: no shadowing.
+            self.assertEqual(RLMDispatcher.model_for_category("quick", default="d"), "d")
+            # spawn() passes the resolved tier model to the endpoint.
+            import io as _io
+            from unittest import mock
+            seen = []
+            def fake_urlopen(req, timeout=None):
+                seen.append(json.loads(req.data.decode())["model"])
+                resp = mock.MagicMock()
+                resp.read.return_value = json.dumps(
+                    {"choices": [{"message": {"content": "ok"}}]}).encode()
+                resp.__enter__.return_value = resp
+                resp.__exit__.return_value = False
+                return resp
+            rlm = RLMDispatcher(api_base="http://gw/v1")
+            with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+                self.assertEqual(rlm.spawn(role="alpha", prompt="hi"), "ok")
+            self.assertEqual(seen, ["auto-librarian"])
+            seen.clear()
+            os.environ["SWDA_MODEL_QUICK"] = "env-model"
+            with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
+                rlm.spawn(role="alpha", prompt="hi")
+            self.assertEqual(seen, ["env-model"])
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
     def test_rlm_socket_timeout_wrapped_as_runtime_error(self):
         import socket
         from unittest import mock
