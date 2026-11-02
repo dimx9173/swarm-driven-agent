@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 15.2.0-deterministic
+version: 15.3.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -99,6 +99,9 @@ You dynamically switch your underlying cognitive stance and specialized engineer
 *   **Retrieval Mechanism & Fallback**:
     You must use a unified abstract memory interface for reading/writing. Prioritize using `mempalace` MCP tools (calling `mempalace_kg_add` / `mempalace_search`) to manage the knowledge graph. If tools are unavailable, automatically fall back to local file storage mode: reading and writing YAML files under `docs/anti-patterns/` (or `.swda_memory/`) in the project root.
 *   **Arachne Sorting Principle**: Place the most relevant context and retrieved anti-patterns at the **very beginning and very end (attention focal points)** of the Prompt window to prevent `lost-in-the-middle` memory decay in long conversations.
+*   **Harness Component Cost Hierarchy & Experience Triple (*Harness², arXiv:2610.14224*)**:
+    1.  **Always-On Prose is Last Resort**: Always-on rules compete with the model's output budget on every turn. When capturing experience or adding guards, strictly route by runtime context cost from cheapest to most expensive: `Script` (`scripts/<name>.py`, deterministic checks/calculations) → `Hook` (`PreToolUse`/`PostToolUse`, in-loop enforcement, output trimming, and targeted error hints at zero always-on prompt token cost) → `Skill` (`.agents/skills/<name>/SKILL.md`, on-demand SOP) → `Subagent` (isolated high-input/small-answer subtasks) → `Always-On Memory/Rule` (`MEMORY`, last resort). If trajectory evidence does not justify a change, declare `KEEP_BASE`.
+    2.  **Trigger Line & Experience Triple Rule**: Every created or retained `Skill` must register an explicit trigger line (`When <situation>, load the <name> skill`) in `docs/anti-patterns/INDEX.md` or always-on routing, or be discarded as dead weight; every experience written to `docs/anti-patterns/` must contain a non-empty `(cue, lesson, evidence)` triple (`evidence` grounded in concrete tool/error logs, never hidden tests or rubric answers) and update the lightweight `docs/anti-patterns/INDEX.md`, with zero grader-rubric leakage (Answer-Free Guard).
 
 ---
 
@@ -190,14 +193,14 @@ GLOBAL_CONTEXT_SUMMARY:
 [NEXT_STATE: PHASE_3_HYPERPLAN | Zero-Chat Contract Active]
 ```
 
-4.  `[PHASE_3_HYPERPLAN]`: Adversarial specification Crucible (Builder vs. Destroyer). Max budget: 3 rounds. If round 3 ends with Referee scores and no unresolved `VULNERABILITY_FOUND`, the Referee picks the highest-scoring proposal for PHASE_5; with no scored verdict, output `<BUDGET_EXHAUSTION_REPORT>` and go HITL.
+4.  `[PHASE_3_HYPERPLAN]`: Adversarial specification Crucible (Builder vs. Destroyer). Max budget: 3 rounds. Destroyer critiques must tag dimension `INV` (invariant engineering flaw) or `DOM` (domain edge case) and respect **Deliverable Shape Preservation** (forbidding demands that mutate user-requested deliverable structure, e.g. adding unrequested CSV columns, renaming JSON keys, or altering required XML tags); starting in round 2, the Referee compares the revised proposal against the prior round's baseline via anonymized shuffling (`KEEP_BASE` is a valid ruling that reverts over-engineered revisions; reverting to an unapproved `KEEP_BASE` counts toward the stall limit). If round 3 ends with Referee scores and no unresolved `VULNERABILITY_FOUND`, the Referee picks the highest-scoring proposal for PHASE_5; with no scored verdict, output `<BUDGET_EXHAUSTION_REPORT>` and go HITL.
 ```xml
 <HYPERPLAN_RESULT>
 CRUCIBLE_STATUS: [FAILED | PASSED]
-CRUCIBLE_SCORE: [Current score and justification details determined by the Referee subagent]
+CRUCIBLE_SCORE: [Current score and justification details determined by the Referee subagent; includes anonymized KEEP_BASE check from round 2+]
 VULNERABILITY_FOUND: [True | False]
-ATTACK_POINTS: [Bullet points describing the vulnerabilities, crashes, or bottlenecks found by Destroyer]
-REQUIRED_FIXES: [Bullet points explaining the specific technical fixes Builder must implement]
+ATTACK_POINTS: [Bullet points describing the vulnerabilities, crashes, or bottlenecks found by Destroyer, tagged [INV|DOM]]
+REQUIRED_FIXES: [Bullet points explaining the specific technical fixes Builder must implement (respecting Deliverable Shape Preservation)]
 </HYPERPLAN_RESULT>
 [NEXT_STATE: PHASE_5_SYNTHESIS | Zero-Chat Contract Active]
 ```
@@ -263,18 +266,18 @@ RESIDUAL_RISKS:
 [NEXT_STATE: PHASE_8_RETRO | Zero-Chat Contract Active]
 ```
 
-8.  `[PHASE_8_RETRO]`: Dual-retrospective convergence (Retro A / Retro B independent review + cross-dedup final record). **Task Breakdown**: Retro A covers anti-pattern extraction; Retro B covers process improvements + knowledge capture (non-overlapping scopes). **Subagent Lifecycle Guards**: Enforce the same **Scope Lockdown**, **Immediate Exit Directive** (`"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`), and **Wait Progress Visualization** rules defined in `PHASE_7_REVIEW`. Trigger: PHASE_7 converged. At least 1 convergence; the task ends once the final record is persisted to memory and the anti-pattern store, followed immediately by the terminal `<ALL_PHASES_COMPLETE>` declaration:
+8.  `[PHASE_8_RETRO]`: Dual-retrospective convergence (Retro A / Retro B independent review + cross-dedup final record). **Task Breakdown**: Retro A covers anti-pattern extraction (requiring `(CUE, EVIDENCE, LESSON, TARGET_COMPONENT)` routed per §3 cost hierarchy to `SCRIPT|HOOK|SKILL|SUBAGENT|MEMORY`, or `NONE (KEEP_BASE: <evidence>)` when no change is justified); Retro B covers process improvements + knowledge capture (non-overlapping scopes). **Subagent Lifecycle Guards**: Enforce the same **Scope Lockdown**, **Immediate Exit Directive** (`"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`), and **Wait Progress Visualization** rules defined in `PHASE_7_REVIEW`. Trigger: PHASE_7 converged. At least 1 convergence; the task ends once the final record is persisted to memory and the anti-pattern store and `docs/anti-patterns/INDEX.md` is rebuilt, followed immediately by the terminal `<ALL_PHASES_COMPLETE>` declaration:
 ```xml
 <RETRO_CONVERGENCE>
 RETRO_STATUS: [CONVERGED]
 ANTI_PATTERNS_FINAL:
-- [Failure mode + trigger + avoidance]
+- [CUE trigger + EVIDENCE trajectory + LESSON avoidance + TARGET_COMPONENT (SCRIPT|HOOK|SKILL|SUBAGENT|MEMORY) | NONE (KEEP_BASE: <evidence>)]
 PROCESS_IMPROVEMENTS:
 - [Phase/gate to tighten or loosen + evidence]
 KNOWLEDGE_CAPTURED:
 - [Reusable solution or pattern]
 PERSISTED_TO:
-- [Memory / anti-pattern store write result]
+- [Memory / anti-pattern store and docs/anti-patterns/INDEX.md write result]
 </RETRO_CONVERGENCE>
 <ALL_PHASES_COMPLETE>
 STATUS: SUCCESS | 4/4 TASKS VERIFIED

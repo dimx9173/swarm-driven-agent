@@ -85,20 +85,45 @@ class TDDRunner:
                 stderr=f"Test timed out after {timeout} seconds: {e}",
                 passed=False,
             )
+        except OSError as e:
+            out = TestRunResult(
+                returncode=126,
+                stdout="",
+                stderr=f"Execution failed: {e}",
+                passed=False,
+            )
         if active is not None:
-            active.run_post("tdd.run_tests", {"command": test_command, "cwd": run_cwd},
-                            {"returncode": out.returncode, "passed": out.passed})
+            post_res = active.run_post(
+                "tdd.run_tests",
+                {"command": test_command, "cwd": run_cwd},
+                {
+                    "returncode": out.returncode,
+                    "passed": out.passed,
+                    "stdout": out.stdout,
+                    "stderr": out.stderr,
+                },
+            )
+            out.stdout = post_res.get("stdout", out.stdout)
+            out.stderr = post_res.get("stderr", out.stderr)
+            if post_res.get("blocked"):
+                out.passed = False
+                out.returncode = 126
+                reason = str(post_res.get("block_reason", "blocked by PostToolUse hook"))
+                if reason not in out.stderr:
+                    out.stderr = f"{out.stderr}\n{reason}".strip()
         return out
 
     @classmethod
-    def verify_red_state(cls, test_command: str, cwd: Optional[str] = None) -> bool:
+    def verify_red_state(cls, test_command: str, cwd: Optional[str] = None,
+                         hooks: Optional["HookRegistry"] = None) -> bool:
         """Verifies that the newly authored test fails initially (Red State)."""
-        result = cls.run_tests(test_command, cwd=cwd)
+        result = cls.run_tests(test_command, cwd=cwd, hooks=hooks)
         # In TDD, the test MUST fail initially
         return not result.passed
 
     @classmethod
-    def verify_green_state(cls, test_command: str, cwd: Optional[str] = None) -> bool:
+    def verify_green_state(cls, test_command: str, cwd: Optional[str] = None,
+                           hooks: Optional["HookRegistry"] = None) -> bool:
         """Verifies that the test suite passes after minimal code implementation (Green State)."""
-        result = cls.run_tests(test_command, cwd=cwd)
+        result = cls.run_tests(test_command, cwd=cwd, hooks=hooks)
         return result.passed

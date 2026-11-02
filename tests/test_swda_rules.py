@@ -200,6 +200,24 @@ class TestSWDARulesAndTemplates(unittest.TestCase):
         self.assertEqual(res.returncode, 0,
                          f"ZH/EN parity drift:\n{res.stdout}\n{res.stderr}")
 
+    def test_harness2_cost_hierarchy_and_experience_triple_across_templates(self):
+        """Verifies Harness² component cost hierarchy, trigger line rule, and KEEP_BASE across templates."""
+        for rule_path in [self.rule_zh, self.rule_en, self.all_in_zh, self.all_in_en]:
+            with open(rule_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("arXiv:2610.14224", content, f"Missing Harness² citation in {rule_path}")
+            self.assertIn("Always-On Prose is Last Resort", content, f"Missing cost hierarchy rule in {rule_path}")
+            self.assertIn("Trigger Line & Experience Triple Rule", content, f"Missing trigger line rule in {rule_path}")
+            self.assertIn("KEEP_BASE", content, f"Missing KEEP_BASE in {rule_path}")
+            self.assertIn("INDEX.md", content, f"Missing INDEX.md reference in {rule_path}")
+
+        for skill_path in [self.skill_zh, self.skill_en]:
+            with open(skill_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            self.assertIn("Deliverable Shape Preservation", content, f"Missing Deliverable Shape Preservation in {skill_path}")
+            self.assertIn("TARGET_COMPONENT", content, f"Missing TARGET_COMPONENT in {skill_path}")
+            self.assertIn("KEEP_BASE", content, f"Missing KEEP_BASE in {skill_path}")
+
     def test_installed_local_omp_agent_integrity(self):
         """Verifies that if ~/.omp/agent/APPEND_SYSTEM.md exists, it matches the latest template version."""
         home_dir = os.path.expanduser("~")

@@ -1,8 +1,8 @@
-# SWDD Modular Output Schema Contract v2.1.0
+# SWDD Modular Output Schema Contract v2.2.0
 
 > **用途**：本檔為 `template/modular/RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**，專供 **openclaw / hermes agent runtime** 使用。SOUL 應在每次大版本變更時同步更新本檔，並與 `SOUL.md` 的 swda-begin/end 標記區塊保持版本一致。
 > **生效日**：2026-10-26
-> **版本**：v2.1.0（同步 modular/RULE.md v3.1.0）
+> **版本**：v2.2.0（同步 modular/RULE.md v3.2.0）
 > **與 integrated 套餐的關係**：本檔為 modular 套餐專屬，**不與 `output-schema.md`（integrated）共用**。兩者根標籤名稱與 FSM 轉移定義保持同步。
 
 ---
@@ -85,10 +85,10 @@ GLOBAL_CONTEXT_SUMMARY:
 ```xml
 <HYPERPLAN_RESULT>
 CRUCIBLE_STATUS: [FAILED | PASSED]
-CRUCIBLE_SCORE: [當前裁判評定的總分與扣分原因說明]
+CRUCIBLE_SCORE: [當前裁判評定的總分與扣分原因說明；第 2 輪起含匿名盲測與 KEEP_BASE 判定]
 VULNERABILITY_FOUND: [True | False]
-ATTACK_POINTS: [條列詳細描述 Destroyer 發現的漏洞、崩潰點或效能瓶頸]
-REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向]
+ATTACK_POINTS: [條列詳細描述 Destroyer 發現的漏洞、崩潰點或效能瓶頸，標註 [INV|DOM]]
+REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向（嚴守 Deliverable Shape Preservation）]
 </HYPERPLAN_RESULT>
 [NEXT_STATE: PHASE_5_SYNTHESIS | Zero-Chat Contract Active]
 ```
@@ -177,13 +177,13 @@ RESIDUAL_RISKS:
 <RETRO_CONVERGENCE>
 RETRO_STATUS: [CONVERGED]
 ANTI_PATTERNS_FINAL:
-- [失敗模式＋觸發條件＋規避法]
+- [CUE 觸發條件＋EVIDENCE 軌跡證據＋LESSON 規避法＋TARGET_COMPONENT (SCRIPT|HOOK|SKILL|SUBAGENT|MEMORY) | NONE (KEEP_BASE: <evidence>)]
 PROCESS_IMPROVEMENTS:
 - [該收緊或放鬆的階段/閘門＋證據]
 KNOWLEDGE_CAPTURED:
 - [可複用的解法或 pattern]
 PERSISTED_TO:
-- [記憶/反模式庫寫入結果]
+- [記憶/反模式庫與 docs/anti-patterns/INDEX.md 寫入結果]
 </RETRO_CONVERGENCE>
 <ALL_PHASES_COMPLETE>
 STATUS: SUCCESS | 4/4 TASKS VERIFIED

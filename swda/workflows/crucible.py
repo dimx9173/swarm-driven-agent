@@ -3,17 +3,64 @@ SWDA Programmatic Crucible: Asymmetric Adversarial Specification Hardening.
 Executes Builder vs. Destroyer vs. Referee inside an RLM loop, bounded by circuit breakers.
 """
 
+import copy
+import hashlib
 import json
+import random
 import re
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, Sequence
 from swda.core.blackboard import Blackboard, AgentRole
 from swda.core.circuit_breaker import StepCounter, CircuitBreakerException
-from swda.prime import jev
+import swda.prime.jev as jev
 from swda.prime.rlm import RLMDispatcher
 
 
 _PASS_TOKENS = frozenset({"pass", "yes", "true"})
 _FAIL_TOKENS = frozenset({"fail", "no", "false"})
+_KEEP_BASE_TRUE_TOKENS = frozenset({"true", "1", "yes", "keep_base"})
+
+_INV_PATTERN = re.compile(
+    r"\b(?:race|deadlock|concurrent|thread|leak|timeout|pool|exception|injection|overflow|null|memory)\b",
+    re.IGNORECASE,
+)
+_SHAPE_MUTATION_PATTERNS = (
+    re.compile(r"\badd\b[^.\n]{0,40}\bcolumn\b", re.IGNORECASE),
+    re.compile(r"\brename\b[^.\n]{0,40}\bheader\b", re.IGNORECASE),
+    re.compile(r"\bsurface\b[^.\n]{0,40}\bintermediate\b", re.IGNORECASE),
+    re.compile(r"\brestate\b[^.\n]{0,40}\bderivation\b", re.IGNORECASE),
+    re.compile(r"\b(?:extra|debug|explanatory)\b[^.\n]{0,40}\b(?:field|column)\b", re.IGNORECASE),
+)
+
+
+def _critique_text(critique: Any) -> str:
+    if isinstance(critique, dict):
+        parts = [str(v) for k, v in critique.items() if k != "dim" and v is not None]
+        return " ".join(parts)
+    return str(critique or "")
+
+
+def classify_critique_dim(critique: Any) -> str:
+    """Classifies a critique into Harness² 'INV' (invariant) or 'DOM' (domain) from content."""
+    text = _critique_text(critique)
+    if _INV_PATTERN.search(text):
+        return "INV"
+    return "DOM"
+
+
+def is_deliverable_shape_mutation(critique: Any) -> bool:
+    """True when a critique demands mutating the requested deliverable shape (Harness² violation)."""
+    text = _critique_text(critique)
+    return any(p.search(text) for p in _SHAPE_MUTATION_PATTERNS)
+
+
+def assign_anon_candidates(labels: Sequence[str], *, task_spec: str, round_idx: int) -> Dict[str, str]:
+    """Deterministic SHA-1 seeded shuffle mapping anon ID ('A', 'B', ...) -> candidate label."""
+    unique = sorted(set(str(lbl) for lbl in labels if str(lbl).strip()))
+    if not unique or len(unique) > 26:
+        raise ValueError(f"assign_anon_candidates requires 1..26 unique labels, got {len(unique)}")
+    seed = int(hashlib.sha1(f"{task_spec}|{round_idx}".encode("utf-8")).hexdigest()[:12], 16)
+    random.Random(seed).shuffle(unique)
+    return {chr(ord("A") + i): lbl for i, lbl in enumerate(unique)}
 
 
 def _classify_jev_answer(answer: Optional[dict]) -> Tuple[str, str]:
@@ -137,6 +184,7 @@ class CrucibleWorkflow:
         """
         all_critiques = []
         current_proposal = {"spec": task_spec, "round": 0}
+        prev_proposal: Optional[Dict[str, Any]] = None
 
         for round_idx in range(1, self.max_rounds + 1):
             self.step_counter.record_step("PHASE_4_CRUCIBLE")
@@ -171,10 +219,31 @@ class CrucibleWorkflow:
             all_critiques.append(critique)
             self.blackboard.write(AgentRole.DESTROYER, "crucible_critiques", all_critiques)
 
-            # 3. Referee renders cold, impassive verdict (digest + re-run check)
+            # 3. Referee renders cold, impassive verdict (digest + re-run check + optional anon contrast)
+            anon_map: Dict[str, str] = {}
+            contrast_line = ""
+            if prev_proposal is not None:
+                anon_map = assign_anon_candidates(
+                    ["base", "candidate"], task_spec=task_spec, round_idx=round_idx
+                )
+                pool_view = {
+                    aid: self._proposal_brief(
+                        prev_proposal if lbl == "base" else current_proposal,
+                        anon=True,
+                    )
+                    for aid, lbl in anon_map.items()
+                }
+                contrast_line = f"Anonymous candidates (KEEP_BASE is valid): {pool_view}\n"
+            shape_guard_line = (
+                "Shape guard: critique demands deliverable-shape mutation; reject shape changes and prefer KEEP_BASE if candidate altered deliverable shape.\n"
+                if is_deliverable_shape_mutation(critique)
+                else ""
+            )
             referee_prompt = (
                 f"Proposal: {self._proposal_brief(current_proposal)}\n"
+                f"{contrast_line}"
                 f"Critique digest: {self._digest_critiques([critique])}\n"
+                f"{shape_guard_line}"
                 f"Reconcile re-run: {self._reconcile_check(current_proposal)}\n"
                 "Render objective verdict. Return JSON with 'passed' (boolean), 'score' (1-10), and 'reason'."
             )
@@ -184,6 +253,16 @@ class CrucibleWorkflow:
                 context=self._role_context(context, AgentRole.REFEREE.value),
             )
             verdict = self._parse_verdict(raw_verdict, round_idx)
+            choice_id = str(verdict.get("choice", "")).strip().upper()
+            chose_base = (
+                bool(verdict.get("keep_base"))
+                or choice_id in ("KEEP_BASE", "BASE")
+                or (bool(choice_id) and anon_map.get(choice_id) == "base")
+            )
+            if chose_base and prev_proposal is not None:
+                current_proposal = copy.deepcopy(prev_proposal)
+                verdict["kept_base"] = True
+                self.blackboard.write(AgentRole.BUILDER, "active_proposal", current_proposal)
             jev_answers: Optional[Dict[str, Any]] = None
             if self._jev_active() and verdict.get("passed"):
                 try:
@@ -219,6 +298,7 @@ class CrucibleWorkflow:
                     rounds_executed=round_idx,
                     critiques=all_critiques,
                 )
+            prev_proposal = current_proposal
 
         # Reached limit without approval -> Trip circuit breaker
         raise CircuitBreakerException(
@@ -236,11 +316,14 @@ class CrucibleWorkflow:
 
     @staticmethod
     def _digest_critiques(critiques: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Compresses critiques to vector/severity/round triples for Builder/Referee."""
+        """Compresses critiques to vector/severity/round/dim tuples for Builder/Referee."""
         digest = []
         for c in critiques[-3:]:
             if isinstance(c, dict):
                 row = {k: c.get(k) for k in ("vector", "severity", "round", "critique") if c.get(k) is not None}
+                row["dim"] = classify_critique_dim(c)
+                if is_deliverable_shape_mutation(c):
+                    row["shape_violation"] = True
                 anchors = CrucibleWorkflow.normalize_anchors(c.get("anchors"))
                 if anchors:
                     row["anchors"] = anchors
@@ -269,10 +352,11 @@ class CrucibleWorkflow:
         return out
 
     @staticmethod
-    def _proposal_brief(proposal: Any) -> Any:
-        """Trims the proposal for Destroyer/Referee (no internal reasoning leakage)."""
+    def _proposal_brief(proposal: Any, *, anon: bool = False) -> Any:
+        """Trims the proposal for Destroyer/Referee (no internal reasoning leakage; strips round when anon)."""
         if isinstance(proposal, dict):
-            brief = {k: proposal.get(k) for k in ("spec", "content", "edge_cases", "round") if proposal.get(k) is not None}
+            keys = ("spec", "content", "edge_cases") if anon else ("spec", "content", "edge_cases", "round")
+            brief = {k: proposal.get(k) for k in keys if proposal.get(k) is not None}
             anchors = CrucibleWorkflow.normalize_anchors(proposal.get("anchors"))
             if anchors:
                 brief["anchors"] = anchors
@@ -308,31 +392,40 @@ class CrucibleWorkflow:
     @staticmethod
     def _parse_verdict(raw_verdict: Any, round_idx: int) -> Dict[str, Any]:
         """Parses a referee verdict; unparseable output fails closed, never auto-passes."""
+        data: Optional[Dict[str, Any]] = None
         if isinstance(raw_verdict, dict):
-            return {
-                "passed": bool(raw_verdict.get("passed", False)),
-                "score": raw_verdict.get("score", 0),
-                "reason": str(raw_verdict.get("reason", "")),
+            data = raw_verdict
+        elif isinstance(raw_verdict, str):
+            match = re.search(r"\{.*\}", raw_verdict, re.DOTALL)
+            if match:
+                try:
+                    parsed = json.loads(match.group(0))
+                    if isinstance(parsed, dict):
+                        data = parsed
+                except Exception:
+                    pass
+        if data is not None:
+            raw_kb = data.get("keep_base")
+            try:
+                score_val = int(float(data.get("score", 0)))
+            except (TypeError, ValueError):
+                score_val = 0
+            out: Dict[str, Any] = {
+                "passed": bool(data.get("passed", False)),
+                "score": score_val,
+                "reason": str(data.get("reason") or ""),
                 "round": round_idx,
                 "jev_score": None,  # only _arbitrate_verdict sets these (spoof guard)
                 "jev_confidence": None,
             }
-        if isinstance(raw_verdict, str):
-            match = re.search(r"\{.*\}", raw_verdict, re.DOTALL)
-            if match:
-                try:
-                    data = json.loads(match.group(0))
-                    if isinstance(data, dict):
-                        return {
-                            "passed": bool(data.get("passed", False)),
-                            "score": data.get("score", 0),
-                            "reason": str(data.get("reason", raw_verdict[:200])),
-                            "round": round_idx,
-                            "jev_score": None,  # arbitration sets these, not the referee
-                            "jev_confidence": None,
-                        }
-                except Exception:
-                    pass
+            if raw_kb is not None:
+                out["keep_base"] = bool(
+                    raw_kb is True
+                    or (isinstance(raw_kb, str) and raw_kb.strip().lower() in _KEEP_BASE_TRUE_TOKENS)
+                )
+            if data.get("choice") is not None:
+                out["choice"] = str(data.get("choice"))
+            return out
         return {
             "passed": False,
             "score": 0,

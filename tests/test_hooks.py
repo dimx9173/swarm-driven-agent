@@ -144,6 +144,57 @@ class TestTddHooksAndSandbox(unittest.TestCase):
         self.assertTrue(res.passed)
         self.assertIn("hi", res.stdout)
 
+    def test_post_hook_output_trimmer_and_error_hints(self):
+        from swda.core.hooks import make_error_hint_hook, make_output_trimmer_hook
+        reg = HookRegistry()
+        reg.register("PostToolUse", make_output_trimmer_hook(max_chars=100))
+        reg.register("PostToolUse", make_error_hint_hook())
+        result = {
+            "stdout": "A" * 250,
+            "stderr": "Traceback: ModuleNotFoundError: No module named 'foo'",
+            "passed": False,
+        }
+        reg.run_post("tdd.run_tests", {"command": "pytest"}, result)
+        self.assertTrue(result.get("trimmed"))
+        self.assertIn("trimmed", result["stdout"])
+        self.assertLess(len(result["stdout"]), 200)
+        self.assertIn("[Harness² Hint]", result["stderr"])
+        self.assertEqual(len(result.get("hints", [])), 1)
+
+    def test_post_write_reconcile_hook_blocks_hallucinated_symbol(self):
+        from swda.core.hooks import make_error_hint_hook, make_post_write_reconcile_hook
+        bad_py = os.path.join(self.tmp, "bad_write.py")
+        with open(bad_py, "w", encoding="utf-8") as f:
+            f.write("import json\nx = json.non_existent_api_xyz()\n")
+        reg = HookRegistry()
+        reg.register("PostToolUse", make_post_write_reconcile_hook(self.tmp))
+        result = {"passed": True, "success": True, "stderr": ""}
+        reg.run_post("write", {"file": "bad_write.py"}, result)
+        self.assertTrue(result.get("blocked"))
+        self.assertFalse(result["passed"])
+        self.assertIn("bad_write.py", result.get("block_reason", ""))
+
+        # Path traversal outside workspace_root must also block (fail closed)
+        esc_res = {"passed": True, "success": True, "stderr": "", "hints": "non-list"}
+        reg.run_post("write", {"file": "../escape_outside.py"}, esc_res)
+        self.assertTrue(esc_res.get("blocked"))
+        self.assertIn("escapes workspace", esc_res.get("block_reason", ""))
+
+        # Earlier hint text does not trigger later error-hint hooks on the same pass
+        reg2 = HookRegistry()
+        reg2.register("PostToolUse", lambda _ev: {"hint": "Note mentioning SyntaxError in hint text"})
+        reg2.register("PostToolUse", make_error_hint_hook())
+        res2 = {"stderr": "normal warning", "passed": True}
+        reg2.run_post("tdd.run_tests", {"command": "pytest"}, res2)
+        self.assertEqual(len(res2.get("hints", [])), 1)
+
+        # verify_green_state accepts explicit hooks parameter
+        seen = []
+        reg3 = HookRegistry()
+        reg3.register("PostToolUse", lambda ev: seen.append(ev["tool"]) or None)
+        self.assertTrue(TDDRunner.verify_green_state("echo ok", cwd=self.tmp, hooks=reg3))
+        self.assertEqual(seen, ["tdd.run_tests"])
+
 
 if __name__ == "__main__":
     unittest.main()

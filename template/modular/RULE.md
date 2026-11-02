@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 3.1.0-engineering-hardened
+version: 3.2.0-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -81,6 +81,9 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 *   **檢索機制與降級備用**：
     你必須使用統一的抽象記憶介面進行讀寫。優先使用 `mempalace` MCP 工具讀寫知識圖譜（調用 `mempalace_kg_add` / `mempalace_search`）；若工具不可用，自動降級為本地文件儲存模式：讀寫當前專案目錄下的 `docs/anti-patterns/`（或 `.swda_memory/`）資料夾下的 YAML 檔案。
 *   **Arachne 排序原則**：將最相關的上下文與檢索到的反模式放置在 Prompt 窗口的**最前端與最末端（焦點位置）**，以防範 LLM 長對話中的 `lost-in-the-middle` 記憶衰退效應。
+*   **Harness 元件成本階梯與經驗三元組鐵律 (Harness Component Cost Hierarchy & Experience Triple, *Harness², arXiv:2610.14224*)**：
+    1.  **常駐文字最昂貴原則 (Always-On Prose is Last Resort)**：常駐規則在每回合皆與模型的輸出預算競爭。沉澱經驗或新增防護時，必須嚴格按運行時 Context 成本由低至高選擇載體：`Script` (`scripts/<name>.py`，確定性檢查與計算) → `Hook` (`PreToolUse`/`PostToolUse`，工具迴圈內強制攔截、輸出修剪與錯誤提示，0 常駐 Prompt Token 成本) → `Skill` (`.agents/skills/<name>/SKILL.md`，按需載入之 SOP) → `Subagent`（大輸入、小輸出之隔離子任務） → `Always-On Memory/Rule`（`MEMORY`，最後手段）。若軌跡證據不支撐任何修改，必須宣告 `KEEP_BASE`（保持原狀）。
+    2.  **Skill Trigger Line 與經驗三元組規則 (Trigger Line & Experience Triple Rule)**：任何新增或保留的 `Skill` 必須在 `docs/anti-patterns/INDEX.md` 或常駐文本中登記明確觸發行（`When <situation>, load the <name> skill`），否則視為死權重丟棄；所有寫入 `docs/anti-patterns/` 的經驗必須同時具備非空的 `(cue, lesson, evidence)` 三元組（`evidence` 取自真實工具調用/錯誤日誌，禁止引用隱藏測試或評分答案）並同步更新輕量索引 `docs/anti-patterns/INDEX.md`，嚴禁混入任何評分標準或答案洩漏（Answer-Free Guard）。
 
 ---
 

@@ -159,6 +159,59 @@ class TestWorkflows(unittest.TestCase):
         crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=2, use_jev=False)
         with self.assertRaises(CircuitBreakerException):
             crucible.run_crucible("task needing review")
+
+    def test_crucible_inv_dom_and_keep_base_selection(self):
+        from swda.workflows.crucible import (
+            CrucibleWorkflow,
+            assign_anon_candidates,
+            classify_critique_dim,
+            is_deliverable_shape_mutation,
+        )
+        self.assertEqual(classify_critique_dim({"vector": "race condition on lock"}), "INV")
+        self.assertEqual(classify_critique_dim({"vector": "invoice tax field order"}), "DOM")
+        # Untrusted self-labeled dim="INV" on domain-only critique is ignored
+        self.assertEqual(classify_critique_dim({"dim": "INV", "vector": "invoice tax field order"}), "DOM")
+        self.assertTrue(is_deliverable_shape_mutation({"critique": "Please add explanatory column to CSV"}))
+        self.assertTrue(is_deliverable_shape_mutation({"critique": "Should add a new summary column to output"}))
+        self.assertFalse(is_deliverable_shape_mutation({"critique": "Validate input bounds"}))
+        # String "false" for keep_base must not coerce to True; string score coerces to int
+        v_false = CrucibleWorkflow._parse_verdict('{"passed": true, "score": "8", "reason": "ok", "keep_base": "false"}', 2)
+        self.assertFalse(v_false.get("keep_base"))
+        self.assertEqual(v_false.get("score"), 8)
+        v_bad_score = CrucibleWorkflow._parse_verdict({"passed": False, "score": "nan_xyz", "reason": "bad"}, 1)
+        self.assertEqual(v_bad_score.get("score"), 0)
+        # Anon proposal brief strips round to prevent recency de-anonymization
+        self.assertNotIn("round", CrucibleWorkflow._proposal_brief({"spec": "s", "round": 2}, anon=True))
+        anon1 = assign_anon_candidates(["base", "candidate"], task_spec="T", round_idx=2)
+        anon2 = assign_anon_candidates(["base", "candidate"], task_spec="T", round_idx=2)
+        self.assertEqual(anon1, anon2)
+        self.assertEqual(set(anon1.keys()), {"A", "B"})
+
+        rounds = {"b": 0, "r": 0}
+
+        def mock_keep_base(role: str, prompt: str):
+            if role == "builder":
+                rounds["b"] += 1
+                if rounds["b"] == 1:
+                    return {"spec": "clean_v1_spec", "round": 1}
+                return {"spec": "overengineered_v2_spec", "round": 2}
+            if role == "destroyer":
+                return {"vector": "Please add explanatory column for debug"}
+            if role == "referee":
+                rounds["r"] += 1
+                if rounds["r"] == 1:
+                    return {"passed": False, "score": 6, "reason": "needs recheck"}
+                return {"passed": True, "score": 9, "reason": "v1 was cleaner", "keep_base": True}
+            return {}
+
+        bb = Blackboard()
+        rlm = RLMDispatcher(mock_handler=mock_keep_base)
+        crucible = CrucibleWorkflow(rlm=rlm, blackboard=bb, max_rounds=3, use_jev=False)
+        res = crucible.run_crucible("Generate report")
+        self.assertTrue(res.passed)
+        self.assertEqual(res.rounds_executed, 2)
+        self.assertEqual(res.proposal["spec"], "clean_v1_spec")
+        self.assertTrue(res.verdict.get("kept_base"))
     def test_reverse_reconciliation(self):
         # Create a valid python file
         valid_file = os.path.join(self.temp_dir, "valid_sample.py")

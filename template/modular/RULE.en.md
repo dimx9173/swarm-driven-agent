@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 3.1.0-engineering-hardened
+version: 3.2.0-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -81,6 +81,9 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 *   **Retrieval Mechanism & Fallback**:
     You must use a unified abstract memory interface for reading/writing. Prioritize using `mempalace` MCP tools (calling `mempalace_kg_add` / `mempalace_search`) to manage the knowledge graph. If tools are unavailable, automatically fall back to local file storage mode: reading and writing YAML files under `docs/anti-patterns/` (or `.swda_memory/`) in the project root.
 *   **Arachne Sorting Principle**: Place the most relevant context and retrieved anti-patterns at the **very beginning and very end (attention focal points)** of the Prompt window to prevent `lost-in-the-middle` memory decay in long conversations.
+*   **Harness Component Cost Hierarchy & Experience Triple (*Harness², arXiv:2610.14224*)**:
+    1.  **Always-On Prose is Last Resort**: Always-on rules compete with the model's output budget on every turn. When capturing experience or adding guards, strictly route by runtime context cost from cheapest to most expensive: `Script` (`scripts/<name>.py`, deterministic checks/calculations) → `Hook` (`PreToolUse`/`PostToolUse`, in-loop enforcement, output trimming, and targeted error hints at zero always-on prompt token cost) → `Skill` (`.agents/skills/<name>/SKILL.md`, on-demand SOP) → `Subagent` (isolated high-input/small-answer subtasks) → `Always-On Memory/Rule` (`MEMORY`, last resort). If trajectory evidence does not justify a change, declare `KEEP_BASE`.
+    2.  **Trigger Line & Experience Triple Rule**: Every created or retained `Skill` must register an explicit trigger line (`When <situation>, load the <name> skill`) in `docs/anti-patterns/INDEX.md` or always-on routing, or be discarded as dead weight; every experience written to `docs/anti-patterns/` must contain a non-empty `(cue, lesson, evidence)` triple (`evidence` grounded in concrete tool/error logs, never hidden tests or rubric answers) and update the lightweight `docs/anti-patterns/INDEX.md`, with zero grader-rubric leakage (Answer-Free Guard).
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 15.2.0-deterministic
+version: 15.3.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -100,6 +100,9 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
 *   **檢索機制與降級備用**：
     你必須使用統一的抽象記憶介面進行讀寫。優先使用 `mempalace` MCP 工具讀寫知識圖譜（調用 `mempalace_kg_add` / `mempalace_search`）；若工具不可用，自動降級為本地文件儲存模式：讀寫當前專案目錄下的 `docs/anti-patterns/`（或 `.swda_memory/`）資料夾下的 YAML 檔案。
 *   **Arachne 排序原則**：將最相關的上下文與檢索到的反模式放置在 Prompt 窗口的**最前端與最末端（焦點位置）**，以防範 LLM 長對話中的 `lost-in-the-middle` 記憶衰退效應。
+*   **Harness 元件成本階梯與經驗三元組鐵律 (Harness Component Cost Hierarchy & Experience Triple, *Harness², arXiv:2610.14224*)**：
+    1.  **常駐文字最昂貴原則 (Always-On Prose is Last Resort)**：常駐規則在每回合皆與模型的輸出預算競爭。沉澱經驗或新增防護時，必須嚴格按運行時 Context 成本由低至高選擇載體：`Script` (`scripts/<name>.py`，確定性檢查與計算) → `Hook` (`PreToolUse`/`PostToolUse`，工具迴圈內強制攔截、輸出修剪與錯誤提示，0 常駐 Prompt Token 成本) → `Skill` (`.agents/skills/<name>/SKILL.md`，按需載入之 SOP) → `Subagent`（大輸入、小輸出之隔離子任務） → `Always-On Memory/Rule`（`MEMORY`，最後手段）。若軌跡證據不支撐任何修改，必須宣告 `KEEP_BASE`（保持原狀）。
+    2.  **Skill Trigger Line 與經驗三元組規則 (Trigger Line & Experience Triple Rule)**：任何新增或保留的 `Skill` 必須在 `docs/anti-patterns/INDEX.md` 或常駐文本中登記明確觸發行（`When <situation>, load the <name> skill`），否則視為死權重丟棄；所有寫入 `docs/anti-patterns/` 的經驗必須同時具備非空的 `(cue, lesson, evidence)` 三元組（`evidence` 取自真實工具調用/錯誤日誌，禁止引用隱藏測試或評分答案）並同步更新輕量索引 `docs/anti-patterns/INDEX.md`，嚴禁混入任何評分標準或答案洩漏（Answer-Free Guard）。
 
 ---
 
@@ -191,14 +194,14 @@ GLOBAL_CONTEXT_SUMMARY:
 [NEXT_STATE: PHASE_3_HYPERPLAN | Zero-Chat Contract Active]
 ```
 
-4.  `[PHASE_3_HYPERPLAN]`：方案對抗熔爐 (Builder vs. Destroyer)。對抗預算上限 3 輪。第 3 輪已有完整評分且無未決 `VULNERABILITY_FOUND` 時由 Referee 取最高分方案降級收束進入 PHASE_5；無評分裁決則輸出 `<BUDGET_EXHAUSTION_REPORT>` 並轉 HITL。
+4.  `[PHASE_3_HYPERPLAN]`：方案對抗熔爐 (Builder vs. Destroyer)。對抗預算上限 3 輪。Destroyer 質疑必須標記維度 `INV`（通用工程缺陷）或 `DOM`（特定領域邊界），並遵守 **Deliverable Shape Preservation**（禁止要求篡改用戶指定的最終交付物結構，如增刪 CSV 表頭、改動 JSON 鍵名或篡改必填 XML 標籤）；自第 2 輪起 Referee 對新版方案與上一輪基線進行匿名洗牌盲測比對（`KEEP_BASE` 為合法裁決，若新版引入過度工程則退回基線；若退回未通過之 `KEEP_BASE` 則計入停滯輪次）。第 3 輪已有完整評分且無未決 `VULNERABILITY_FOUND` 時由 Referee 取最高分方案降級收束進入 PHASE_5；無評分裁決則輸出 `<BUDGET_EXHAUSTION_REPORT>` 並轉 HITL。
 ```xml
 <HYPERPLAN_RESULT>
 CRUCIBLE_STATUS: [FAILED | PASSED]
-CRUCIBLE_SCORE: [當前裁判評定的總分與扣分原因說明]
+CRUCIBLE_SCORE: [當前裁判評定的總分與扣分原因說明；第 2 輪起含匿名盲測與 KEEP_BASE 判定]
 VULNERABILITY_FOUND: [True | False]
-ATTACK_POINTS: [條列詳細描述 Destroyer 發現的漏洞、崩潰點或效能瓶頸]
-REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向]
+ATTACK_POINTS: [條列詳細描述 Destroyer 發現的漏洞、崩潰點或效能瓶頸，標註 [INV|DOM]]
+REQUIRED_FIXES: [條列說明 Builder 必須修正調整的具體技術方向（嚴守 Deliverable Shape Preservation）]
 </HYPERPLAN_RESULT>
 [NEXT_STATE: PHASE_5_SYNTHESIS | Zero-Chat Contract Active]
 ```
@@ -266,18 +269,18 @@ RESIDUAL_RISKS:
 [NEXT_STATE: PHASE_8_RETRO | Zero-Chat Contract Active]
 ```
 
-8.  `[PHASE_8_RETRO]`：雙回顧收斂（Retro A / Retro B 獨立回顧＋交叉去重定稿）。**任務切分**：Retro A 負責反模式抽取；Retro B 負責流程改進＋知識沉澱（scope 互不重疊）。**子任務生命週期守衛 (Subagent Lifecycle Guards)**：強制遵守與 `PHASE_7_REVIEW` 相同的 **Scope Lockdown**、**Immediate Exit Directive**（`"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`）與 **Wait Progress Visualization** 規範。觸發條件：PHASE_7 收斂完成。至少執行 1 次收斂；定稿寫入記憶與反模式庫後，立即輸出終結狀態 `<ALL_PHASES_COMPLETE>` 宣告：
+8.  `[PHASE_8_RETRO]`：雙回顧收斂（Retro A / Retro B 獨立回顧＋交叉去重定稿）。**任務切分**：Retro A 負責反模式抽取（強制輸出 `(CUE, EVIDENCE, LESSON, TARGET_COMPONENT)` 並按 §3 元件成本階梯路由至 `SCRIPT|HOOK|SKILL|SUBAGENT|MEMORY`，無需變更時輸出 `NONE (KEEP_BASE: <evidence>)`）；Retro B 負責流程改進＋知識沉澱（scope 互不重疊）。**子任務生命週期守衛 (Subagent Lifecycle Guards)**：強制遵守與 `PHASE_7_REVIEW` 相同的 **Scope Lockdown**、**Immediate Exit Directive**（`"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`）與 **Wait Progress Visualization** 規範。觸發條件：PHASE_7 收斂完成。至少執行 1 次收斂；定稿寫入記憶與反模式庫並重建 `docs/anti-patterns/INDEX.md` 後，立即輸出終結狀態 `<ALL_PHASES_COMPLETE>` 宣告：
 ```xml
 <RETRO_CONVERGENCE>
 RETRO_STATUS: [CONVERGED]
 ANTI_PATTERNS_FINAL:
-- [失敗模式＋觸發條件＋規避法]
+- [CUE 觸發條件＋EVIDENCE 軌跡證據＋LESSON 規避法＋TARGET_COMPONENT (SCRIPT|HOOK|SKILL|SUBAGENT|MEMORY) | NONE (KEEP_BASE: <evidence>)]
 PROCESS_IMPROVEMENTS:
 - [該收緊或放鬆的階段/閘門＋證據]
 KNOWLEDGE_CAPTURED:
 - [可複用的解法或 pattern]
 PERSISTED_TO:
-- [記憶/反模式庫寫入結果]
+- [記憶/反模式庫與 docs/anti-patterns/INDEX.md 寫入結果]
 </RETRO_CONVERGENCE>
 <ALL_PHASES_COMPLETE>
 STATUS: SUCCESS | 4/4 TASKS VERIFIED

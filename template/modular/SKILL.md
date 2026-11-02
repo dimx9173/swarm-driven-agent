@@ -47,8 +47,8 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 ### PHASE 3 & 4: THE CRUCIBLE (對抗式方案審查與特化工程心智)
 在 `[PHASE_3_HYPERPLAN]` 狀態下執行的對抗式辯論與特徵持續性校準（Trait Calibration）。**角色特化純粹體現在技術深度與審查嚴謹度，嚴禁戲劇化角色扮演廢話 (Zero Melodrama / No RP Fluff)**：
 1.  **Builder 子代理 (The Stalwart Architect - 穩健架構與比例防禦)**：提出正式架構規格書，顯式陳述假設與邊界。捍衛架構完整性與型別安全，維持 **Alignment Persistence**（不得為討好對手而放棄實證設計）；堅持比例防禦原則 (Proportional Defense)，對極端罕見邊界採用 `// ponytail:` 註釋標記性能上限與升級路徑，嚴禁過度工程。
-2.  **Destroyer 子代理 (The Paranoid Red-Teamer - 偏執紅隊與物理可證偽)**：偏執懷疑 Happy Path，專職挖掘 Race conditions、資源洩漏、未捕獲異常、安全注入與假綠燈。**所有攻擊必須具備具體可觸發路徑/輸入 (Falsifiable Vector Constraint)**，嚴禁憑空提出純理論假設或虛構極端場景。
-3.  **Referee 裁判子代理 (The Impassive Rubric Judge - 冷酷裁決與奧坎剃刀)**：依據客觀證據、Rubric 指標與奧坎剃刀原則 (Occam's Razor) 進行冷酷評分。若 Destroyer 的要求會導致代碼非必要膨脹或過度抽象，判定為「不合比例防禦」予以否決；嚴格杜絕雙方無效討好 (No Fawning)。若 Builder 規格書連續 2 輪評分無提升或第 3 輪仍為 FAILED，立即啟動熔斷器提請人類 (HITL) 裁決。
+2.  **Destroyer 子代理 (The Paranoid Red-Teamer - 偏執紅隊與物理可證偽)**：偏執懷疑 Happy Path，專職挖掘 Race conditions、資源洩漏、未捕獲異常、安全注入與假綠燈，並將攻擊標記為 `INV`（通用工程缺陷）或 `DOM`（領域契約缺陷）。**所有攻擊必須具備具體可觸發路徑/輸入 (Falsifiable Vector Constraint)**，嚴禁憑空提出純理論假設、虛構極端場景，或要求篡改外部交付物之結構形狀（Deliverable Shape Preservation，如擅自增刪 CSV 表頭、改動 JSON 鍵名或篡改必填 XML 標籤）。
+3.  **Referee 裁判子代理 (The Impassive Rubric Judge - 冷酷裁決與奧坎剃刀)**：依據客觀證據、Rubric 指標與奧坎剃刀原則 (Occam's Razor) 進行冷酷評分。若 Destroyer 的要求會導致代碼非必要膨脹、過度抽象或篡改交付物欄位形狀，判定為「不合比例防禦」予以否決；自第 2 輪起將修改版與基準版進行匿名洗牌對比（`KEEP_BASE` 為合法裁決；若退回 `KEEP_BASE` 且未達 PASSED 則計入停滯輪次），嚴格杜絕雙方無效討好 (No Fawning)。若 Builder 規格書連續 2 輪評分無提升或第 3 輪仍為 FAILED，立即啟動熔斷器提請人類 (HITL) 裁決。
 
 ### PHASE 5: SYNTHESIS (最終藍圖與驗證)
 將通過 Crucible 認證的共識封裝為設計文檔與實作藍圖（儲存為 ADR 記錄），深度融合以下設計契約：
@@ -77,7 +77,7 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 ### PHASE 8: RETRO（雙回顧收斂）
 PHASE_7 收斂完成後，必須執行至少一次雙回顧收斂：
 1.  **雙回顧子代理 (Retro A / Retro B)**：兩個回顧子代理獨立回顧本次任務全軌跡，維度：反模式抽取（失敗模式＋觸發條件＋規避法）、流程改進點（哪個階段浪費最多步數/哪個閘門該收緊或放鬆）、知識沉澱（可複用的解法/pattern）。**任務切分 (Task Breakdown)**：Retro A 負責反模式抽取；Retro B 負責流程改進點＋知識沉澱。兩 scope 互不重疊。同樣強制遵守 PHASE 7 定義之 **Scope Lockdown**、**Immediate Exit Directive** 與 **Wait Progress Visualization** 守衛。
-2.  **收斂 (Convergence)**：交叉去重合併成定稿——重複項合併、矛盾項以證據裁決、無法證實的觀察標記 `<UNCERTAIN>` 而非丟棄。定稿寫入記憶與反模式庫（`mempalace_kg_add` / `mempalace_search`，降級為 `docs/anti-patterns/` YAML）。
+2.  **收斂與經驗三元組路由 (Convergence & Experience Triple Routing)**：交叉去重合併成定稿——重複項合併、矛盾項以證據裁決、無法證實的觀察標記 `<UNCERTAIN>` 而非丟棄。每筆沉澱必須具備 `(CUE, EVIDENCE, LESSON, TARGET_COMPONENT)` 並按 RULE.md §3 成本階梯路由至最廉價載體（`SCRIPT | HOOK | SKILL | SUBAGENT | MEMORY`）；若無新反模式則輸出 `NONE (KEEP_BASE: <evidence>)`。定稿寫入記憶與反模式庫（`mempalace_kg_add` / `mempalace_search`，降級為 `docs/anti-patterns/` YAML 並同步重建 `docs/anti-patterns/INDEX.md`）。
 3.  **輸出**：`<RETRO_CONVERGENCE>`（定稿反模式＋流程改進＋知識沉澱），緊接輸出 `<ALL_PHASES_COMPLETE>` 終結宣告區塊與 `[NEXT_STATE: None | Awaiting User Input]`，任務至此結束。
 ---
 

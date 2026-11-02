@@ -143,8 +143,90 @@ class TestHarnessStore(unittest.TestCase):
         h = ContinualHarness(workspace_root=self.tmp)
         res = h.refine("hallucinated import", "from os import nope_xyz")
         self.assertTrue(os.path.exists(res["path"]))
+        self.assertEqual(res["target_kind"], "hook")
+        self.assertTrue(os.path.exists(os.path.join(self.tmp, "docs", "anti-patterns", "INDEX.md")))
         self.assertEqual(len(h.state.refinements), 1)
         self.assertTrue(h.format_focal_context())
+
+    def test_harness2_kinds_and_cost_routing(self):
+        from swda.prime.harness import COMPONENT_COST_ORDER, KINDS, has_experience, normalize_rel
+        for k in ("script", "hook", "skill", "subagent", "memory", "prompt"):
+            self.assertIn(k, KINDS)
+        self.assertEqual(COMPONENT_COST_ORDER[0], "script")
+        self.assertTrue(has_experience({"cue": "c", "lesson": "l", "evidence": "e"}))
+        self.assertFalse(has_experience({"cue": "c", "lesson": "", "evidence": "e"}))
+        with self.assertRaises(ValueError):
+            normalize_rel("../escape.py")
+        with self.assertRaises(ValueError):
+            normalize_rel("")
+        with self.assertRaises(ValueError):
+            normalize_rel(".")
+        with self.assertRaises(ValueError):
+            normalize_rel("C:/outside.py")
+        self.assertEqual(normalize_rel("./scripts/./check.py"), "scripts/check.py")
+
+        h = ContinualHarness(workspace_root=self.tmp)
+        kb = h.refine("KEEP_BASE", "")
+        self.assertEqual(kb["target_kind"], "keep_base")
+        self.assertEqual(kb["path"], "")
+
+        # Word-boundary guard: 'information' / 'sparse' must not false-match 'format' / 'parse'
+        kind_info, _ = ContinualHarness.select_cheapest_lever("missing information", "test failed on sparse matrix")
+        self.assertEqual(kind_info, "memory")
+
+        # Multi-line YAML block & special char name round-trip
+        p_path = h.record_anti_pattern(
+            'quote"name',
+            "cue line 1\ncue line 2",
+            "evidence line 1\nevidence line 2",
+            "lesson line 1\nlesson line 2",
+            domain="finance",
+            target_kind="script",
+        )
+        self.assertTrue(os.path.exists(p_path))
+        listed = h.list_anti_patterns(domain="finance")
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0]["name"], 'quote"name')
+        self.assertEqual(listed[0]["cue"], "cue line 1 cue line 2")
+
+        with self.assertRaises(ValueError):
+            h.record_anti_pattern("bad_leak", "cue", "the grader expects X", "rule")
+
+    def test_validate_surface_trigger_script_and_leak(self):
+        skill_dir = os.path.join(self.tmp, "skills", "doc_review")
+        os.makedirs(skill_dir, exist_ok=True)
+        with open(os.path.join(skill_dir, "SKILL.md"), "w", encoding="utf-8") as f:
+            f.write("---\nname: doc_review\ndescription: Review docs\n---\nBody\n")
+        scripts_dir = os.path.join(self.tmp, "scripts")
+        os.makedirs(scripts_dir, exist_ok=True)
+        with open(os.path.join(scripts_dir, "check_totals.py"), "w", encoding="utf-8") as f:
+            f.write("print('ok')\n")
+
+        # Valid surface: trigger line mentions doc_review and scripts/check_totals.py exists
+        ok_res = ContinualHarness.validate_surface(
+            self.tmp,
+            always_on_text="When reviewing docs, load the `doc_review` skill and run scripts/check_totals.py.",
+        )
+        self.assertTrue(ok_res["ok"], ok_res["errors"])
+
+        # Missing trigger line + missing script + grader leak
+        bad_res = ContinualHarness.validate_surface(
+            self.tmp,
+            always_on_text="The grader expects scripts/missing_helper.py to run.",
+        )
+        self.assertFalse(bad_res["ok"])
+        joined = " | ".join(bad_res["errors"])
+        self.assertIn("skill-trigger", joined)
+        self.assertIn("script-missing", joined)
+        self.assertIn("grader-leak", joined)
+
+        # Substring 'my_doc_review_extra' must NOT satisfy trigger check for 'doc_review'
+        sub_res = ContinualHarness.validate_surface(
+            self.tmp,
+            always_on_text="Load my_doc_review_extra when needed.",
+        )
+        self.assertFalse(sub_res["ok"])
+        self.assertTrue(any("skill-trigger" in e for e in sub_res["errors"]))
 
     def test_scoped_harness_local_global_layers(self):
         import tempfile as _t
