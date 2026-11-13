@@ -1,8 +1,8 @@
-# SWDD Output Schema Contract v2.3.0
+# SWDD Output Schema Contract v2.3.1
 
 > **用途**：本檔為 `template/integrated/ALL_IN_RULE.md` §0 條目 2（XML 標籤強邊界）的**可審閱 / subagent 可載入契約**。SOUL 在每次大版本變更時必須同步更新本檔。
 > **生效日**：2026-10-26
-> **版本**：v2.3.0（同步 ALL_IN_RULE.md v15.3.0）
+> **版本**：v2.3.1（同步 ALL_IN_RULE.md v15.3.1）
 
 ---
 
@@ -70,7 +70,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: [分派給 Gamma子代理的獨立研調指令]
 CODEBASE_GRAPH_CONTEXT:
 - [拓撲探測 Subagent 產出：AST 關係、調用鏈與變更邊界]
 RELEVANT_MEMORIES_ANTI_PATTERNS:
-- [記憶與知識檢索 Subagent 產出：Mimir / mempalace 反模式與 KIs 指引]
+- [記憶與知識檢索 Subagent 產出：知識圖譜反模式與 KIs 指引]
 DATABASE_STATE_SCHEMAS:
 - [資料庫與狀態探針 Subagent 產出：資料表結構、API 與狀態定義]
 GLOBAL_CONTEXT_SUMMARY:

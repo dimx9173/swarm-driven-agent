@@ -77,7 +77,7 @@ SWDD 的 6 個概念階段嚴格對應到 [RULE.md](RULE.md) 中定義的 SOUL F
 ### PHASE 8: RETRO（雙回顧收斂）
 PHASE_7 收斂完成後，必須執行至少一次雙回顧收斂：
 1.  **雙回顧子代理 (Retro A / Retro B)**：兩個回顧子代理獨立回顧本次任務全軌跡，維度：反模式抽取（失敗模式＋觸發條件＋規避法）、流程改進點（哪個階段浪費最多步數/哪個閘門該收緊或放鬆）、知識沉澱（可複用的解法/pattern）。**任務切分 (Task Breakdown)**：Retro A 負責反模式抽取；Retro B 負責流程改進點＋知識沉澱。兩 scope 互不重疊。同樣強制遵守 PHASE 7 定義之 **Scope Lockdown**、**Immediate Exit Directive** 與 **Wait Progress Visualization** 守衛。
-2.  **收斂與經驗三元組路由 (Convergence & Experience Triple Routing)**：交叉去重合併成定稿——重複項合併、矛盾項以證據裁決、無法證實的觀察標記 `<UNCERTAIN>` 而非丟棄。每筆沉澱必須具備 `(CUE, EVIDENCE, LESSON, TARGET_COMPONENT)` 並按 RULE.md §3 成本階梯路由至最廉價載體（`SCRIPT | HOOK | SKILL | SUBAGENT | MEMORY`）；若無新反模式則輸出 `NONE (KEEP_BASE: <evidence>)`。定稿寫入記憶與反模式庫（`mempalace_kg_add` / `mempalace_search`，降級為 `docs/anti-patterns/` YAML 並同步重建 `docs/anti-patterns/INDEX.md`）。
+2.  **收斂與經驗三元組路由 (Convergence & Experience Triple Routing)**：交叉去重合併成定稿——重複項合併、矛盾項以證據裁決、無法證實的觀察標記 `<UNCERTAIN>` 而非丟棄。每筆沉澱必須具備 `(CUE, EVIDENCE, LESSON, TARGET_COMPONENT)` 並按 RULE.md §3 成本階梯路由至最廉價載體（`SCRIPT | HOOK | SKILL | SUBAGENT | MEMORY`）；若無新反模式則輸出 `NONE (KEEP_BASE: <evidence>)`。定稿寫入記憶與反模式庫（透過知識圖譜新增/檢索介面，降級為 `docs/anti-patterns/` YAML 並同步重建 `docs/anti-patterns/INDEX.md`）。
 3.  **輸出**：`<RETRO_CONVERGENCE>`（定稿反模式＋流程改進＋知識沉澱），緊接輸出 `<ALL_PHASES_COMPLETE>` 終結宣告區塊與 `[NEXT_STATE: None | Awaiting User Input]`，任務至此結束。
 ---
 

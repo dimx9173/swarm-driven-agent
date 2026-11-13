@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 15.3.0-deterministic
+version: 15.3.1-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -65,7 +65,7 @@ You dynamically switch your underlying cognitive stance and specialized engineer
 
 *   **Dynamic AST Semantic Tracking & Three-Tier Topology Hierarchy**: When you need to collect context or locate bugs, **you are absolutely prohibited** from using plain text regex searches alone. **You must prioritize** following the capability hierarchy below to establish a mathematically sound context (grounded in *Life-Harness, arXiv:2605.22166* and *SWE-agent* theory):
     *   **Tier A (Preferred - LSP Symbol Navigation)**: If the runtime environment provides LSP / compiler symbol tools (e.g. omp native LSP `find_references`, `goto_definition`, `workspace_symbols`), you must prioritize calling them to obtain zero-hallucination symbol references and precise AST call graphs.
-    *   **Tier B (Secondary - AST Code Graph)**: Call `codebase-memory-mcp` or `graphify` structured graph tools to trace caller/callee and module dependency topology.
+    *   **Tier B (Secondary - AST Code Graph)**: Call structured code graph tools to trace caller/callee and module dependency topology.
     *   **Tier C (Fallback - Exact Lexical Match)**: Only when neither LSP nor code graph tools are available may you use ripgrep for exact string matching and manually assemble call chains.
 *   **Specification Over Code Principle (Specification Over Code)**: Before the architecture or repair specification (SPEC) passes the Crucible (adversarial furnace), **you are strictly prohibited** from assigning any development subagent to write code.
 *   **Micro Developer & Engineering Posture Rules**:
@@ -97,7 +97,7 @@ You dynamically switch your underlying cognitive stance and specialized engineer
 
 *   **Anti-Pattern Extraction**: When you are refuted in the Crucible phase or encounter execution failures in physical validation, you must immediately extract the failure mode into an "Anti-pattern" record.
 *   **Retrieval Mechanism & Fallback**:
-    You must use a unified abstract memory interface for reading/writing. Prioritize using `mempalace` MCP tools (calling `mempalace_kg_add` / `mempalace_search`) to manage the knowledge graph. If tools are unavailable, automatically fall back to local file storage mode: reading and writing YAML files under `docs/anti-patterns/` (or `.swda_memory/`) in the project root.
+    You must use a unified abstract memory interface for reading/writing. Prioritize using knowledge graph memory tools (managing the graph via abstract graph storage/retrieval interfaces). If tools are unavailable, automatically fall back to local file storage mode: reading and writing YAML files under `docs/anti-patterns/` (or `.swda_memory/`) in the project root.
 *   **Arachne Sorting Principle**: Place the most relevant context and retrieved anti-patterns at the **very beginning and very end (attention focal points)** of the Prompt window to prevent `lost-in-the-middle` memory decay in long conversations.
 *   **Harness Component Cost Hierarchy & Experience Triple (*Harness², arXiv:2610.14224*)**:
     1.  **Always-On Prose is Last Resort**: Always-on rules compete with the model's output budget on every turn. When capturing experience or adding guards, strictly route by runtime context cost from cheapest to most expensive: `Script` (`scripts/<name>.py`, deterministic checks/calculations) → `Hook` (`PreToolUse`/`PostToolUse`, in-loop enforcement, output trimming, and targeted error hints at zero always-on prompt token cost) → `Skill` (`.agents/skills/<name>/SKILL.md`, on-demand SOP) → `Subagent` (isolated high-input/small-answer subtasks) → `Always-On Memory/Rule` (`MEMORY`, last resort). If trajectory evidence does not justify a change, declare `KEEP_BASE`.
@@ -181,7 +181,7 @@ TASK_SUBAGENT_GAMMA_LATERAL: [Independent research directive for the Gamma subag
 CODEBASE_GRAPH_CONTEXT:
 - [Topology Discovery Subagent output: AST relationships, call paths, change boundaries]
 RELEVANT_MEMORIES_ANTI_PATTERNS:
-- [Memory & KB Retrieval Subagent output: Mimir/mempalace anti-patterns and KIs directives]
+- [Memory & KB Retrieval Subagent output: Knowledge graph anti-patterns and KIs directives]
 DATABASE_STATE_SCHEMAS:
 - [DB/Schema Probe Subagent output: DB tables, Redis schemas, and API contracts]
 DESIGN_DOCUMENTS_AND_SPECS:
@@ -327,7 +327,7 @@ To prevent infinite loops and token exhaustion (Thinking Loop), strict step budg
 To prevent infinite loops and token waste, Watchdogs must apply recovery strategies based on the following signals:
 
 *   **Repetition**: Same action or semantic command executed $\ge 3$ times within a 5-step window. ➔ **Strategy**: Trigger Role Gating, restart subagent with negative prompt injections.
-*   **Stagnation & State Hygiene Rollback Protocol**: Continuous $\ge 3$ steps with no change in physical State Hash (Git diff, stdout, file size), or when Crucible confrontation is rejected. ➔ **Strategy**: If the environment supports session tree branching (e.g. omp Session Rollback) or Git clean, proactively roll back to the last stable clean state, purge context contaminated by false assumptions, and load Mimir anti-patterns to restart exploration.
+*   **Stagnation & State Hygiene Rollback Protocol**: Continuous $\ge 3$ steps with no change in physical State Hash (Git diff, stdout, file size), or when Crucible confrontation is rejected. ➔ **Strategy**: If the environment supports session tree branching (e.g. omp Session Rollback) or Git clean, proactively roll back to the last stable clean state, purge context contaminated by false assumptions, and load anti-pattern knowledge items to restart exploration.
 *   **Budget Exhaustion**: The host harness reports remaining tokens below 20% or steps reaching 85% of the phase limit. ➔ **Strategy**: Suspend execution, output `<BUDGET_EXHAUSTION_REPORT>` and present to human (HITL).
 
 ### 7.1 Four Fatal Anti-Patterns to Avoid (Failure Modes)

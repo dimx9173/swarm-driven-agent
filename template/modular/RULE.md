@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 3.2.0-engineering-hardened
+version: 3.2.1-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -52,7 +52,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 
 *   **動態 AST 語意追蹤與三級導航階梯 (Three-Tier Topology Hierarchy)**：當你需要收集上下文或定位 bug 時，**你絕對禁止**僅使用普通文本 regex 搜尋。你**必須**遵循以下能力優先階梯，以建立數學上健全的上下文（參見 *Life-Harness, arXiv:2605.22166* 與 *SWE-agent* 理論）：
     *   **Tier A (首選 - LSP 符號導航)**：若環境具備 LSP / 編譯器符號工具（如 omp 原生 LSP `find_references`, `goto_definition`, `workspace_symbols`），必須優先調用，以獲取 0 幻覺的符號引用與精確 AST 調用鏈。
-    *   **Tier B (次選 - AST 代碼圖譜)**：調用 `codebase-memory-mcp` 或 `graphify` 結構化圖譜工具追蹤 caller/callee 與模組依賴拓撲。
+    *   **Tier B (次選 - AST 代碼圖譜)**：調用結構化代碼圖譜工具追蹤 caller/callee 與模組依賴拓撲。
     *   **Tier C (底線降級 - 精確詞法比對)**：僅在環境無 LSP 且無圖譜工具時，方可使用 ripgrep 精確字串搜尋並人工核對調用鏈。
 *   **代碼優先級原則 (Specification Over Code)**：在架構或修復規格書（SPEC）未通過 Crucible（熔爐對抗）前，**你被嚴格禁止**指派任何開發 subagent 進行代碼寫入。
 *   **微觀開發五條鐵律 (Micro Developer Rules)**：
@@ -79,7 +79,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 
 *   **反模式記錄檢索**：當你在 Crucible 階段被駁回，或在實體代碼驗證中遭遇失敗時，你必須立即將該次失敗模式提取為「反模式記錄 (Anti-pattern)」。
 *   **檢索機制與降級備用**：
-    你必須使用統一的抽象記憶介面進行讀寫。優先使用 `mempalace` MCP 工具讀寫知識圖譜（調用 `mempalace_kg_add` / `mempalace_search`）；若工具不可用，自動降級為本地文件儲存模式：讀寫當前專案目錄下的 `docs/anti-patterns/`（或 `.swda_memory/`）資料夾下的 YAML 檔案。
+    你必須使用統一的抽象記憶介面進行讀寫。優先使用知識圖譜記憶工具（透過抽象圖譜介面進行新增與檢索）；若工具不可用，自動降級為本地文件儲存模式：讀寫當前專案目錄下的 `docs/anti-patterns/`（或 `.swda_memory/`）資料夾下的 YAML 檔案。
 *   **Arachne 排序原則**：將最相關的上下文與檢索到的反模式放置在 Prompt 窗口的**最前端與最末端（焦點位置）**，以防範 LLM 長對話中的 `lost-in-the-middle` 記憶衰退效應。
 *   **Harness 元件成本階梯與經驗三元組鐵律 (Harness Component Cost Hierarchy & Experience Triple, *Harness², arXiv:2610.14224*)**：
     1.  **常駐文字最昂貴原則 (Always-On Prose is Last Resort)**：常駐規則在每回合皆與模型的輸出預算競爭。沉澱經驗或新增防護時，必須嚴格按運行時 Context 成本由低至高選擇載體：`Script` (`scripts/<name>.py`，確定性檢查與計算) → `Hook` (`PreToolUse`/`PostToolUse`，工具迴圈內強制攔截、輸出修剪與錯誤提示，0 常駐 Prompt Token 成本) → `Skill` (`.agents/skills/<name>/SKILL.md`，按需載入之 SOP) → `Subagent`（大輸入、小輸出之隔離子任務） → `Always-On Memory/Rule`（`MEMORY`，最後手段）。若軌跡證據不支撐任何修改，必須宣告 `KEEP_BASE`（保持原狀）。
@@ -173,7 +173,7 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
 為防止無限重試與 token 浪費，Watchdog 必須依據以下信號執行恢復策略：
 
 *   **Repetition (語意重複)**：相同動作或指令語意在 5 步窗口內重複 $\ge 3$ 次。➔ **策略**：觸發角色切換 (Role Gating)，重啟 subagent 並注入反向提示。
-*   **Stagnation (狀態停滯) 與乾淨狀態回滾協議 (State Hygiene Rollback Protocol)**：Git Diff、Terminal 輸出與操作檔案大小連續 $\ge 3$ 步物理特徵無變化，或 Crucible 對抗遭否決時。➔ **策略**：若環境支援 Session 樹狀分支（如 omp Session Rollback）或 Git clean，主動回滾至上一穩定乾淨狀態，徹底清除被錯誤假設污染的上下文，載入 Mimir 反模式重啟探索。
+*   **Stagnation (狀態停滯) 與乾淨狀態回滾協議 (State Hygiene Rollback Protocol)**：Git Diff、Terminal 輸出與操作檔案大小連續 $\ge 3$ 步物理特徵無變化，或 Crucible 對抗遭否決時。➔ **策略**：若環境支援 Session 樹狀分支（如 omp Session Rollback）或 Git clean，主動回滾至上一穩定乾淨狀態，徹底清除被錯誤假設污染的上下文，載入歷史反模式知識庫重啟探索。
 *   **Budget Exhaustion (預算耗盡)**：宿主 harness 回報剩餘 token 低於 20% 或步數達階段上限 85%。➔ **策略**：暫停執行，生成 `<BUDGET_EXHAUSTION_REPORT>` 提請人類 (HITL) 決策。
 
 ---
