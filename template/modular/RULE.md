@@ -114,10 +114,10 @@ In parsing or executing any task, your underlying attention mechanism must lock 
 1.  `[INTENT_GATE]`：接收到全新任務或使用者輸入時，進行意圖與執行軌道分析。預算上限 1 步。
     - **三層級執行軌道 (Execution Tracks)**：
       - `FAST_PASS`：純問候（如 "hi"）、社交寒暄或無代碼變更之諮詢。不調度子代理與對抗熔爐，直接精確回覆。
-      - `LITE_MODE`：經「多樣性路由」驗證的低多樣性工作。跳過 PHASE_1~3，直接進入 PHASE_5 SYNTHESIS 與實體驗證。
+      - `LITE_MODE`：經「多樣性路由」驗證的低多樣性工作。跳過 PHASE_1~3，直接進入 PHASE_5 SYNTHESIS 與實體驗證（Red-Green-Verify）；在延遲受限／輕量模型或單輪會話下，凡局部且非觸點清單之任務應優先採用 `LITE_MODE`，避免多跳子代理累積衰減。
       - `SWARM_MODE`：觸發完整 7-Phase SWDD 狀態機；名單與熔爐權重依多樣性路由決定。凡 PHASE_6 有實際產出代碼，必須續跑 PHASE_7（雙審查收斂）與 PHASE_8（雙回顧收斂）各至少一次。
       - **連續級聯 (Continuous Cascade / AUTO_ADVANCE)**：`SWARM_MODE` 與 `LITE_MODE` 預設 `AUTO_ADVANCE=True`（使用者明示「一步一步」、「每步確認」時改為 False；`FAST_PASS` 一律 False）。語意：在連續自主工具執行輪次中連續輸出多個階段區塊、不等待使用者輸入，**不得**在中途停下等待使用者輸入；凡階段需要工具或 subagent 產出時先發出工具調用、待宿主回傳後繼續；終止條件僅有 §0 條目 8 所列四種。此欄位只改變「何時交還控制權」，不改變任何階段的預算、驗證閘門或工具權限。
-    - **多樣性路由 (Diversity Routing)**：評 `AMBIGUITY_WIDTH`（合併信號：歧義幾乎必然伴隨解空間寬）、`RISK`（做錯的代價）、`IRREVERSIBILITY_SCOPE`（影響面+回滾成本；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單**）、`VERIFIABILITY`（有便宜 oracle？）。硬地板：觸點清單 ⇒ Destroyer + Referee 至少最低權重，永不可關。LITE 需四維全低**且**已落實至少一個便宜反證物（測試/重現/測量）。視角表：重構→Alpha+Gamma+Builder；安全→Beta+Destroyer+Referee 且 Gamma 保留查 prior art；無重現性能→Alpha+Beta+Builder 提前+Destroyer；選型/POC→Gamma+Referee+Builder spike+Destroyer 威脅建模。第 1 輪後 Referee 可修訂熔爐權重一次。
+    - **多樣性路由 (Diversity Routing)**：評 `AMBIGUITY_WIDTH`（合併信號：歧義幾乎必然伴隨解空間寬）、`RISK`（做錯的代價）、`IRREVERSIBILITY_SCOPE`（影響面+回滾成本；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單**）、`VERIFIABILITY`（有便宜 oracle？）。硬地板：觸點清單 ⇒ Destroyer + Referee 至少最低權重，永不可關。LITE 需四維全低**且**已落實至少一個便宜反證物（測試/重現/測量）；凡影響面局部可控、非觸點清單、低歧義／低風險且具備快速確定性本地驗證（Oracle）的任務，一律優先走 `LITE_MODE`。視角表：重構→Alpha+Gamma+Builder；安全→Beta+Destroyer+Referee 且 Gamma 保留查 prior art；無重現性能→Alpha+Beta+Builder 提前+Destroyer；選型/POC→Gamma+Referee+Builder spike+Destroyer 威脅建模。第 1 輪後 Referee 可修訂熔爐權重一次。
 ```xml
 <INTENT_GATE_RESULT>
 INTENT_CLASSIFICATION: [CASUAL_CHAT | QUICK_QUERY | FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]
@@ -134,14 +134,14 @@ STRATEGY_TRACK: [描述調度路徑，FAST_PASS 填 Direct Response]
 3.  `[PHASE_2_GATHER]`：資訊探測與交叉彙整。此階段禁止設計具體解決方案。**【自適應技能學習閘】你必須主動比對當前任務技術特徵與 `.agents/skills/` 下既存技能，若缺乏則調用 discover/learn，最多嘗試 1 次。**
 4.  `[PHASE_3_HYPERPLAN]`：方案對抗熔爐 (Builder vs. Destroyer)，由 Referee 進行 Rubric 評分與熔斷判定。對抗預算上限 3 輪。第 3 輪已有完整評分且無未決 `VULNERABILITY_FOUND` 時由 Referee 取最高分方案進 PHASE_5；無評分裁決則輸出 `<BUDGET_EXHAUSTION_REPORT>` 並轉 HITL。
 5.  `[PHASE_6_IMPLEMENT]`：物理執行閘道，依據 TDD 契約進行雙代理沙箱實作與驗證。測試與自我修復預算上限 5 次。
-6.  `[PHASE_7_REVIEW]`：雙審查收斂（Reviewer A / Reviewer B 獨立審查＋Referee 式裁決分歧）。觸發條件：PHASE_6 有實際產出代碼。至少執行 1 次收斂，最多 2 輪；`BLOCKER` findings 未清零不得進入 PHASE_8，超限觸發 HITL。**子任務生命週期守衛 (Subagent Lifecycle Guards)**：派發審查任務時必須實施 **Scope Lockdown**（明確限定 `path` 或 target files，嚴禁對全專案無邊界 `glob`/`grep` 遞迴檢索）、注入 **Immediate Exit Directive**（`"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`），並在呼叫 `wait` 時附上具體等待對象、超時與範圍（`wait {"i": "Waiting for ReviewerA & ReviewerB (Timeout: 180s, Scope: ...)"}`）。
+6.  `[PHASE_7_REVIEW]`：雙審查收斂（Reviewer A / Reviewer B 獨立審查＋Referee 式裁決分歧）。觸發條件：PHASE_6 有實際產出代碼。至少執行 1 次收斂，最多 2 輪；`BLOCKER` findings 未清零不得進入 PHASE_8，超限觸發 HITL。**比例收斂原則 (Proportional Convergence)**：若為 `LITE_MODE` 或影響面局部、非觸點清單且已通過確定性測試的變更，允許以**單輪內聯自檢**執行 `PHASE_7_REVIEW` 與 `PHASE_8_RETRO`，免去派發 4 個外部子代理進程的延遲。**子任務生命週期守衛 (Subagent Lifecycle Guards)**：派發審查任務時必須實施 **Scope Lockdown**（明確限定 `path` 或 target files，嚴禁對全專案無邊界 `glob`/`grep` 遞迴檢索）、注入 **Immediate Exit Directive**（`"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`），並在呼叫 `wait` 時附上具體等待對象、超時與範圍（`wait {"i": "Waiting for ReviewerA & ReviewerB (Timeout: 120s, Scope: ...)"}`）。**防卡死上限**：若子代理於單次等待預算（`<= 120s`）內未回傳，立即停止等待並降級為單代理內聯完成。
 7.  `[PHASE_8_RETRO]`：雙回顧收斂（Retro A / Retro B 獨立回顧＋交叉去重定稿）。觸發條件：PHASE_7 收斂完成。遵守與 `PHASE_7_REVIEW` 相同的子任務生命週期守衛。至少執行 1 次收斂；定稿寫入記憶與反模式庫後，輸出 `<ALL_PHASES_COMPLETE>` 區塊並以 `[NEXT_STATE: None | Awaiting User Input]` 宣告任務結束。
 8.  `[BUDGET_EXHAUSTION_REPORT]`：預算耗盡報告標籤，當任意階段達步驟上限無法收斂時輸出並轉移至 `[NEXT_STATE: HITL_SUSPEND]`。
 
 ### 5.2 實體執行三層守門機制
 *   **執行前閘道 (Action Realization Gate)**：派發前預檢 Spec 規格、TDD 失敗腳本以及 `<ANCHORED_MEMORY_AND_CONTEXT>` 記憶包完整性。不符則 Block 回退，回退上限 2 次，超限觸發人類 (HITL) 介入。
 *   **實體沙箱隔離**：強制在臨時隔離目錄或一次性容器中執行實作與測試，確保開發 subagent 與測試編寫 subagent 職責分離。
-*   **執行後守門 (Trajectory Regulation Gate & Zero-TypeError Pre-flight)**：在執行業務測試前，優先調用環境 Linter / Typechecker（如 `mypy`, `rustc --no-run`, `tsc --noEmit`, `go vet`）進行確定性靜態語法與型別預檢；預檢通過後自動執行測試與數值中間斷言，並掃描提交代碼中是否存在 `[DEBUG-xxxx]` 日誌標籤殘留（若有殘留強制清除）。同時執行語義 Diff 掃描，確認無「註解測試斷言」或「硬編碼捷徑 (Reward Hacking)」現象。測試失敗、存在欺騙行為或未清理日誌則自動修復（重試上限 3 次，超限觸發 HITL）。
+*   **執行後守門 (Trajectory Regulation Gate & Zero-TypeError Pre-flight)**：在執行業務測試前，優先調用環境 Linter / Typechecker（如 `mypy`, `rustc --no-run`, `tsc --noEmit`, `go vet`）進行確定性靜態語法與型別預檢；預檢通過後自動執行測試與數值中間斷言。針對演算法／最佳化代碼，必須以真實目標規模驗證執行延遲（禁止只測極小樣本），並加上 Anytime 時間／迭代上限以防超時；同時掃描提交代碼中是否存在 `[DEBUG-xxxx]` 日誌標籤殘留（若有殘留強制清除），並執行語義 Diff 掃描確認無「註解測試斷言」或「硬編碼捷徑 (Reward Hacking)」。測試失敗、存在欺騙行為或未清理日誌則自動修復（重試上限 3 次，超限觸發 HITL）。
 
 ---
 

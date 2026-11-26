@@ -16,6 +16,7 @@ primary model is rejected with model_not_allowed.
 
 import os
 import json
+import time
 import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Type, TypeVar, Callable
@@ -234,36 +235,40 @@ class RLMDispatcher:
         models = data.get("data", []) if isinstance(data, dict) else []
         return [m.get("id") for m in models if isinstance(m, dict) and m.get("id")]
 
-    def _call_endpoint(self, payload: Dict[str, Any]) -> str:
-        """Calls OpenAI-compatible LLM endpoint using standard library urllib."""
+    def _call_endpoint(self, payload: Dict[str, Any], timeout: int = 120, max_retries: int = 2) -> str:
+        """Calls OpenAI-compatible LLM endpoint with bounded retry on transient 429/5xx/timeouts."""
         url = f"{self.api_base.rstrip('/')}/chat/completions"
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                return data["choices"][0]["message"]["content"]
-        except TimeoutError as err:
-            raise RuntimeError(f"RLM Timeout connecting to {url} after 120s: {err}")
-        except urllib.error.HTTPError as err:
-            # Preserve the response body: the fallback chain keys on
-            # "model_not_allowed", which only appears in the body text.
-            body = ""
+        data_bytes = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+        transient_codes = {429, 502, 503, 504}
+        last_err: Optional[RuntimeError] = None
+        for attempt in range(max_retries + 1):
+            req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
             try:
-                body = err.read().decode("utf-8", "replace")[:300]
-            except Exception:
-                pass
-            raise RuntimeError(
-                f"RLM HTTP {err.code} connecting to {url}: {body or err.reason}")
-        except urllib.error.URLError as err:
-            raise RuntimeError(f"RLM Network error connecting to {url}: {err}")
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return data["choices"][0]["message"]["content"]
+            except TimeoutError as err:
+                last_err = RuntimeError(f"RLM Timeout connecting to {url} after {timeout}s: {err}")
+            except urllib.error.HTTPError as err:
+                body = ""
+                try:
+                    body = err.read().decode("utf-8", "replace")[:300]
+                except Exception:
+                    pass
+                r_err = RuntimeError(f"RLM HTTP {err.code} connecting to {url}: {body or err.reason}")
+                if err.code not in transient_codes:
+                    raise r_err
+                last_err = r_err
+            except urllib.error.URLError as err:
+                raise RuntimeError(f"RLM Network error connecting to {url}: {err}")
+            if attempt < max_retries:
+                time.sleep(1.0 * (2 ** attempt))
+        assert last_err is not None
+        raise last_err
 
     def _parse_schema(self, schema: Type[T], data: Dict[str, Any]) -> T:
         """Parses data into Pydantic model or dataclass/dict."""

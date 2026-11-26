@@ -108,10 +108,12 @@ def run_omp_agent_live(prompt: str, model: str = None, timeout: int = 30) -> str
 
 
 class HarnessRunner:
-    def __init__(self, tasks_file: str = DEFAULT_TASKS_FILE, offline: bool = True, agent_driver: str = "mock"):
+    def __init__(self, tasks_file: str = DEFAULT_TASKS_FILE, offline: bool = True,
+                 agent_driver: str = "mock", model: str = None):
         self.tasks_file = tasks_file
         self.offline = offline
         self.agent_driver = agent_driver
+        self.model = model
         with open(tasks_file, "r", encoding="utf-8") as f:
             self.task_suite = json.load(f)
 
@@ -125,9 +127,9 @@ class HarnessRunner:
             if self.offline or self.agent_driver == "mock":
                 output = mock_model_offline_response(task["prompt"])
             elif self.agent_driver == "pi":
-                output = run_pi_agent_live(task["prompt"])
+                output = run_pi_agent_live(task["prompt"], model=self.model)
             elif self.agent_driver == "omp":
-                output = run_omp_agent_live(task["prompt"])
+                output = run_omp_agent_live(task["prompt"], model=self.model)
             else:
                 output = mock_model_offline_response(task["prompt"])
 
@@ -175,13 +177,19 @@ class HarnessRunner:
 
 def main():
     parser = argparse.ArgumentParser(description="SWDA Benchmark Harness Runner")
-    parser.add_argument("--offline", action="store_true", default=True, help="Run in deterministic offline replay mode")
+    parser.add_argument("--offline", action="store_true", default=True, help="Run in deterministic offline replay mode (default)")
+    parser.add_argument("--live", action="store_true", default=False, help="Run live evaluation against selected --driver")
+    parser.add_argument("--driver", choices=["mock", "pi", "omp"], default="mock", help="Agent driver for evaluation")
+    parser.add_argument("--model", default=None, help="Optional model ID passed to live driver")
     parser.add_argument("--tasks", default=DEFAULT_TASKS_FILE, help="Path to tasks.json specification")
     parser.add_argument("--report", default=None, help="Optional output path for Markdown report")
     args = parser.parse_args()
 
-    runner = HarnessRunner(tasks_file=args.tasks, offline=args.offline)
-    eval_data = runner.run_evaluation()
+    offline = not args.live
+    driver = args.driver if args.live else "mock"
+    label = f"swda({args.model or driver})"
+    runner = HarnessRunner(tasks_file=args.tasks, offline=offline, agent_driver=driver, model=args.model)
+    eval_data = runner.run_evaluation(model_name=label)
     report_md = runner.generate_markdown_report(eval_data)
 
     print(report_md)

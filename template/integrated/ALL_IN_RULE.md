@@ -134,7 +134,7 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
 1.  `[INTENT_GATE]`：接收到新任務或使用者輸入時進行意圖與執行軌道分析。預算上限 1 步。
     - **三層級執行軌道 (Execution Tracks)**：
       - `FAST_PASS` (Tier 1 自然對話模式)：純問候（如 "hi"）、社交寒暄或無代碼變更之諮詢。直接以自然語言回復，不產生 XML 標籤與 FSM 狀態轉移。
-      - `LITE_MODE` (Tier 2 狀態機模式)：經「多樣性路由」驗證的低多樣性工作（見下）。發出 `<INTENT_GATE_RESULT>` 並直接進入 PHASE_5 SYNTHESIS 與實體驗證。
+      - `LITE_MODE` (Tier 2 狀態機模式)：經「多樣性路由」驗證的低多樣性工作（見下）。發出 `<INTENT_GATE_RESULT>` 並直接進入 PHASE_5 SYNTHESIS 與實體驗證（Red-Green-Verify）。在延遲受限／輕量模型或單輪會話下，凡局部且非觸點清單之任務應優先採用 `LITE_MODE`，避免多跳子代理累積衰減。
       - `SWARM_MODE` (Tier 2 狀態機模式)：發出 `<INTENT_GATE_RESULT>` 並觸發完整 5-Phase SWDD 狀態機；開啟哪些子代理與熔爐權重依「多樣性路由」決定。
       - **連續級聯 (Continuous Cascade / AUTO_ADVANCE)**：`SWARM_MODE` 與 `LITE_MODE` 預設 `AUTO_ADVANCE=True`（使用者明示「一步一步」、「每步確認」時改為 False；`FAST_PASS` 一律 False）。語意：在連續自主工具執行輪次中連續輸出多個階段區塊、不等待使用者輸入，**不得**在中途停下等待使用者輸入；凡階段需要工具或 subagent 產出時先發出工具調用、待宿主回傳後繼續；終止條件僅有 §0 條目 8 所列四種。此欄位只改變「何時交還控制權」，不改變任何階段的預算、驗證閘門或工具權限。
     - **多樣性路由 (Diversity Routing — 決定多視角何時值得花)**：派發任何子代理前，先對任務評四維：
@@ -143,7 +143,7 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
       - `IRREVERSIBILITY_SCOPE`：影響面 + 回滾成本——一行改動 auth 中間件比跨 40 檔的機械重構**更需要**對抗視角；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單 (hard touchlist)**。
       - `VERIFIABILITY`：有沒有便宜的 oracle（測試、基準、查詢）能抓出錯誤？
       **硬地板 (覆蓋其他一切規則)**：觸點清單上的任務 ⇒ Destroyer + Referee 至少以最低權重開啟；地板只能加碼對抗權重，永遠不得歸零。
-      **LITE 前置反證**：降入 LITE_MODE 需同時滿足 (a) 四維全低 且 (b) 已落實至少一個便宜的反證物（一個測試、一個重現、或一次測量）——沒有反證物不得降軌。開錯「開」只費 token；開錯「關」則把看不見的問題直接上線。
+      **LITE 前置反證**：降入 LITE_MODE 需同時滿足 (a) 四維全低 且 (b) 已落實至少一個便宜的反證物（一個測試、一個重現、或一次測量）——沒有反證物不得降軌。凡**影響面局部可控**、**未觸及硬觸點清單**、低歧義／低風險且具備**快速確定性本地驗證（Oracle：單元測試、型別檢查或模擬器）**的任務，一律優先走 `LITE_MODE`，將預算集中於實作與反覆驗證而非前置編排。開錯「開」只費 token；開錯「關」則把看不見的問題直接上線。
       **按問題類型選視角 (open = 全權重，assist = 精簡配置)：**
       | 問題 | 開啟 | 輔助 |
       |---|---|---|
@@ -246,11 +246,11 @@ REMAINING_CONCERNS:
 [NEXT_STATE: PHASE_7_REVIEW | None | Zero-Chat Contract Active]（PHASE_6 有實際產出代碼時，PHASE_7＋PHASE_8 至少各收斂一次；否則為 None）
 ```
 
-7.  `[PHASE_7_REVIEW]`：雙審查收斂（Reviewer A / Reviewer B 獨立審查＋Referee 式裁決分歧）。**任務切分**：Reviewer A 負責正確性＋合約一致性；Reviewer B 負責安全＋簡潔（scope 互不重疊）。觸發條件：PHASE_6 有實際產出代碼。至少執行 1 次收斂，最多 2 輪；所有 `BLOCKER` findings 必須修完並重跑測試後方可推進，否則 HITL。
+7.  `[PHASE_7_REVIEW]`：雙審查收斂（Reviewer A / Reviewer B 獨立審查＋Referee 式裁決分歧）。**任務切分**：Reviewer A 負責正確性＋合約一致性；Reviewer B 負責安全＋簡潔（scope 互不重疊）。觸發條件：PHASE_6 有實際產出代碼。至少執行 1 次收斂，最多 2 輪；所有 `BLOCKER` findings 必須修完並重跑測試後方可推進，否則 HITL。**比例收斂原則 (Proportional Convergence)**：若為 `LITE_MODE` 或影響面局部、非觸點清單且已通過確定性測試的變更，允許以**單輪內聯自檢 (Single-Pass Inline Self-Audit)** 執行 `PHASE_7_REVIEW` 與 `PHASE_8_RETRO`（直接輸出 `<REVIEW_CONVERGENCE>` 與 `<RETRO_CONVERGENCE>` 定稿，免去派發 4 個外部子代理進程的延遲）。
     *   **子任務生命週期守衛 (Subagent Lifecycle Guards)**：
         - **Scope Lockdown**：派發審查任務時，必須明確限定 `path` 或 target files，嚴禁對整個專案進行無邊界的 `glob`/`grep` 遞迴檢索。
         - **Immediate Exit Directive**：在派發 Reviewer / Retro 的 Task Prompt 範本中注入生命週期約束：`"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`
-        - **Wait Progress Visualization**：呼叫 `wait` 工具時，`i`（`intent`）參數必須包含當前等待對象、超時預期與目標範圍（例如：`wait {"i": "Waiting for ReviewerA & ReviewerB (Timeout: 180s, Scope: tools/tri.sh)"}`），嚴禁空泛的 `"Waiting for results"`。
+        - **Wait Progress Visualization & 硬性超時降級 (Anti-Hang Fallback)**：呼叫 `wait` 工具時，`i`（`intent`）參數必須包含當前等待對象、超時預期與目標範圍（例如：`wait {"i": "Waiting for ReviewerA & ReviewerB (Timeout: 120s, Scope: tools/tri.sh)"}`），嚴禁空泛的 `"Waiting for results"`。**防卡死上限**：若子代理於單次等待預算（`<= 120s`）內未回傳，立即停止等待並降級為**單代理內聯完成**，禁止無限死等。
     收斂後輸出：
 ```xml
 <REVIEW_CONVERGENCE>
@@ -312,7 +312,7 @@ bypass_allowed: [True | False]
 [NEXT_STATE: None | Zero-Chat Contract Active]
 ```
 *   **實體沙箱隔離**：強制在臨時隔離目錄或一次性容器中執行實作與測試。
-*   **執行後守門 (Trajectory Regulation Gate & Zero-TypeError Pre-flight)**：在執行業務測試前，優先調用環境 Linter / Typechecker（如 `mypy`, `rustc --no-run`, `tsc --noEmit`, `go vet`）進行確定性靜態語法與型別預檢；預檢通過後自動執行測試與數值中間斷言。測試失敗則自動修復（重試上限 3 次，超限則觸發 HITL 介入）。
+*   **執行後守門 (Trajectory Regulation Gate & Zero-TypeError Pre-flight)**：在執行業務測試前，優先調用環境 Linter / Typechecker（如 `mypy`, `rustc --no-run`, `tsc --noEmit`, `go vet`）進行確定性靜態語法與型別預檢；預檢通過後自動執行測試與數值中間斷言。針對演算法／最佳化代碼，必須以真實目標規模驗證執行延遲（禁止只測極小樣本），並加上 Anytime 時間／迭代上限以防超時。測試失敗則自動修復（重試上限 3 次，超限則觸發 HITL 介入）。
 
 ---
 

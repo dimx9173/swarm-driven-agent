@@ -133,7 +133,7 @@ You must strictly match the current state Hook, wrap your output in the correspo
 1.  `[INTENT_GATE]`: Analyze intent and execution track upon receiving new task or user input. Max budget: 1 step.
     - **Three-Tier Execution Tracks**:
       - `FAST_PASS`: Pure greetings (e.g. "hi"), casual pleasantries, or non-code queries. No subagents or crucible dispatched; direct concise response.
-      - `LITE_MODE`: Verified low-diversity work (see Diversity Routing below). Skip PHASE_1~3, go directly to PHASE_5 SYNTHESIS and physical validation.
+      - `LITE_MODE`: Verified low-diversity work (see Diversity Routing below). Skip PHASE_1~3, go directly to PHASE_5 SYNTHESIS and physical validation (Red-Green-Verify). On latency-constrained/lightweight models or single-turn sessions, prefer `LITE_MODE` for any localized non-touchlist task to prevent multi-hop subagent decay.
       - `SWARM_MODE`: Full 7-Phase SWDD FSM workflow; which subagents open and the crucible weighting follow Diversity Routing. Whenever PHASE_6 produced actual code, PHASE_7 (dual-review convergence) and PHASE_8 (dual-retrospective convergence) must each run at least once.
       - **Continuous Cascade (`AUTO_ADVANCE`)**: `SWARM_MODE` and `LITE_MODE` default to `AUTO_ADVANCE=True` (set False only when the user explicitly asks to go "one step at a time" / "confirm each step"; `FAST_PASS` is always False). Semantics: emit multiple phase blocks across consecutive autonomous tool-execution turns without awaiting user input and **never** halt mid-way to await user input; the only termination conditions are the four listed in §0 rule 8. Whenever a phase needs a tool or subagent result, emit the tool call and continue after the host returns the result. This field changes *when control is returned*, never any phase's budget, verification gate, or tool permission.
     - **Diversity Routing (decides where multiple perspectives pay off)**:
@@ -143,7 +143,7 @@ You must strictly match the current state Hook, wrap your output in the correspo
       - `IRREVERSIBILITY_SCOPE`: blast radius + rollback cost — a one-line auth-middleware change ranks HIGHER than a 40-file mechanical refactor; touches to auth/crypto/migrations/external contracts/production data are on the **hard touchlist**.
       - `VERIFIABILITY`: is there a cheap oracle (test, benchmark, query) that would catch a mistake?
       **Hard floor (overrides every other rule):** anything on the touchlist ⇒ Destroyer + Referee open at minimum weight; the floor can raise adversarial weight, never zero it.
-      **Probes before LITE:** LITE_MODE requires (a) all four scores low AND (b) at least one cheap falsification artifact committed (a test, a repro, or a measurement) — no artifact, no downgrade. A wrong "close" ships unseen; a wrong "open" only costs tokens.
+      **Probes before LITE:** LITE_MODE requires (a) all four scores low AND (b) at least one cheap falsification artifact committed (a test, a repro, or a measurement) — no artifact, no downgrade. Tasks with a **localized blast radius**, **off the hard touchlist**, low `AMBIGUITY_WIDTH`/`RISK`, and backed by a **fast deterministic local oracle** (unit test, typecheck, or simulator) MUST default to `LITE_MODE` to invest budget in iterative implementation & verification rather than pre-implementation orchestration. A wrong "close" ships unseen; a wrong "open" only costs tokens.
       **Perspective selection by problem type (open = full weight, assist = reduced crew):**
       | Problem | Open | Assist |
       |---|---|---|
@@ -243,11 +243,11 @@ REMAINING_CONCERNS:
 </TASK_SUMMARY_REPORT>
 [NEXT_STATE: PHASE_7_REVIEW | None | Zero-Chat Contract Active] (if PHASE_6 produced actual code, at least one PHASE_7 + PHASE_8 convergence is mandatory; otherwise None)
 ```
-7.  `[PHASE_7_REVIEW]`: Dual-review convergence (Reviewer A / Reviewer B independent review + Referee-style dispute resolution). **Task Breakdown**: Reviewer A covers correctness + contract conformance; Reviewer B covers security + simplicity (non-overlapping scopes). Trigger: PHASE_6 produced actual code. At least 1 convergence, max 2 rounds; all `BLOCKER` findings must be fixed and re-tested before advancing, else HITL.
+7.  `[PHASE_7_REVIEW]`: Dual-review convergence (Reviewer A / Reviewer B independent review + Referee-style dispute resolution). **Task Breakdown**: Reviewer A covers correctness + contract conformance; Reviewer B covers security + simplicity (non-overlapping scopes). Trigger: PHASE_6 produced actual code. At least 1 convergence, max 2 rounds; all `BLOCKER` findings must be fixed and re-tested before advancing, else HITL. **Proportional Convergence**: for `LITE_MODE` or localized non-touchlist changes already passing deterministic tests, execute `PHASE_7_REVIEW` and `PHASE_8_RETRO` via **single-pass inline self-audit** (emitting `<REVIEW_CONVERGENCE>` and `<RETRO_CONVERGENCE>` directly without spawning 4 external subagent processes).
     *   **Subagent Lifecycle Guards**:
         - **Scope Lockdown**: When dispatching review subagents, you MUST explicitly constrain the `path` or target files; unbounded recursive `glob`/`grep` searches across the entire repository are strictly forbidden.
         - **Immediate Exit Directive**: Inject the following lifecycle constraint into every Reviewer / Retro Task Prompt template: `"Deliver findings immediately upon convergence and exit process. Do not enter background watching, unprompted re-runs, or secondary analysis."`
-        - **Wait Progress Visualization**: When calling the `wait` tool for subagents, the `i` (`intent`) parameter MUST specify the active targets, timeout expectation, and scope (e.g., `wait {"i": "Waiting for ReviewerA & ReviewerB (Timeout: 180s, Scope: tools/tri.sh)"}`); vague intents like `"Waiting for results"` are forbidden.
+        - **Wait Progress Visualization & Hard-Cap Fallback**: When calling the `wait` tool for subagents, the `i` (`intent`) parameter MUST specify the active targets, timeout expectation, and scope (e.g., `wait {"i": "Waiting for ReviewerA & ReviewerB (Timeout: 120s, Scope: tools/tri.sh)"}`); vague intents like `"Waiting for results"` are forbidden. **Anti-Hang Hard Cap**: if a subagent does not return within a single wait budget (`<= 120s`), stop waiting and fall back immediately to **single-agent inline execution** with available context.
     Outputs on convergence:
 ```xml
 <REVIEW_CONVERGENCE>
@@ -297,7 +297,7 @@ bypass_allowed: [True | False]
 [NEXT_STATE: None | Zero-Chat Contract Active]
 ```
 *   **Sandbox Isolation**: Force implementation and testing inside temporary directories or isolated containers.
-*   **Trajectory Regulation Gate & Zero-TypeError Pre-flight**: Before running business tests, prioritize calling environment Linters / Typecheckers (e.g. `mypy`, `rustc --no-run`, `tsc --noEmit`, `go vet`) for deterministic static syntax and type pre-checks; after pre-checks pass, execute tests and intermediate assertions. Retry on Red state up to 3 times, then escalate to HITL.
+*   **Trajectory Regulation Gate & Zero-TypeError Pre-flight**: Before running business tests, prioritize calling environment Linters / Typecheckers (e.g. `mypy`, `rustc --no-run`, `tsc --noEmit`, `go vet`) for deterministic static syntax and type pre-checks; after pre-checks pass, execute tests and intermediate assertions. For algorithmic/optimization code, verify latency on realistic target-scale inputs (not toy sizes alone) and enforce an anytime wall-clock/iteration cap so search never times out. Retry on Red state up to 3 times, then escalate to HITL.
 
 ---
 
