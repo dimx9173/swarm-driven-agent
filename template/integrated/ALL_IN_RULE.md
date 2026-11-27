@@ -134,7 +134,7 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
 1.  `[INTENT_GATE]`：接收到新任務或使用者輸入時進行意圖與執行軌道分析。預算上限 1 步。
     - **三層級執行軌道 (Execution Tracks)**：
       - `FAST_PASS` (Tier 1 自然對話模式)：純問候（如 "hi"）、社交寒暄或無代碼變更之諮詢。直接以自然語言回復，不產生 XML 標籤與 FSM 狀態轉移。
-      - `LITE_MODE` (Tier 2 狀態機模式)：經「多樣性路由」驗證的低多樣性工作（見下）。發出 `<INTENT_GATE_RESULT>` 並直接進入 PHASE_5 SYNTHESIS 與實體驗證（Red-Green-Verify）。在延遲受限／輕量模型或單輪會話下，凡局部且非觸點清單之任務應優先採用 `LITE_MODE`，避免多跳子代理累積衰減。
+      - `LITE_MODE` (Tier 2 狀態機模式)：經「多樣性路由」驗證的低多樣性工作（見下）。跳過 PHASE_1~3，直接進入 PHASE_5 SYNTHESIS 與實體驗證（Red-Green-Verify）；在 `AUTO_ADVANCE=True` 下，於第 1 輪同步輸出 `<INTENT_GATE_RESULT>` + `<SYSTEM_SPECIFICATION>` 並直接發出首個實作／探針工具調用（零純規劃空轉輪）。在延遲受限／輕量模型或單輪會話下，凡局部且非觸點清單之任務應優先採用 `LITE_MODE`，避免多跳子代理累積衰減。
       - `SWARM_MODE` (Tier 2 狀態機模式)：發出 `<INTENT_GATE_RESULT>` 並觸發完整 5-Phase SWDD 狀態機；開啟哪些子代理與熔爐權重依「多樣性路由」決定。
       - **連續級聯 (Continuous Cascade / AUTO_ADVANCE)**：`SWARM_MODE` 與 `LITE_MODE` 預設 `AUTO_ADVANCE=True`（使用者明示「一步一步」、「每步確認」時改為 False；`FAST_PASS` 一律 False）。語意：在連續自主工具執行輪次中連續輸出多個階段區塊、不等待使用者輸入，**不得**在中途停下等待使用者輸入；凡階段需要工具或 subagent 產出時先發出工具調用、待宿主回傳後繼續；終止條件僅有 §0 條目 8 所列四種。此欄位只改變「何時交還控制權」，不改變任何階段的預算、驗證閘門或工具權限。
     - **多樣性路由 (Diversity Routing — 決定多視角何時值得花)**：派發任何子代理前，先對任務評四維：
@@ -152,7 +152,7 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
       | 性能 / 疑難雜症（無重現） | `SWARM_MODE`: Repro-First | Alpha + Beta + **Builder 提前**（插樁） | 無重現 ⇒ Destroyer 開啟——沒有 oracle 時對抗組合更重要 |
       | 方案選型 / POC | `SWARM_MODE`: Spike + 威脅建模 | Gamma + Referee | 入圍者跑 Builder spike；不可逆選擇由 Destroyer 威脅建模 |
       | 高規格密度 / 強不變量（規格明確、二元通過 oracle） | `LITE_MODE`: Spec-First Red-Green-Verify | 單代理直接執行 | 跳過 PHASE_1~3；將預算集中在邊界/不變量測試與精準修復 |
-      | 連續最佳化 / 搜尋 / 模擬 / 有重現性能調優（連續指標 oracle） | `LITE_MODE`: **Baseline-Measure-HillClimb** | 單代理直接執行 | 先交付滿足硬約束的極簡 baseline，在真實目標規模實測指標與耗時，再將預算集中於升級核心演算法與啟發式（僅在指標嚴格變優且符合 anytime 上限時保留），避免把預算耗在過度防禦樣板或冗餘 fuzzing |
+      | 連續最佳化 / 搜尋 / 模擬 / 有重現性能調優（連續指標 oracle） | `LITE_MODE`: **Baseline-Measure-HillClimb** | 單代理直接執行 | **步驟 1**：先建**忠實本地 OOS 模擬器**（納入所有摩擦、交易成本、延遲、regime breaks 與軟／硬約束，切勿臆造額外硬限制），先測原檔基準並保留備份再動手。**步驟 2**：將候選版與原檔／目前最佳版同場跑多隨機種子 OOS 比對，**僅在指標嚴格勝出且符合 anytime 上限時才寫入覆蓋目標檔**（嚴禁把未驗證或更差的重寫留在磁碟上）。 |
       **權重修訂**：第 1 輪後 Referee 可修訂熔爐權重一次，之後鎖定。僵持以 typed 理由解決（`writing`/`open_ended`/`oversized`/`unsure`），不得以重置輪數代替。
 ```xml
 <INTENT_GATE_RESULT>

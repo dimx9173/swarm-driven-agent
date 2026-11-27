@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "3.9.1"
+CLI_VERSION = "3.9.2"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -1311,6 +1311,7 @@ _HOST_BINDING_END = "<!-- swda-host-binding-end -->"
 _HOST_DISPATCH_BINDINGS = {
     "omp": (
         "## Host Dispatch Binding (OMP)\n"
+        "- **Track Gate**: If `EXECUTION_TRACK=LITE_MODE`, do NOT spawn `task` subagents; execute directly in-session (Turn 1: emit `<INTENT_GATE_RESULT>` + `<SYSTEM_SPECIFICATION>` + first edit/probe tool call).\n"
         "- In `SWARM_MODE`, do NOT role-play subagents in prose alone; invoke the `task` tool in parallel:\n"
         "  - `PHASE_1` / `PHASE_2`: spawn at least 2 parallel `task` calls using `agent`: `swda-alpha`, `swda-beta`, `swda-gamma` (with explicit `path`/scope).\n"
         "  - `PHASE_3`: invoke `task` with `agent`: `swda-builder`, `swda-destroyer`, `swda-referee`.\n"
@@ -1318,6 +1319,7 @@ _HOST_DISPATCH_BINDINGS = {
     ),
     "hermes": (
         "## Host Dispatch Binding (Hermes)\n"
+        "- **Track Gate**: If `EXECUTION_TRACK=LITE_MODE`, do NOT spawn subagents; execute directly in-session.\n"
         "- In `SWARM_MODE`, do NOT simulate multiple roles inside a single response; invoke Hermes's native delegation/subagent tool (`delegate_task` or equivalent subagent tool) in parallel:\n"
         "  - `PHASE_1` / `PHASE_2`: launch at least 2 isolated subagents (Alpha Standard / Beta Edge / Gamma Lateral) with scoped target paths.\n"
         "  - `PHASE_3`: run Builder, Destroyer (falsifiable vector required), and Referee in isolated turns/subagents.\n"
@@ -1325,6 +1327,7 @@ _HOST_DISPATCH_BINDINGS = {
     ),
     "openclaw": (
         "## Host Dispatch Binding (OpenClaw)\n"
+        "- **Track Gate**: If `EXECUTION_TRACK=LITE_MODE`, do NOT spawn subagents; execute directly in-session.\n"
         "- In `SWARM_MODE`, do NOT simulate multiple roles inside a single response; invoke OpenClaw's native subagent spawn tool (`sessions_spawn` or equivalent subagent tool) in parallel:\n"
         "  - `PHASE_1` / `PHASE_2`: spawn at least 2 isolated subagent sessions (Alpha Standard / Beta Edge / Gamma Lateral) with explicit file scope.\n"
         "  - `PHASE_3`: run Builder, Destroyer (falsifiable vector required), and Referee in isolated subagent sessions.\n"

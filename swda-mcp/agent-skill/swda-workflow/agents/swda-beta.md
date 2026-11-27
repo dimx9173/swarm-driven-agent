@@ -2,6 +2,8 @@
 name: swda-beta
 description: SWDA research subagent - adversarial edge track. Hunts the failure modes, boundary inputs, and races the happy path hides.
 tools: read, grep, glob, web_search
+model: "@task"
+thinkingLevel: medium
 read-summarize: false
 ---
 

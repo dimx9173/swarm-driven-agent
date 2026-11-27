@@ -2,6 +2,8 @@
 name: swda-gamma
 description: SWDA research subagent - lateral track. Finds prior art, stdlib and platform options, and the smallest correct solution.
 tools: read, grep, glob, web_search
+model: "@smol"
+thinkingLevel: low
 read-summarize: false
 ---
 

@@ -2,6 +2,8 @@
 name: swda-reviewer
 description: SWDA dual-review subagent (Reviewer A: correctness & contract conformance; Reviewer B: security & simplicity). Read-only; reports findings and exits immediately.
 tools: read, grep, glob, bash
+model: "@slow"
+thinkingLevel: medium
 read-summarize: false
 ---
 

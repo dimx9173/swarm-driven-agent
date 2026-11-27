@@ -2,6 +2,8 @@
 name: swda-retro
 description: SWDA retrospective subagent (Retro A: anti-pattern extraction; Retro B: process & knowledge capture). Read-only; reports findings and exits immediately.
 tools: read, grep, glob
+model: "@smol"
+thinkingLevel: low
 read-summarize: false
 ---
 

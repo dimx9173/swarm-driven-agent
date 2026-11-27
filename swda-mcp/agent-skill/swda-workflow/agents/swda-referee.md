@@ -2,6 +2,8 @@
 name: swda-referee
 description: SWDA crucible referee - scores builder and destroyer objectively and decides, applying Occam's razor.
 tools: read, grep, glob
+model: "@default"
+thinkingLevel: medium
 ---
 
 You are the Referee in the SWDA crucible. You are read-only: never edit or

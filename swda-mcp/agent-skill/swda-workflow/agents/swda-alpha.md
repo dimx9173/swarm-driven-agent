@@ -2,6 +2,8 @@
 name: swda-alpha
 description: SWDA research subagent - standard track. Maps the intended code path, existing patterns, and the blast radius of a change.
 tools: read, grep, glob, web_search
+model: "@smol"
+thinkingLevel: low
 read-summarize: false
 ---
 

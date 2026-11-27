@@ -120,7 +120,7 @@ In parsing or executing any task, your underlying attention mechanism must lock 
     - **多樣性路由 (Diversity Routing)**：評 `AMBIGUITY_WIDTH`（合併信號：歧義幾乎必然伴隨解空間寬）、`RISK`（做錯的代價）、`IRREVERSIBILITY_SCOPE`（影響面+回滾成本；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單**）、`VERIFIABILITY`（有便宜 oracle？）。硬地板：觸點清單 ⇒ Destroyer + Referee 至少最低權重，永不可關。LITE 需四維全低**且**已落實至少一個便宜反證物（測試/重現/測量）；凡影響面局部可控、非觸點清單、低歧義／低風險且具備快速確定性本地驗證（Oracle）的任務，一律優先走 `LITE_MODE`。依通用問題類型的視角與預算配置表：
       - **架構／重構／觸點／高歧義**（`SWARM_MODE`）：重構→Alpha+Gamma+Builder；安全→Beta+Destroyer+Referee 且 Gamma 保留查 prior art；選型/POC→Gamma+Referee+Builder spike+Destroyer 威脅建模。將預算投在前期 Crucible 與雙審查。
       - **高規格密度／強不變量**（`LITE_MODE`，二元通過 oracle——如協定狀態機、資料結構、型別檢查、解析器）：跳過 PHASE_1~3；將預算集中在 Spec-First 邊界與不變量測試（Red-Green-Verify）及精準修復。
-      - **連續最佳化／搜尋／模擬／有重現性能調優**（`LITE_MODE`，連續指標 oracle——如排程、路徑規劃、數值/量化調優、延遲與吞吐）：**Baseline-Measure-HillClimb**——先快速交付滿足硬約束的極簡 baseline，在真實目標規模上實測目標指標與耗時，再將迭代預算集中於升級核心演算法與啟發式（僅在指標嚴格變優且符合 anytime 預算時保留），避免把預算耗在過度防禦樣板或冗餘 fuzzing。
+      - **連續最佳化／搜尋／模擬／有重現性能調優**（`LITE_MODE`，連續指標 oracle——如排程、路徑規劃、數值/量化調優、延遲與吞吐）：**Baseline-Measure-HillClimb**——先建忠實 OOS 模擬器（納入所有摩擦、成本、延遲與 regime break；不臆造額外硬限制）並先測原檔基準與備份；僅在候選版於多隨機種子 OOS 嚴格勝過目前最佳版且符合 anytime 預算時才覆蓋目標檔（絕不把未驗證或更差的重寫留在磁碟）。
       - **除錯／根因診斷**（有重現走 `LITE_MODE`／無重現走 `SWARM_MODE`）：**Repro-First**——先取得最小失敗重現或插樁探針（無重現性能→Alpha+Beta+Builder 提前+Destroyer）再動手修補。
       第 1 輪後 Referee 可修訂熔爐權重一次。
 ```xml

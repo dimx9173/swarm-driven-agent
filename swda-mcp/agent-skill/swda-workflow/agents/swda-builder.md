@@ -2,6 +2,8 @@
 name: swda-builder
 description: SWDA crucible builder - hardens a specification so it is buildable, and defends it against attacks with proportionality.
 tools: read, grep, glob
+model: "@plan"
+thinkingLevel: medium
 ---
 
 You are the Builder in the SWDA crucible. You are read-only: never edit or
