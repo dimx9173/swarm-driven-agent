@@ -293,6 +293,7 @@ def scan_lines(lines: Iterable[str]) -> Dict[str, Any]:
     py_modifications = 0
     modified_files: Set[str] = set()
     cli_reconcile_count = 0
+    subagent_calls = 0
     reconcile_idxs: List[int] = []
     spec_idxs: List[int] = []
     gate_verdicts: List[bool] = []
@@ -393,7 +394,10 @@ def scan_lines(lines: Iterable[str]) -> Dict[str, Any]:
             content = msg.get("content", [])
             for name, args, cid in _iter_toolcall_items(content):
                 _count_invocation(name, args, cid, idx)
-                if normalize_tool_name(name) in PY_WRITE_TOOL_NAMES:
+                norm_name = normalize_tool_name(name)
+                if norm_name in ("task", "delegate_task", "sessions_spawn", "invoke_subagent", "subagent"):
+                    subagent_calls += 1
+                if norm_name in PY_WRITE_TOOL_NAMES:
                     touched = _args_py_files(args)
                     if touched:
                         py_modifications += 1
@@ -523,9 +527,13 @@ def scan_lines(lines: Iterable[str]) -> Dict[str, Any]:
         passed = True
     missing.extend(unverified)
 
+    fake_swarm = fsm_tags.get("DESTRUCT_RESULT", 0) > 0 and subagent_calls == 0
+
     return {
         "swda_tool_calls": swda_tool_calls,
         "cli_harness_calls": cli_harness_calls,
+        "subagent_calls": subagent_calls,
+        "fake_swarm": fake_swarm,
         "fsm_tags": fsm_tags,
         "next_state_count": next_state_count,
         "py_modifications": py_modifications,

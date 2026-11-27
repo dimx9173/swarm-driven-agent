@@ -147,6 +147,8 @@ def cmd_verify_session(args):
     if res.get("unverified"):
         print(f"Unverified gates:     {len(res['unverified'])} (needs human confirmation)")
     print(f"Firewall calls:       {res['firewall_count']}")
+    print(f"Subagent calls:       {res.get('subagent_calls', 0)}"
+          + (" [FAKE_SWARM: SWARM_MODE without real subagent dispatch]" if res.get("fake_swarm") else ""))
     print(f"FSM tags:             " + ", ".join(f"{k}={v}" for k, v in res['fsm_tags'].items()))
     print(f"NEXT_STATE count:     {res['next_state_count']}")
     ok = res["passed"]

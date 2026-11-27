@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "3.9.0"
+CLI_VERSION = "3.9.1"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -1305,6 +1305,49 @@ def scan_agents():
 
     return detected
 
+_HOST_BINDING_BEGIN = "<!-- swda-host-binding-begin -->"
+_HOST_BINDING_END = "<!-- swda-host-binding-end -->"
+
+_HOST_DISPATCH_BINDINGS = {
+    "omp": (
+        "## Host Dispatch Binding (OMP)\n"
+        "- In `SWARM_MODE`, do NOT role-play subagents in prose alone; invoke the `task` tool in parallel:\n"
+        "  - `PHASE_1` / `PHASE_2`: spawn at least 2 parallel `task` calls using `agent`: `swda-alpha`, `swda-beta`, `swda-gamma` (with explicit `path`/scope).\n"
+        "  - `PHASE_3`: invoke `task` with `agent`: `swda-builder`, `swda-destroyer`, `swda-referee`.\n"
+        "  - `PHASE_7` / `PHASE_8` (unless `LITE_MODE` inline convergence applies): invoke `task` with `agent`: `swda-reviewer` / `swda-retro`.\n"
+    ),
+    "hermes": (
+        "## Host Dispatch Binding (Hermes)\n"
+        "- In `SWARM_MODE`, do NOT simulate multiple roles inside a single response; invoke Hermes's native delegation/subagent tool (`delegate_task` or equivalent subagent tool) in parallel:\n"
+        "  - `PHASE_1` / `PHASE_2`: launch at least 2 isolated subagents (Alpha Standard / Beta Edge / Gamma Lateral) with scoped target paths.\n"
+        "  - `PHASE_3`: run Builder, Destroyer (falsifiable vector required), and Referee in isolated turns/subagents.\n"
+        "  - `PHASE_7` / `PHASE_8` (unless `LITE_MODE` inline convergence applies): launch separate Reviewer A/B and Retro A/B subagents with immediate exit instructions.\n"
+    ),
+    "openclaw": (
+        "## Host Dispatch Binding (OpenClaw)\n"
+        "- In `SWARM_MODE`, do NOT simulate multiple roles inside a single response; invoke OpenClaw's native subagent spawn tool (`sessions_spawn` or equivalent subagent tool) in parallel:\n"
+        "  - `PHASE_1` / `PHASE_2`: spawn at least 2 isolated subagent sessions (Alpha Standard / Beta Edge / Gamma Lateral) with explicit file scope.\n"
+        "  - `PHASE_3`: run Builder, Destroyer (falsifiable vector required), and Referee in isolated subagent sessions.\n"
+        "  - `PHASE_7` / `PHASE_8` (unless `LITE_MODE` inline convergence applies): spawn separate Reviewer A/B and Retro A/B sessions with immediate exit instructions.\n"
+    ),
+}
+
+
+def _inject_host_dispatch_binding(content, agent_type):
+    """Appends an idempotent host-specific subagent dispatch binding block."""
+    atype = (agent_type or "").lower()
+    if atype == "openclaw-workspace":
+        atype = "openclaw"
+    b_idx = content.find(_HOST_BINDING_BEGIN)
+    e_idx = content.find(_HOST_BINDING_END)
+    if b_idx != -1 and e_idx != -1 and e_idx > b_idx:
+        content = (content[:b_idx].rstrip() + "\n" + content[e_idx + len(_HOST_BINDING_END):].lstrip()).rstrip()
+    binding = _HOST_DISPATCH_BINDINGS.get(atype)
+    if not binding:
+        return content
+    return f"{content.rstrip()}\n\n{_HOST_BINDING_BEGIN}\n{binding}{_HOST_BINDING_END}\n"
+
+
 def merge_soul_content(target_content, template_content):
     begin_marker = "<!-- swda-begin -->"
     end_marker = "<!-- swda-end -->"
@@ -1338,7 +1381,11 @@ def merge_soul_content(target_content, template_content):
             if idx < len(target_lines):
                 target_body = '\n'.join(target_lines[idx+1:])
 
-        # Clean target body from swda block or legacy FSM rules
+        # Clean target body from swda block, host binding block, or legacy FSM rules
+        hb_start = target_body.find(_HOST_BINDING_BEGIN)
+        hb_end = target_body.find(_HOST_BINDING_END)
+        if hb_start != -1 and hb_end != -1 and hb_end > hb_start:
+            target_body = (target_body[:hb_start].rstrip() + "\n" + target_body[hb_end + len(_HOST_BINDING_END):].lstrip()).rstrip()
         t_start = target_body.find(begin_marker)
         t_end = target_body.find(end_marker)
         if t_start != -1 and t_end != -1:
@@ -1569,7 +1616,9 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
             with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
                 all_in_content = f.read()
             initial_identity = f"# 1. 系統定位 (System Identity)\n{identity or '你是一個全能的智慧 Agent。'}\n"
-            merged_append = merge_soul_content(initial_identity, all_in_content)
+            merged_append = _inject_host_dispatch_binding(
+                merge_soul_content(initial_identity, all_in_content), "omp"
+            )
             with open(append_system_dest_path, 'w', encoding='utf-8') as f:
                 f.write(merged_append)
             print(f"    Created APPEND_SYSTEM.md (v{template_versions['ALL_IN_RULE.md']})")
@@ -1629,6 +1678,7 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
         with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
             rule_content = f.read()
         rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
+        rule_content = _inject_host_dispatch_binding(rule_content, agent_type)
         with open(rule_dest_path, 'w', encoding='utf-8') as f:
             f.write(rule_content)
         print(f"    Created RULE.md (v{template_versions['RULE.md']})")
@@ -2273,7 +2323,9 @@ def main():
                 try:
                     with open(ALL_IN_RULE_TEMPLATE, 'r', encoding='utf-8') as f:
                         all_in_tpl = f.read()
-                    merged_append = merge_soul_content(existing_append, all_in_tpl)
+                    merged_append = _inject_host_dispatch_binding(
+                        merge_soul_content(existing_append, all_in_tpl), "omp"
+                    )
                     with open(agent['soul_path'], 'w', encoding='utf-8') as f:
                         f.write(merged_append)
                     old_ver = status_info['soul_ver'] or "missing"
@@ -2347,6 +2399,7 @@ def main():
                     with open(RULE_SOURCE, 'r', encoding='utf-8') as f:
                         rule_content = f.read()
                     rule_content = rule_content.replace("file:///Users/carlos/cwork/Brian_Notes/PC/Knowhow/agent/skills/Swarm_Driven_Development.md", "skills/swarm/SKILL.md")
+                    rule_content = _inject_host_dispatch_binding(rule_content, agent['type'])
                     with open(rule_dest_path, 'w', encoding='utf-8') as f:
                         f.write(rule_content)
                     # Log version upgrade
