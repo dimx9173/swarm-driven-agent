@@ -120,6 +120,7 @@ git describe --tags --exact-match
 **版本對應表（Integrated 套餐）：**
 | output-schema.md | ALL_IN_RULE.md |
 |---|---|
+| v2.3.1 | v15.4.0-deterministic |
 | v2.3.1 | v15.3.1-deterministic |
 | v2.3.0 | v15.3.0-deterministic |
 | v2.2.0 | v15.2.0-deterministic |
@@ -132,6 +133,7 @@ git describe --tags --exact-match
 **版本對應表（Modular 套餐）：**
 | output-schema-modular.md | modular/RULE.md |
 |---|---|
+| v2.2.1 | v3.3.0-engineering-hardened |
 | v2.2.1 | v3.2.1-engineering-hardened |
 | v2.2.0 | v3.2.0-engineering-hardened |
 | v2.1.0 | v3.1.0-engineering-hardened |

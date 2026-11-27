@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 15.3.1-deterministic
+version: 15.4.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -144,13 +144,15 @@ description: The complete integrated ruleset combining SOUL Identity, RULE Syste
       - `VERIFIABILITY`：有沒有便宜的 oracle（測試、基準、查詢）能抓出錯誤？
       **硬地板 (覆蓋其他一切規則)**：觸點清單上的任務 ⇒ Destroyer + Referee 至少以最低權重開啟；地板只能加碼對抗權重，永遠不得歸零。
       **LITE 前置反證**：降入 LITE_MODE 需同時滿足 (a) 四維全低 且 (b) 已落實至少一個便宜的反證物（一個測試、一個重現、或一次測量）——沒有反證物不得降軌。凡**影響面局部可控**、**未觸及硬觸點清單**、低歧義／低風險且具備**快速確定性本地驗證（Oracle：單元測試、型別檢查或模擬器）**的任務，一律優先走 `LITE_MODE`，將預算集中於實作與反覆驗證而非前置編排。開錯「開」只費 token；開錯「關」則把看不見的問題直接上線。
-      **按問題類型選視角 (open = 全權重，assist = 精簡配置)：**
-      | 問題 | 開啟 | 輔助 |
-      |---|---|---|
-      | 重構/功能 | Alpha + Gamma + Builder | Destroyer（觸點清單地板仍適用） |
-      | 安全審計/關鍵 bug | Beta + Destroyer + Referee | Gamma 保持開啟——prior art 與規格對照是 Gamma 的活（新型攻擊類正是） |
-      | 性能/疑難雜症 | Alpha + Beta + **Builder 提前**（插樁本身就是交付物） | 無重現 ⇒ Destroyer 開啟——沒有 oracle 時對抗組合更重要 |
-      | 方案選型/POC | Gamma + Referee | 入圍者跑 Builder spike；不可逆選擇（儲存引擎、auth 庫、遷移格式）由 Destroyer 威脅建模 |
+      **依通用問題類型的視角與預算配置路由 (open = 全權重，assist = 精簡配置)：**
+      | 問題原型 | 軌道與核心策略 | 開啟 | 輔助 / 預算重心 |
+      |---|---|---|---|
+      | 重構 / 功能 / 觸點清單 | `SWARM_MODE`: Crucible + 雙審查 | Alpha + Gamma + Builder | Destroyer（觸點清單地板仍適用） |
+      | 安全審計 / 關鍵 bug | `SWARM_MODE`: Refute-or-Promote | Beta + Destroyer + Referee | Gamma 保持開啟——prior art 與規格對照是 Gamma 的活 |
+      | 性能 / 疑難雜症（無重現） | `SWARM_MODE`: Repro-First | Alpha + Beta + **Builder 提前**（插樁） | 無重現 ⇒ Destroyer 開啟——沒有 oracle 時對抗組合更重要 |
+      | 方案選型 / POC | `SWARM_MODE`: Spike + 威脅建模 | Gamma + Referee | 入圍者跑 Builder spike；不可逆選擇由 Destroyer 威脅建模 |
+      | 高規格密度 / 強不變量（規格明確、二元通過 oracle） | `LITE_MODE`: Spec-First Red-Green-Verify | 單代理直接執行 | 跳過 PHASE_1~3；將預算集中在邊界/不變量測試與精準修復 |
+      | 連續最佳化 / 搜尋 / 模擬 / 有重現性能調優（連續指標 oracle） | `LITE_MODE`: **Baseline-Measure-HillClimb** | 單代理直接執行 | 先交付滿足硬約束的極簡 baseline，在真實目標規模實測指標與耗時，再將預算集中於升級核心演算法與啟發式（僅在指標嚴格變優且符合 anytime 上限時保留），避免把預算耗在過度防禦樣板或冗餘 fuzzing |
       **權重修訂**：第 1 輪後 Referee 可修訂熔爐權重一次，之後鎖定。僵持以 typed 理由解決（`writing`/`open_ended`/`oversized`/`unsure`），不得以重置輪數代替。
 ```xml
 <INTENT_GATE_RESULT>

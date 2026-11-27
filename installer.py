@@ -8,7 +8,7 @@ import datetime
 # Determine local script paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CLI_VERSION = "3.8.1"
+CLI_VERSION = "3.9.0"
 
 SOUL_TEMPLATE = os.path.join(SCRIPT_DIR, "template", "modular", "SOUL.en.md")
 RULE_SOURCE = os.path.join(SCRIPT_DIR, "template", "modular", "RULE.en.md")
@@ -154,10 +154,7 @@ def _write_json_atomic(path, data):
 def register_swda_mcp(agent_type, python_exe=None):
     """Registers the swda-mcp server in the agent's MCP config (no-op if present).
 
-    Only OMP uses the MCP bridge: the installed Pi bundle has no MCP client
-    (zero "mcp" strings in the binary, verified), so a Pi mcp.json entry
-    would be dead config. Pi drives the gate through the swda CLI instead
-    (see pi-skills/pi-prompts). hermes/openclaw consume SWDA through contract
+    Only OMP uses the MCP bridge; hermes/openclaw consume SWDA through contract
     + skill (see install_swda_skill); they intentionally get
     {"registered": False} here so install/update output stays truthful.
     Existing entries are never overwritten; missing parent objects are created.
@@ -224,9 +221,6 @@ def register_swda_mcp(agent_type, python_exe=None):
     if atype == "omp":
         return _merge(os.path.join(home, ".omp", "agent", "mcp.json"),
                       "mcpServers", name="swda-mcp")
-    if atype == "pi":
-        return {"registered": False, "path": None,
-                "reason": "pi has no MCP client (bundle has no MCP support); gate runs via swda CLI, no mcp.json entry"}
     if atype in ("openclaw", "openclaw-workspace"):
         return {"registered": False, "path": None,
                 "reason": "openclaw uses contract + skill (see install_swda_skill); no MCP entry"}
@@ -244,7 +238,7 @@ def install_swda_skill(agent_type, agent_dir=None):
       hermes:   <agent_dir>/skills/swda/  (agent workspace layout)
       openclaw: <agent_dir>/skills/swda/
     Source: swda-mcp/agent-skill/swda-skill/ (SKILL.md + references/).
-    OMP/Pi do NOT use this package; they get the host-neutral workflow pack
+    OMP does NOT use this package; it gets the host-neutral workflow pack
     from install_swda_workflow (see WORKFLOW_LAYOUT).
     Idempotent: existing files are overwritten with identical content;
     the skill dir is created as needed. User skills alongside are untouched.
@@ -293,201 +287,10 @@ def install_swda_skill(agent_type, agent_dir=None):
     except Exception as e:
         return {"installed": False, "path": dest, "reason": f"skill install failed: {e}"}
 
-# Per-host workflow surfaces. `commands`/`agents` are None when the host has no
-# such slot: OMP discovers commands/ and task agents/, Pi discovers prompts/
-# only (its legacy commands/ dir is migrated to prompts/ at startup).
+# Per-host workflow surfaces. OMP discovers commands/ and task agents/.
 WORKFLOW_LAYOUT = {
     "omp": {"commands": "commands", "agents": "agents"},
-    "pi": {"commands": "prompts", "agents": None},
 }
-
-# Team-mandated Pi subagent runtime. The team ships its own
-# `pi-herdr-subagents` (herdr-native, same tool names and the same
-# `agent/agents` discovery); HazAT's `pi-interactive-subagents` is the
-# fallback for hosts without it. The two packages register identical tool
-# names, so they must never be installed together - Pi refuses to load with
-# a hard "Tool conflicts" error.
-PI_SUBAGENTS_SOURCE = "git:github.com/HazAT/pi-interactive-subagents"
-PI_SUBAGENTS_ENTRY = "pi-extension/subagents/index.ts"
-PI_HERDR_MARKERS = ("pi-herdr-subagents", "herdr-subagents")
-
-
-def _pi_herdr_dir():
-    """Returns the on-disk dir of the team's herdr subagent runtime, or None."""
-    cand = os.path.join(os.path.expanduser("~"), "apps", "pi-herdr-subagents")
-    if os.path.isdir(cand) and os.path.exists(os.path.join(cand, "index.ts")):
-        return cand
-    return None
-
-
-def _pi_package_dir():
-    """Returns the on-disk dir of the pi-interactive-subagents package, or None."""
-    root = os.path.join(os.path.expanduser("~"), ".pi", "agent", "git", "github.com", "HazAT",
-                        "pi-interactive-subagents")
-    if os.path.isdir(root):
-        return root
-    return None
-
-
-def check_pi_subagents():
-    """Reports whether a Pi subagent runtime is registered and on disk.
-
-    Accepts either the team's `pi-herdr-subagents` or HazAT's
-    `pi-interactive-subagents` (they provide the same tools; herdr wins when
-    both are present because Pi refuses to load duplicated tool names).
-    Returns {"registered": bool, "present": bool, "source": str|None,
-             "flavor": "herdr"|"hazat"|None}.
-    Never raises; a missing/broken pi binary or settings.json reads as absent.
-    """
-    import json as _json
-    import shutil as _shutil
-    import subprocess as _sp
-    out = {"registered": False, "present": False, "source": None, "flavor": None}
-    hazat_dir = _pi_package_dir()
-    herdr_dir = _pi_herdr_dir()
-    if hazat_dir is not None or herdr_dir is not None:
-        out["present"] = True
-    pj = os.path.join(os.path.expanduser("~"), ".pi", "agent", "settings.json")
-    try:
-        with open(pj, "r", encoding="utf-8") as f:
-            data = _json.load(f)
-        for entry in data.get("packages", []) or []:
-            src = entry if isinstance(entry, str) else entry.get("source", "")
-            if any(m in (src or "") for m in PI_HERDR_MARKERS):
-                out["registered"] = True
-                out["source"] = src
-                out["flavor"] = "herdr"
-                break
-            if "HazAT/pi-interactive-subagents" in (src or ""):
-                out["registered"] = True
-                out["source"] = src
-                out["flavor"] = out["flavor"] or "hazat"
-    except (OSError, ValueError):
-        pass
-    if not out["registered"] and _shutil.which("pi") and hazat_dir is not None:
-        try:
-            res = _sp.run(["pi", "list"], capture_output=True, text=True, timeout=60)
-            if "pi-interactive-subagents" in (res.stdout or ""):
-                out["registered"] = True
-                out["source"] = out["source"] or PI_SUBAGENTS_SOURCE
-                out["flavor"] = out["flavor"] or "hazat"
-        except Exception:
-            pass
-    if out["registered"] and out["flavor"] is None:
-        out["flavor"] = "herdr" if herdr_dir is not None else ("hazat" if hazat_dir is not None else None)
-    return out
-
-
-def ensure_pi_subagents(timeout=600):
-    """Ensures a Pi subagent runtime is in place (team-mandated spec).
-
-    Prefers the team's `pi-herdr-subagents` when present and never installs
-    HazAT alongside it (identical tool names crash Pi with a hard "Tool
-    conflicts" error). Installs HazAT only when neither runtime exists.
-    Runs only `pi install <pinned source>`; the registration shape in
-    settings.json and the on-disk layout are whatever the host pi writes, so
-    SWDA never hand-edits the package entry. Re-running while installed is a
-    no-op. Returns {"ok": bool, "reason": str}. Never raises.
-    """
-    import shutil as _shutil
-    import subprocess as _sp
-    state = check_pi_subagents()
-    if state["registered"] and state["present"]:
-        return {"ok": True, "reason": f"already installed ({state['flavor']})"}
-    if os.environ.get("SWDA_TEST_MODE") == "1":
-        return {"ok": False,
-                "reason": "skipped (SWDA_TEST_MODE; network install disabled in tests)"}
-    pi = _shutil.which("pi")
-    if not pi:
-        return {"ok": False, "reason": "pi binary not found on PATH; install pi first"}
-    try:
-        res = _sp.run([pi, "install", PI_SUBAGENTS_SOURCE],
-                      capture_output=True, text=True, timeout=timeout)
-    except Exception as e:
-        return {"ok": False, "reason": f"pi install failed to launch: {e}"}
-    tail = ((res.stdout or "") + (res.stderr or "")).strip()[-500:]
-    state = check_pi_subagents()
-    if res.returncode == 0 and state["registered"] and state["present"]:
-        return {"ok": True, "reason": "installed"}
-    return {"ok": False, "reason": f"pi install exit={res.returncode}: {tail}"}
-
-HERDR_PLUGIN_ID = "pi-herdr-subagents"
-
-
-def check_herdr_plugin():
-    """Reports whether the herdr pi-herdr-subagents plugin is linked + enabled.
-
-    Returns {"available": bool, "linked": bool, "enabled": bool, "reason": str}.
-    `available` is False when the herdr binary is missing (system-level
-    install, out of scope for this installer). Never raises.
-    """
-    import json as _json
-    import shutil as _shutil
-    import subprocess as _sp
-    out = {"available": False, "linked": False, "enabled": False, "reason": ""}
-    herdr = _shutil.which("herdr")
-    if not herdr:
-        out["reason"] = "herdr binary not found on PATH (install herdr first)"
-        return out
-    out["available"] = True
-    try:
-        res = _sp.run([herdr, "plugin", "list", "--json"],
-                      capture_output=True, text=True, timeout=60)
-    except Exception as e:
-        out["reason"] = f"herdr plugin list failed to launch: {e}"
-        return out
-    if res.returncode != 0:
-        out["reason"] = f"herdr plugin list exit={res.returncode}: {(res.stderr or res.stdout or '').strip()[-200:]}"
-        return out
-    try:
-        data = _json.loads(res.stdout or "{}")
-        plugins = ((data.get("result") or {}).get("plugins")) or []
-    except ValueError as e:
-        out["reason"] = f"herdr plugin list returned invalid JSON ({e})"
-        return out
-    for p in plugins:
-        if p.get("plugin_id") == HERDR_PLUGIN_ID:
-            out["linked"] = True
-            out["enabled"] = bool(p.get("enabled"))
-            out["reason"] = "linked + enabled" if out["enabled"] else "linked but disabled"
-            return out
-    out["reason"] = "pi-herdr-subagents not in herdr plugin list"
-    return out
-
-
-def ensure_herdr_plugin_link(timeout=300):
-    """Links + enables the herdr pi-herdr-subagents plugin (team-mandated spec).
-
-    Runs only `herdr plugin link <team runtime>/herdr-plugin --enabled`; the
-    team runtime must already be on disk (see ensure_pi_subagents ordering).
-    Re-running while linked + enabled is a no-op. Returns
-    {"ok": bool, "reason": str}. Never raises.
-    """
-    import subprocess as _sp
-    state = check_herdr_plugin()
-    if not state["available"]:
-        return {"ok": False, "reason": state["reason"]}
-    if state["linked"] and state["enabled"]:
-        return {"ok": True, "reason": "already linked + enabled"}
-    if os.environ.get("SWDA_TEST_MODE") == "1":
-        return {"ok": False,
-                "reason": "skipped (SWDA_TEST_MODE; herdr mutation disabled in tests)"}
-    herdr_dir = _pi_herdr_dir()
-    if herdr_dir is None:
-        return {"ok": False, "reason": "team pi-herdr-subagents runtime not on disk; run Pi runtime install first"}
-    import shutil as _shutil
-    herdr = _shutil.which("herdr")
-    plugin_path = os.path.join(herdr_dir, "herdr-plugin")
-    try:
-        res = _sp.run([herdr, "plugin", "link", plugin_path, "--enabled"],
-                      capture_output=True, text=True, timeout=timeout)
-    except Exception as e:
-        return {"ok": False, "reason": f"herdr plugin link failed to launch: {e}"}
-    tail = ((res.stdout or "") + (res.stderr or "")).strip()[-500:]
-    state = check_herdr_plugin()
-    if res.returncode == 0 and state["linked"] and state["enabled"]:
-        return {"ok": True, "reason": "linked + enabled"}
-    return {"ok": False, "reason": f"herdr plugin link exit={res.returncode}: {tail}"}
 
 
 def _workflow_dest(agent_type, agent_dir=None):
@@ -505,12 +308,9 @@ def _workflow_dest(agent_type, agent_dir=None):
     return os.path.join(os.path.expanduser("~"), f".{atype}", "agent"), layout
 
 
-def _workflow_pairs(base, layout, pi_subagents_present=None):
-    """Yields (src, dest) for the pack's skill, command/prompt, and agent files."""
-    is_pi = (base or "").rstrip("/").endswith(".pi/agent")
-    # Pi has no MCP client, so its skill variant drives the gate through the
-    # swda CLI instead of MCP tools.
-    skill_root = os.path.join(WORKFLOW_SOURCE, "pi-skills" if is_pi else "skills")
+def _workflow_pairs(base, layout):
+    """Yields (src, dest) for the pack's skill, command, and agent files."""
+    skill_root = os.path.join(WORKFLOW_SOURCE, "skills")
     for root, _dirs, files in os.walk(skill_root):
         if "__pycache__" in root:
             continue
@@ -522,54 +322,27 @@ def _workflow_pairs(base, layout, pi_subagents_present=None):
             yield os.path.join(root, skill_fn), os.path.join(dest_root, skill_fn)
     for surface, sub in (("commands", layout.get("commands")), ("agents", layout.get("agents"))):
         if not sub:
-            # Pi has no task-agent surface of its own. Once the mandated
-            # pi-interactive-subagents runtime is present, Pi gains agents/
-            # discovery and the Pi-native variant of our agents lands there.
-            if surface != "agents" or not is_pi:
-                continue
-            present = (pi_subagents_present if pi_subagents_present is not None
-                       else check_pi_subagents()["present"] is True)
-            if not present:
-                continue
-            src_dir = os.path.join(WORKFLOW_SOURCE, "pi-agents")
-            dest_sub = "agents"
-        else:
-            # Pi prompts come from pi-prompts/ (CLI-driven gate/status),
-            # falling back to commands/ for the host-neutral prompts
-            # (intent, crucible). OMP commands come from commands/.
-            if is_pi and surface == "commands":
-                yielded = set()
-                for src_dir in (os.path.join(WORKFLOW_SOURCE, "pi-prompts"),
-                                os.path.join(WORKFLOW_SOURCE, "commands")):
-                    if not os.path.isdir(src_dir):
-                        continue
-                    for md_fn in sorted(os.listdir(src_dir)):
-                        if md_fn.endswith(".md") and md_fn not in yielded:
-                            yielded.add(md_fn)
-                            yield os.path.join(src_dir, md_fn), os.path.join(base, sub, md_fn)
-                continue
-            src_dir = os.path.join(WORKFLOW_SOURCE, surface)
-            dest_sub = sub
+            continue
+        src_dir = os.path.join(WORKFLOW_SOURCE, surface)
         if not os.path.isdir(src_dir):
             continue
         for md_fn in sorted(os.listdir(src_dir)):
             if md_fn.endswith(".md"):
-                yield os.path.join(src_dir, md_fn), os.path.join(base, dest_sub, md_fn)
+                yield os.path.join(src_dir, md_fn), os.path.join(base, sub, md_fn)
 
 
-def install_swda_workflow(agent_type, agent_dir=None, pi_subagents_present=None):
-    """Installs the SWDA workflow pack for OMP/Pi (skill + commands + agents).
+def install_swda_workflow(agent_type, agent_dir=None):
+    """Installs the SWDA workflow pack for OMP (skill + commands + agents).
 
     This is the host-facing shape of the SWDD workflow: a discoverable skill,
     one command per FSM entry point, and the named research/crucible subagents.
-    Only OMP and Pi have these surfaces (see WORKFLOW_LAYOUT).
+    Only OMP has these surfaces (see WORKFLOW_LAYOUT).
 
     Every installed file carries WORKFLOW_MARKER so uninstall removes exactly
     what SWDA wrote, never a user's own skill, command, or agent. Content
     identical files are left untouched; neighbors are never rewritten.
     Returns {"installed": bool, "path": str|None, "reason": str, "files": [str]}.
     """
-    atype = (agent_type or "").lower()
     base, layout = _workflow_dest(agent_type, agent_dir)
     if base is None:
         return {"installed": False, "path": None, "files": [],
@@ -577,7 +350,7 @@ def install_swda_workflow(agent_type, agent_dir=None, pi_subagents_present=None)
     if not os.path.isdir(WORKFLOW_SOURCE):
         return {"installed": False, "path": None, "files": [],
                 "reason": f"workflow source missing: {WORKFLOW_SOURCE}"}
-    pairs = list(_workflow_pairs(base, layout, pi_subagents_present=pi_subagents_present))
+    pairs = list(_workflow_pairs(base, layout))
     try:
         copied = 0
         for src, dest in pairs:
@@ -656,55 +429,9 @@ def report_agent_surfaces(agent_type, agent_dir):
     never blocks the contract install that already succeeded.
     """
     atype = (agent_type or "").lower()
-    pi_plug_ok = None
-    if atype == "pi":
-        # Team-mandated runtime: Pi cannot run swarm agents without it, so it
-        # is forced here (not optional). Runs before the workflow pack so the
-        # Pi-native agents land in the same pass. In SWDA_TEST_MODE the network
-        # install short-circuits inside ensure_pi_subagents (tests stay hermetic).
-        try:
-            plug = ensure_pi_subagents()
-            print(f"    Pi-Subagents: {plug['reason']}")
-            pi_plug_ok = plug["ok"]
-            if not plug["ok"]:
-                print("      Pi workflow agents will be skipped until the runtime installs; "
-                      "contract + skill/prompts are unaffected")
-        except Exception as e:
-            print(f"    Pi-Subagents: ensure failed ({e}); contract install unaffected")
-        # Team-mandated herdr plugin: links the Pi subagent panes into herdr.
-        # Runs after the Pi runtime so the plugin path exists. herdr itself
-        # is a system-level install (out of scope); when missing we report
-        # and move on. Disabled link (linked but not enabled) is repaired.
-        try:
-            link = ensure_herdr_plugin_link()
-            print(f"    Herdr-Plugin: {link['reason']}")
-        except Exception as e:
-            print(f"    Herdr-Plugin: ensure failed ({e}); Pi runtime install unaffected")
     try:
         if atype == "omp":
             mcp_res = register_swda_mcp(agent_type)
-        elif atype == "pi":
-            # Pi has no MCP client; remove our own stale mcp.json entry if an
-            # earlier SWDA version wrote one (dead config Pi never reads).
-            mcp_res = register_swda_mcp(agent_type)
-            stale = os.path.join(os.path.expanduser("~"), ".pi", "agent", "mcp.json")
-            try:
-                import json as _json
-                if os.path.exists(stale):
-                    with open(stale, "r", encoding="utf-8") as f:
-                        data = _json.load(f)
-                    node = data.get("mcpServers", {})
-                    entry = node.get("swda-mcp", {})
-                    if isinstance(entry, dict) and "swda_mcp.server" in str(entry.get("args", "")):
-                        del node["swda-mcp"]
-                        _backup_file(stale)
-                        if node:
-                            _write_json_atomic(stale, data)
-                        else:
-                            os.remove(stale)
-                        print(f"    MCP: removed stale Pi swda-mcp entry ({stale})")
-            except Exception as e:
-                print(f"    MCP: stale Pi entry cleanup failed ({e}); left untouched")
         else:
             mcp_res = {"registered": False, "path": None,
                        "reason": "contract + skill mode; no MCP entry"}
@@ -718,7 +445,7 @@ def report_agent_surfaces(agent_type, agent_dir):
 
     if atype in WORKFLOW_LAYOUT:
         try:
-            wf_res = install_swda_workflow(agent_type, agent_dir, pi_subagents_present=pi_plug_ok)
+            wf_res = install_swda_workflow(agent_type, agent_dir)
             label = "Workflow"
             if wf_res["installed"]:
                 print(f"    {label}: {wf_res['reason']}" + (f" ({wf_res['path']})" if wf_res["path"] else ""))
@@ -755,7 +482,7 @@ def verify_agent_doctor(agent_type, timeout=30):
     """Runs the agent's own read-only doctor/status command after MCP registration.
 
     Only side-effect-free commands: omp config list.
-    pi/omp update and hermes/openclaw (no CLI) report supported=False.
+    hermes/openclaw (no CLI) report supported=False.
     Returns {"supported": bool, "ok": bool, "output": str}. Never raises.
     """
     import subprocess
@@ -1462,14 +1189,13 @@ def record_agent_uninstalled(agent_dir_path):
         save_installed_agents(installed)
 
 def scan_agents():
-    """Scans the local system for openclaw, hermes, omp, and pi agents."""
+    """Scans the local system for openclaw, hermes, and omp agents."""
     home_dir = os.path.expanduser("~")
     print("Scanning local system for agents...")
     
     hermes_path = os.path.join(home_dir, ".hermes")
     openclaw_path = os.path.join(home_dir, ".openclaw")
     omp_path = os.path.join(home_dir, ".omp", "agent")
-    pi_path = os.path.join(home_dir, ".pi", "agent")
     
     detected = []
     seen_dirs = set()
@@ -1502,7 +1228,7 @@ def scan_agents():
                         soul_p = os.path.join(root, "SOUL.md")
                         found_paths.append(os.path.normpath(soul_p).replace("\\", "/"))
         return found_paths
-    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path) + scan_dir(omp_path) + scan_dir(pi_path)
+    all_paths = scan_dir(hermes_path) + scan_dir(openclaw_path) + scan_dir(omp_path)
     
     escaped_home = re.escape(home_dir.replace("\\", "/"))
     patterns = [
@@ -1513,8 +1239,6 @@ def scan_agents():
         rf"^{escaped_home}/\.openclaw/workspaces/([^/]+)/SOUL\.md$",
         rf"^{escaped_home}/\.omp/agent/(SOUL\.md|APPEND_SYSTEM\.md)$",
         rf"^{escaped_home}/\.omp/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$",
-        rf"^{escaped_home}/\.pi/agent/(SOUL\.md|APPEND_SYSTEM\.md)$",
-        rf"^{escaped_home}/\.pi/agent/profiles/([^/]+)/(SOUL\.md|APPEND_SYSTEM\.md)$",
     ]
     
     for path in all_paths:
@@ -1550,14 +1274,6 @@ def scan_agents():
             matched = True
             agent_type = "OMP"
             agent_name = m.group(1)
-        elif re.match(patterns[7], path):
-            matched = True
-            agent_type = "Pi"
-            agent_name = "default"
-        elif m := re.match(patterns[8], path):
-            matched = True
-            agent_type = "Pi"
-            agent_name = m.group(1)
             
         if matched:
             agent_dir = os.path.dirname(path)
@@ -1575,7 +1291,6 @@ def scan_agents():
         (os.path.join(home_dir, ".openclaw", "workspace"), "OpenClaw", "workspace", os.path.join(home_dir, ".openclaw", "workspace", "SOUL.md")),
         (os.path.join(home_dir, ".hermes"), "Hermes", "default (speculari)", os.path.join(home_dir, ".hermes", "SOUL.md")),
         (os.path.join(home_dir, ".omp", "agent"), "OMP", "default", os.path.join(home_dir, ".omp", "agent", "APPEND_SYSTEM.md")),
-        (os.path.join(home_dir, ".pi", "agent"), "Pi", "default", os.path.join(home_dir, ".pi", "agent", "APPEND_SYSTEM.md")),
     ]
     for d_path, a_type, a_name, s_path in default_dirs:
         norm_d = d_path.replace("\\", "/")
@@ -1826,16 +1541,11 @@ def create_new_agent(name, agent_type, identity, template_versions, yes_bypass):
             dest_dir = os.path.join(home_dir, ".omp", "agent")
         else:
             dest_dir = os.path.join(home_dir, ".omp", "agent", "profiles", name)
-    elif agent_type == "pi":
-        if name in ("default", "agent"):
-            dest_dir = os.path.join(home_dir, ".pi", "agent")
-        else:
-            dest_dir = os.path.join(home_dir, ".pi", "agent", "profiles", name)
     else:
         agent_type = "openclaw"
         dest_dir = os.path.join(home_dir, ".openclaw", "workspaces", name)
         
-    if agent_type in ("omp", "pi"):
+    if agent_type == "omp":
         append_system_dest_path = os.path.join(dest_dir, "APPEND_SYSTEM.md")
         if os.path.exists(append_system_dest_path):
             print(f"Error: Agent workspace '{name}' already exists at: {dest_dir} (found APPEND_SYSTEM.md)", file=sys.stderr)
@@ -2086,7 +1796,7 @@ def main():
     install_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt.")
     install_parser.add_argument("-u", "--uninstall", action="store_true", help="Uninstall SWDA workflow from selected agents.")
     install_parser.add_argument("--create", help="Create a new agent with the specified name and install the SWDA workflow.")
-    install_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "all"], default=None, help="The type of agent to create or install.")
+    install_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "all"], default=None, help="The type of agent to create or install.")
     install_parser.add_argument("--identity", help="The system identity description of the new agent.")
 
     # Update sub-command (GitHub CLI style: Update installed agents)
@@ -2095,7 +1805,7 @@ def main():
     update_parser.add_argument("-y", "--yes", action="store_true", help="Bypass confirmation prompt when updating.")
     update_parser.add_argument("--cli", action="store_true", help="Self-upgrade the swda CLI tool itself by pulling from remote repository.")
     update_parser.add_argument("--mcp", action="store_true", help="Verify the swda-mcp bridge and print its registration entry (agents untouched).")
-    update_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "pi", "all"], help="Filter installed agents by type to update.")
+    update_parser.add_argument("--type", choices=["hermes", "openclaw", "omp", "all"], help="Filter installed agents by type to update.")
 
     # Self-update sub-command (GitHub CLI / rustup alias)
     self_update_parser = subparsers.add_parser("self-update", help="Self-upgrade the swda CLI tool itself.")
@@ -2286,18 +1996,11 @@ def main():
                 if not os.path.exists(append_path):
                     with open(append_path, "w", encoding="utf-8") as f:
                         f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
-            if "pi" not in types_detected:
-                pi_def = os.path.join(home_dir, ".pi", "agent")
-                os.makedirs(pi_def, exist_ok=True)
-                append_path = os.path.join(pi_def, "APPEND_SYSTEM.md")
-                if not os.path.exists(append_path):
-                    with open(append_path, "w", encoding="utf-8") as f:
-                        f.write("# 1. 系統定位 (System Identity)\n你是一個全能的智慧 Agent。\n")
             agents = scan_agents()
         else:
             if target_type not in types_detected:
-                if target_type in ("omp", "pi"):
-                    target_def = os.path.join(home_dir, f".{target_type}", "agent")
+                if target_type == "omp":
+                    target_def = os.path.join(home_dir, ".omp", "agent")
                     os.makedirs(target_def, exist_ok=True)
                     append_path = os.path.join(target_def, "APPEND_SYSTEM.md")
                     if not os.path.exists(append_path):
@@ -2322,7 +2025,7 @@ def main():
             if not args.agents:
                 args.agents = ["all"]
     elif not agents:
-        print("No openclaw, hermes, omp, or pi agents found on the local machine.")
+        print("No openclaw, hermes, or omp agents found on the local machine.")
         sys.exit(0)
         
     # Get status for all agents

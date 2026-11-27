@@ -150,11 +150,10 @@ class TestLiveInstalledContract(unittest.TestCase):
         home = os.path.expanduser("~")
         candidates = [
             os.path.join(home, ".omp", "agent", "APPEND_SYSTEM.md"),
-            os.path.join(home, ".pi", "agent", "APPEND_SYSTEM.md"),
         ]
         present = [p for p in candidates if os.path.exists(p)]
         if not present:
-            self.skipTest("no installed OMP/Pi agent on this machine")
+            self.skipTest("no installed OMP agent on this machine")
         template_ver = installer.extract_version(INTEGRATED_EN)
         checked = 0
         for path in present:

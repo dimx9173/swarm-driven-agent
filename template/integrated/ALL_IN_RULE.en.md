@@ -1,6 +1,6 @@
 ---
 title: Swarm-Driven Agent & Development Integrated Contract (ALL_IN_RULE.md)
-version: 15.3.1-deterministic
+version: 15.4.0-deterministic
 description: The complete integrated ruleset combining SOUL Identity, RULE System Instructions, and SWDD Meta-Skill Swarm Workflow, optimized for single-file ingestion by other agents (opencode, Claude Code, Codex, Kilo, Cursor).
 ---
 
@@ -144,13 +144,15 @@ You must strictly match the current state Hook, wrap your output in the correspo
       - `VERIFIABILITY`: is there a cheap oracle (test, benchmark, query) that would catch a mistake?
       **Hard floor (overrides every other rule):** anything on the touchlist ⇒ Destroyer + Referee open at minimum weight; the floor can raise adversarial weight, never zero it.
       **Probes before LITE:** LITE_MODE requires (a) all four scores low AND (b) at least one cheap falsification artifact committed (a test, a repro, or a measurement) — no artifact, no downgrade. Tasks with a **localized blast radius**, **off the hard touchlist**, low `AMBIGUITY_WIDTH`/`RISK`, and backed by a **fast deterministic local oracle** (unit test, typecheck, or simulator) MUST default to `LITE_MODE` to invest budget in iterative implementation & verification rather than pre-implementation orchestration. A wrong "close" ships unseen; a wrong "open" only costs tokens.
-      **Perspective selection by problem type (open = full weight, assist = reduced crew):**
-      | Problem | Open | Assist |
-      |---|---|---|
-      | Refactor/feature | Alpha + Gamma + Builder | Destroyer (weight floor still applies on touchlist) |
-      | Security audit / critical bug | Beta + Destroyer + Referee | Gamma stays ON for prior art & spec-conformance lookup (novel attack classes are Gamma's job) |
-      | Performance / heisenbug | Alpha + Beta + **Builder early** (instrumentation is the deliverable) | without a repro, Destroyer opens — no oracle means the adversarial pair matters MORE |
-      | Option selection / POC | Gamma + Referee | Builder spike for the finalists; Destroyer threat-models irreversible picks (storage engine, auth library, migration format) |
+      **Perspective & budget-allocation routing by general problem archetype (open = full weight, assist = reduced crew):**
+      | Problem Archetype | Track & Primary Strategy | Open | Assist / Budget Focus |
+      |---|---|---|---|
+      | Refactor / feature / touchlist | `SWARM_MODE`: Crucible + Dual Review | Alpha + Gamma + Builder | Destroyer (weight floor still applies on touchlist) |
+      | Security audit / critical bug | `SWARM_MODE`: Refute-or-Promote | Beta + Destroyer + Referee | Gamma stays ON for prior art & spec-conformance lookup |
+      | Performance / heisenbug (no repro) | `SWARM_MODE`: Repro-First | Alpha + Beta + **Builder early** (instrumentation) | Destroyer opens — no oracle means adversarial pair matters MORE |
+      | Option selection / POC | `SWARM_MODE`: Spike + Threat Model | Gamma + Referee | Builder spike for finalists; Destroyer threat-models irreversible picks |
+      | Spec-dense / invariant-heavy (clear spec, binary oracle) | `LITE_MODE`: Spec-First Red-Green-Verify | Direct inline execution | Skip PHASE_1~3; invest budget in edge-case/invariant tests & surgical fixes |
+      | Continuous optimization / search / simulation / perf-with-repro (scalar metric oracle) | `LITE_MODE`: **Baseline-Measure-HillClimb** | Direct inline execution | Ship minimal constraint-valid baseline first, measure metric & latency at realistic target scale, then spend budget upgrading core algorithm/heuristics (keep-only-if-better within anytime cap) rather than defensive boilerplate or redundant fuzzing |
       **Weight revision:** the Referee may revise crucible weights once after round 1; after that they lock. Stalls resolve via typed reasons (`writing`/`open_ended`/`oversized`/`unsure`), not by resetting rounds.
 ```xml
 <INTENT_GATE_RESULT>

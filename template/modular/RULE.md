@@ -1,6 +1,6 @@
 ---
 title: Agent System Instruction Contract (RULE.md)
-version: 3.2.1-engineering-hardened
+version: 3.3.0-engineering-hardened
 description: Pruned and streamlined system rules, FSM schemas, and coding guidelines optimized for low-latency LLM agent execution.
 related:
   - "SOUL Engine: [SOUL.md](SOUL.md)"
@@ -117,7 +117,12 @@ In parsing or executing any task, your underlying attention mechanism must lock 
       - `LITE_MODE`：經「多樣性路由」驗證的低多樣性工作。跳過 PHASE_1~3，直接進入 PHASE_5 SYNTHESIS 與實體驗證（Red-Green-Verify）；在延遲受限／輕量模型或單輪會話下，凡局部且非觸點清單之任務應優先採用 `LITE_MODE`，避免多跳子代理累積衰減。
       - `SWARM_MODE`：觸發完整 7-Phase SWDD 狀態機；名單與熔爐權重依多樣性路由決定。凡 PHASE_6 有實際產出代碼，必須續跑 PHASE_7（雙審查收斂）與 PHASE_8（雙回顧收斂）各至少一次。
       - **連續級聯 (Continuous Cascade / AUTO_ADVANCE)**：`SWARM_MODE` 與 `LITE_MODE` 預設 `AUTO_ADVANCE=True`（使用者明示「一步一步」、「每步確認」時改為 False；`FAST_PASS` 一律 False）。語意：在連續自主工具執行輪次中連續輸出多個階段區塊、不等待使用者輸入，**不得**在中途停下等待使用者輸入；凡階段需要工具或 subagent 產出時先發出工具調用、待宿主回傳後繼續；終止條件僅有 §0 條目 8 所列四種。此欄位只改變「何時交還控制權」，不改變任何階段的預算、驗證閘門或工具權限。
-    - **多樣性路由 (Diversity Routing)**：評 `AMBIGUITY_WIDTH`（合併信號：歧義幾乎必然伴隨解空間寬）、`RISK`（做錯的代價）、`IRREVERSIBILITY_SCOPE`（影響面+回滾成本；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單**）、`VERIFIABILITY`（有便宜 oracle？）。硬地板：觸點清單 ⇒ Destroyer + Referee 至少最低權重，永不可關。LITE 需四維全低**且**已落實至少一個便宜反證物（測試/重現/測量）；凡影響面局部可控、非觸點清單、低歧義／低風險且具備快速確定性本地驗證（Oracle）的任務，一律優先走 `LITE_MODE`。視角表：重構→Alpha+Gamma+Builder；安全→Beta+Destroyer+Referee 且 Gamma 保留查 prior art；無重現性能→Alpha+Beta+Builder 提前+Destroyer；選型/POC→Gamma+Referee+Builder spike+Destroyer 威脅建模。第 1 輪後 Referee 可修訂熔爐權重一次。
+    - **多樣性路由 (Diversity Routing)**：評 `AMBIGUITY_WIDTH`（合併信號：歧義幾乎必然伴隨解空間寬）、`RISK`（做錯的代價）、`IRREVERSIBILITY_SCOPE`（影響面+回滾成本；auth/crypto/資料遷移/對外契約/線上資料列入**硬觸點清單**）、`VERIFIABILITY`（有便宜 oracle？）。硬地板：觸點清單 ⇒ Destroyer + Referee 至少最低權重，永不可關。LITE 需四維全低**且**已落實至少一個便宜反證物（測試/重現/測量）；凡影響面局部可控、非觸點清單、低歧義／低風險且具備快速確定性本地驗證（Oracle）的任務，一律優先走 `LITE_MODE`。依通用問題類型的視角與預算配置表：
+      - **架構／重構／觸點／高歧義**（`SWARM_MODE`）：重構→Alpha+Gamma+Builder；安全→Beta+Destroyer+Referee 且 Gamma 保留查 prior art；選型/POC→Gamma+Referee+Builder spike+Destroyer 威脅建模。將預算投在前期 Crucible 與雙審查。
+      - **高規格密度／強不變量**（`LITE_MODE`，二元通過 oracle——如協定狀態機、資料結構、型別檢查、解析器）：跳過 PHASE_1~3；將預算集中在 Spec-First 邊界與不變量測試（Red-Green-Verify）及精準修復。
+      - **連續最佳化／搜尋／模擬／有重現性能調優**（`LITE_MODE`，連續指標 oracle——如排程、路徑規劃、數值/量化調優、延遲與吞吐）：**Baseline-Measure-HillClimb**——先快速交付滿足硬約束的極簡 baseline，在真實目標規模上實測目標指標與耗時，再將迭代預算集中於升級核心演算法與啟發式（僅在指標嚴格變優且符合 anytime 預算時保留），避免把預算耗在過度防禦樣板或冗餘 fuzzing。
+      - **除錯／根因診斷**（有重現走 `LITE_MODE`／無重現走 `SWARM_MODE`）：**Repro-First**——先取得最小失敗重現或插樁探針（無重現性能→Alpha+Beta+Builder 提前+Destroyer）再動手修補。
+      第 1 輪後 Referee 可修訂熔爐權重一次。
 ```xml
 <INTENT_GATE_RESULT>
 INTENT_CLASSIFICATION: [CASUAL_CHAT | QUICK_QUERY | FULL_REFACTOR | BUG_FIX | FEATURE_DEV | SECURITY_AUDIT | CONFIG_CHANGE | DEPENDENCY_UPDATE]

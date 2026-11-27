@@ -953,8 +953,13 @@ def _run_cli_driver(driver: str, prompt: str, workdir: str, mode: str,
         raise FileNotFoundError(f"CLI binary for driver '{driver}' not found on PATH")
 
     cmd = [bin_path, "--no-session", "-p", prompt]
+    if driver == "omp":
+        cmd.extend(["--no-title", "--no-lsp", "--no-skills", "--no-extensions"])
     if model:
-        cmd.extend(["--model", model])
+        if driver == "pi" and "/" not in model:
+            cmd.extend(["--provider", "opencode-go-proxy", "--model", model])
+        else:
+            cmd.extend(["--model", model])
     if mode == "baseline":
         # Override system prompt so SWDA rules are not injected in baseline mode
         cmd.extend(["--system-prompt", "You are a concise, accurate Python software engineer. Edit files directly to solve the task."])
@@ -975,17 +980,27 @@ def _run_cli_driver(driver: str, prompt: str, workdir: str, mode: str,
 class ABBenchmarkRunner:
     def __init__(self, tasks_file: str = DEFAULT_CODING_TASKS_FILE,
                  driver: str = "mock", model: str = None, timeout: int = 120,
-                 runs: int = 1, log_dir: str = None):
+                 runs: int = 1, log_dir: str = None, type_filter: str = "all",
+                 baseline_driver: str = None, swda_driver: str = None):
         self.tasks_file = tasks_file
         self.driver = driver
+        self.baseline_driver = baseline_driver or driver
+        self.swda_driver = swda_driver or driver
         self.model = model
         self.timeout = timeout
         self.runs = max(1, int(runs))
         self.log_dir = log_dir
+        self.type_filter = type_filter
         if self.log_dir:
             os.makedirs(self.log_dir, exist_ok=True)
         with open(tasks_file, "r", encoding="utf-8") as f:
             self.suite = json.load(f)
+
+    def _filtered_tasks(self) -> list[dict]:
+        tasks = self.suite.get("tasks", [])
+        if self.type_filter and self.type_filter != "all":
+            return [t for t in tasks if t.get("type", "unit_test") == self.type_filter]
+        return tasks
 
     def verify_starter_fails(self, task: dict) -> bool:
         """Sanity-checks that starter_files FAIL unit tests or score < 60 on scored_sim."""
@@ -1011,11 +1026,12 @@ class ABBenchmarkRunner:
                     f.write(content)
 
             cli_out = ""
-            if self.driver == "mock":
+            active_driver = self.baseline_driver if mode == "baseline" else self.swda_driver
+            if active_driver == "mock":
                 _run_mock_driver(task, tmpdir, mode)
             else:
                 cli_out = _run_cli_driver(
-                    driver=self.driver,
+                    driver=active_driver,
                     prompt=task["prompt"],
                     workdir=tmpdir,
                     mode=mode,
@@ -1074,7 +1090,7 @@ class ABBenchmarkRunner:
         }
 
     def run_single_mode(self, mode: str) -> dict:
-        tasks = self.suite.get("tasks", [])
+        tasks = self._filtered_tasks()
         results = [self.run_task_aggregated(task, mode=mode) for task in tasks]
         n = len(tasks)
         passed = sum(1 for r in results if r["passed"])
@@ -1082,7 +1098,7 @@ class ABBenchmarkRunner:
         avg_score = round(sum(r["score"] for r in results) / n, 2) if n else 0.0
         return {
             "suite": self.suite.get("benchmark_suite", "SWDA-Coding-AB"),
-            "driver": self.driver,
+            "driver": f"{self.baseline_driver} vs {self.swda_driver}" if self.baseline_driver != self.swda_driver else self.driver,
             "model": self.model or "default",
             "mode": mode,
             "total_tasks": n,
@@ -1106,7 +1122,7 @@ class ABBenchmarkRunner:
         return "\n".join(md)
 
     def run_ab_comparison(self) -> dict:
-        tasks = self.suite.get("tasks", [])
+        tasks = self._filtered_tasks()
         baseline_results = []
         swda_results = []
 
@@ -1126,7 +1142,7 @@ class ABBenchmarkRunner:
 
         return {
             "suite": self.suite.get("benchmark_suite", "SWDA-Coding-AB"),
-            "driver": self.driver,
+            "driver": f"{self.baseline_driver} vs {self.swda_driver}" if self.baseline_driver != self.swda_driver else self.driver,
             "model": self.model or "default",
             "total_tasks": n,
             "baseline_passed": base_pass,
@@ -1168,11 +1184,14 @@ class ABBenchmarkRunner:
 def main():
     parser = argparse.ArgumentParser(description="SWDA Coding A/B Benchmark Evaluator")
     parser.add_argument("--tasks", default=DEFAULT_CODING_TASKS_FILE, help="Path to coding_tasks.json")
-    parser.add_argument("--driver", choices=["mock", "omp", "pi"], default="mock", help="Execution driver")
+    parser.add_argument("--driver", choices=["mock", "omp", "pi"], default="mock", help="Default execution driver")
+    parser.add_argument("--baseline-driver", choices=["mock", "omp", "pi"], default=None, help="Override driver for baseline mode (e.g. pi)")
+    parser.add_argument("--swda-driver", choices=["mock", "omp", "pi"], default=None, help="Override driver for swda mode (e.g. omp)")
     parser.add_argument("--mode", choices=["ab", "baseline", "swda"], default="ab", help="Run A/B comparison or a single mode")
     parser.add_argument("--model", default=None, help="Target model ID (passed to --model)")
     parser.add_argument("--timeout", type=int, default=120, help="Per-task timeout in seconds")
     parser.add_argument("--runs", type=int, default=1, help="Number of trials per task (Pass@k & mean score)")
+    parser.add_argument("--type-filter", choices=["all", "unit_test", "scored_sim"], default="all", help="Filter tasks by evaluation type")
     parser.add_argument("--log-dir", default=None, help="Directory to save failure/timeout trace logs")
     parser.add_argument("--report", default=None, help="Optional output path for Markdown report")
     args = parser.parse_args()
@@ -1184,6 +1203,9 @@ def main():
         timeout=args.timeout,
         runs=args.runs,
         log_dir=args.log_dir,
+        type_filter=args.type_filter,
+        baseline_driver=args.baseline_driver,
+        swda_driver=args.swda_driver,
     )
     if args.mode == "ab":
         data = runner.run_ab_comparison()

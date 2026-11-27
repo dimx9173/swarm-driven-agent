@@ -21,7 +21,7 @@ To ensure consistent logic and governance, this project strictly distinguishes b
 * 🔒 **Local-first installer**: operates on your file system, merges FSM rules into agent profiles while preserving `# 1. 系統定位`, with timestamped backups and idempotent reinstalls.
 * 🧠 **Swarm gates with proof**: FSM + Builder/Destroyer/Referee Crucible + tristate delivery gate (`valid`/`unverifiable`/`invalid`) + session scanner proving the harness was walked (`swda verify-session`).
 * 📊 **Version tracking & status check**: semantic version parsing comparing installed files against templates (`Not Installed` / `Update Available` / `Up-to-date`); tracking file corrupt-loud with atomic writes.
-* ➕ **Agent creation**: spin up new Hermes/OpenClaw/OMP/Pi agents from scratch with a single command.
+* ➕ **Agent creation**: spin up new Hermes/OpenClaw/OMP agents from scratch with a single command.
 * 🛡️ **Auto-backup system**: timestamped backups (e.g. `SOUL.md.20260624_150000.bak`) before editing any file.
 * 🧩 **Prime-agent merges (stdlib, no daemon)**: admission-handle subagents, versioned harness store (local/global), compaction summaries, persistent goals — single process, host orchestrates, SWDA guards.
 ---
@@ -107,14 +107,14 @@ mkdir -p ~/.local/bin && ln -sf "$PWD/.venv/bin/swda" ~/.local/bin/swda
 ```
 之後任何更新只需 `swda update --cli`（會 `git pull` 並刷新 venv + shim，見第 4 節）。
 
-> 為何是 `~/.local/bin`：非互動 shell（agent hook、CI、OMP/Pi 呼叫）只讀 `~/.zshenv`；該檔已把 `~/.local/bin` 前置到 PATH，所以 shim 在互動與非互動都解析得到。**不要**再用 `pip install -e .` 裝進系統/conda/brew python——那會產生第二份入口並版本漂移。
+> 為何是 `~/.local/bin`：非互動 shell（agent hook、CI、OMP 呼叫）只讀 `~/.zshenv`；該檔已把 `~/.local/bin` 前置到 PATH，所以 shim 在互動與非互動都解析得到。**不要**再用 `pip install -e .` 裝進系統/conda/brew python——那會產生第二份入口並版本漂移。
 
 > 三種等價呼叫（同一份程式碼）：`swda <cmd>` ≡ `python3 installer.py <cmd>`（安裝器類）≡ `<repo>/.venv/bin/python -m swda.cli <cmd>`（兩類皆可）。
 
 ### 1. 首次安裝（install）
 ```bash
 swda install                  # 互動式：掃描本機 agents，選號安裝
-swda install -y --type all    # 全裝：hermes + openclaw + omp + pi（缺目錄自動建）
+swda install -y --type all    # 全裝：hermes + openclaw + omp（缺目錄自動建）
 swda install -y --type omp    # 只裝 OMP（~/.omp/agent/APPEND_SYSTEM.md）
 swda install workspace        # 依名稱安裝（逗號分隔，不可有空格）
 ```
@@ -126,7 +126,7 @@ swda install workspace        # 依名稱安裝（逗號分隔，不可有空格
 swda doctor            # 只檢查已登記 agents：Up-to-date / Update Available / Not Installed
 swda doctor --fix -y   # 把已登記且過期的 agents 全部升級到模板版本
 ```
-版本比對規則：modular（hermes/openclaw）比 `SOUL/RULE/SKILL` 三件；integrated（OMP/Pi 的 `APPEND_SYSTEM.md`）比 `ALL_IN_RULE` 合約版本，**外加** workflow pack 完整性（OMP/Pi，見 3.1）。`Details` 會多一段 `WORKFLOW: <ver> (ok|partial|missing)`；缺檔或半套會標成 `Update Available`。
+版本比對規則：modular（hermes/openclaw）比 `SOUL/RULE/SKILL` 三件；integrated（OMP 的 `APPEND_SYSTEM.md`）比 `ALL_IN_RULE` 合約版本，**外加** workflow pack 完整性（OMP，見 3.1）。`Details` 會多一段 `WORKFLOW: <ver> (ok|partial|missing)`；缺檔或半套會標成 `Update Available`。
 
 ### 3. 更新 agents（update）
 ```bash
@@ -137,35 +137,28 @@ swda update --mcp                # 只驗 swda-mcp bridge + 印 mcp.json 註冊�
 ```
 消費分流（依 host 實際能力，見 3.1）：
 - **omp**：合約 + swda-mcp + workflow pack（skill + `commands/` + `agents/`）
-- **pi**：合約 + workflow pack（skill + `prompts/` + `agents/` Pi 原生版，需團隊強制安裝的 `pi-interactive-subagents` 插件）+ CLI 交付門（`swda reconcile`，exit 碼判讀；Pi 無 MCP client，不寫 `mcp.json`）
 - **hermes / openclaw**：合約 + skill（`skills/swda/`，無 MCP）
 `swda install/update` 按類型自動走對的分流；每個 surface 都會逐行印出裝了什麼，跳過或失敗也會明說，不會謊報。
 三軌分工：`swda update`（agents 合約+分流）/ `swda update --mcp`（bridge 健康 + 註冊指引）
 注意：`swda update` **不等於** CLI 自升級，它只更新 agents 的合約文件。要升級 `swda` 工具本身，看下一節。
 
-### 3.1 Workflow pack（OMP/Pi 的 SWDD 落地形式）
-Pi/OMP 沒有 `workflows/` 這種槽位，SWDD 以各自的**原生槽位**落地（每個路徑都對 OMP / Pi 實機驗過）：
+### 3.1 Workflow pack（OMP 的 SWDD 落地形式）
+OMP 沒有 `workflows/` 這種槽位，SWDD 以其**原生槽位**落地：
 
 | Host | Skill | 手動入口 | 可 `task` 指派的子智能體 |
 | :-- | :-- | :-- | :-- |
 | OMP | `~/.omp/agent/skills/swda/SKILL.md` | `~/.omp/agent/commands/swda-*.md` | `~/.omp/agent/agents/swda-*.md` |
-| Pi | `~/.pi/agent/skills/swda/SKILL.md` | `~/.pi/agent/prompts/swda-*.md` | `~/.pi/agent/agents/swda-*.md`（Pi 原生版，需 `pi-interactive-subagents` 插件，見下） |
 
 內容（`swda-mcp/agent-skill/swda-workflow/`，版本 1.0.0）：
 - `skills/swda/SKILL.md`：完整 FSM 路由（FAST_PASS / LITE_MODE / SWARM_MODE）+ 交付門檻（`swda_reconcile` 的 `verdict` 為準，`unverifiable` 不算乾淨）。
-- `commands/`（Pi：`prompts/`）：`swda-intent`、`swda-crucible`、`swda-gate`、`swda-status`。
-- `agents/`：`swda-alpha`/`swda-beta`/`swda-gamma`（研究）、`swda-builder`/`swda-destroyer`/`swda-referee`（熔爐）。Pi 裝的是 `pi-agents/` 原生版（`tools` 限 Pi 原生工具 + `spawning: false` + `auto-exit: true`，無 OMP 專屬鍵），只有插件在位時才裝。
+- `commands/`：`swda-intent`、`swda-crucible`、`swda-gate`、`swda-status`。
+- `agents/`：`swda-alpha`/`swda-beta`/`swda-gamma`（研究）、`swda-builder`/`swda-destroyer`/`swda-referee`（熔爐）。
 
 ```bash
 swda install --type omp -y     # 裝 11 檔（skill + 4 commands + 6 agents）
-swda install --type pi  -y     # 強制裝 pi-herdr-subagents（團隊規格，有 herdr 優先；無則裝 HazAT，絕不雙裝）+ herdr plugin link --enabled + 11 檔（skill + 4 prompts + 6 Pi 原生 agents）
 swda install -u -y omp         # 反安裝：只刪帶 swda-workflow:v1 標記的檔，你自己的 skill/command 不會被動
 ```
-冪等：內容相同不重寫、不產生 `.bak`；`doctor` 的 `WORKFLOW` 欄位可看出完整性（`ok`/`partial`/`missing`）。測試模式（`SWDA_TEST_MODE=1`）下跳過聯網的 `pi install`，測強制安裝邏輯請直接調 `ensure_pi_subagents()`。
-
-#### Pi subagent 運行時（團隊強制規格）
-Pi 原生沒有 task-agent 槽位（`RESOURCE_TYPES` 僅 extensions/skills/prompts/themes，實測 bundle 無 `subagent` 字串），SWDA 的研究/熔爐子智能體跑不起來。團隊規格：**有 Pi 就強制裝 [`pi-interactive-subagents`](https://github.com/HazAT/pi-interactive-subagents)**（`pi install git:github.com/HazAT/pi-interactive-subagents`，落點 `~/.pi/agent/git/...` + `settings.json:packages` 註冊）。
-約束（實測）：subagent spawn 需要**兩者兼備**——(1) multiplexer 內啟動（cmux/tmux/zellij/WezTerm，裸 shell 報錯）；(2) 持久 session（`--no-session` 報 `no session file`，需 `--session-id`）。裸跑 Pi 時 skill/prompts 照常用，只有並行 subagent 不可用。
+冪等：內容相同不重寫、不產生 `.bak`；`doctor` 的 `WORKFLOW` 欄位可看出完整性（`ok`/`partial`/`missing`）。
 
 ### 4. 自升級 CLI（self-update）
 ```bash
@@ -184,14 +177,14 @@ swda install --create my_coder --type openclaw --identity "Python refactoring as
 swda install --create my_analyst --type hermes -y
 swda install --create my_profile --type omp -y
 ```
-落點：`--type` 省略預設 `openclaw`；`hermes` → `~/.hermes/profiles/<name>`；`openclaw` → `~/.openclaw/workspaces/<name>`；`omp`/`pi` → `~/.omp|pi/agent[/profiles/<name>]`（`default`/`agent` 直接用根目錄）。`--identity` 省略則用預設中文 identity。建完自動登記追蹤。
+落點：`--type` 省略預設 `openclaw`；`hermes` → `~/.hermes/profiles/<name>`；`openclaw` → `~/.openclaw/workspaces/<name>`；`omp` → `~/.omp/agent[/profiles/<name>]`（`default`/`agent` 直接用根目錄）。`--identity` 省略則用預設中文 identity。建完自動登記追蹤。
 
 ### 6. 解除安裝（uninstall）
 ```bash
 swda install -u -y workspace        # 移除指定 agent 的合約，還原 System Identity，並取消登記
 swda install -u -y all              # 移除全部已掃描 agents
 ```
-解除安裝會備份原檔、剝掉 `swda-begin/end` 區塊（modular 另刪 `RULE.md`、`skills/swarm/SKILL.md`），只留你的 `# 1. 系統定位`。OMP/Pi 另會以 marker 為界移除 workflow pack（見 3.1），你自己放在同目錄的 skill/command/agent 不會被刪。
+解除安裝會備份原檔、剝掉 `swda-begin/end` 區塊（modular 另刪 `RULE.md`、`skills/swarm/SKILL.md`），只留你的 `# 1. 系統定位`。OMP 另會以 marker 為界移除 workflow pack（見 3.1），你自己放在同目錄的 skill/command/agent 不會被刪。
 
 ### 7. 執行引擎常用指令（Prime）
 ```bash
@@ -206,7 +199,7 @@ python3 -m unittest discover -s tests  # 全套迴歸（目前 285 tests）
 ### 7c. 記憶 scope（local/global）
 `ContinualHarness.scoped` 雙層：workspace `.swda/harness/`（local，預設）+ `~/.swda/harness/`（global，需 `scope="global"` 顯式寫入）。讀合併、local 優先；goal/telemetry 保持 workspace-local。
 
-### 7b. OMP 接 swda-mcp（Delivery-Gate 工具；Pi 走 CLI）
+### 7b. OMP 接 swda-mcp（Delivery-Gate 工具）
 `swda-mcp` 是獨立 thin MCP 包（`swda-mcp/`，唯一破零依賴處），暴露 4 個無狀態工具：
 `swda_reconcile`（SYNTHESIS 交付門，mandatory）、`swda_firewall_audit`（optional）、
 `swda_stats`、`swda_models`。`run`/`refine` 故意不暴露。
@@ -221,7 +214,7 @@ python3 -m unittest discover -s tests  # 全套迴歸（目前 285 tests）
 }
 ```
 驗證：`swda verify-session <session.jsonl> --mcp-json ~/.omp/agent/mcp.json --contract ~/.omp/agent/APPEND_SYSTEM.md`
-Pi 無 MCP client（實測其 binary 全文零 `mcp` 字串），`register_swda_mcp("pi")` 不寫 `mcp.json`；Pi 的交付門走 `swda reconcile <file>`（exit 0 valid / 1 invalid / 2 unverifiable），舊版誤寫的 `~/.pi/agent/mcp.json` 會在 install 時備份後刪除。`_mcp_entry` 只選通過 `check_swda_mcp` 的直譯器，既有壞條目在 update 時原地修復。
+`_mcp_entry` 只選通過 `check_swda_mcp` 的直譯器，既有壞條目在 update 時原地修復。
 
 ### 8. 常見問題
 - `APPEND_SYSTEM.md` 異常變大（如破千行）→ 舊版堆疊殘留，重跑一次 `swda update -y` 即 dedup 為單份（~300 行）；見 `tests/test_effectiveness.py`。
